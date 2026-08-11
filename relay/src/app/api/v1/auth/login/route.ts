@@ -3,10 +3,11 @@ import { ApiError, handleRouteError, json } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { setSessionCookie } from "@/lib/session";
 import { verifyLogin } from "@/domain/auth/register";
+import { clientKey } from "@/lib/client-ip";
 
 export async function POST(req: Request) {
   try {
-    const rl = rateLimit(`auth:login:${req.headers.get("x-forwarded-for") ?? "local"}`, 10);
+    const rl = rateLimit(`auth:login:${clientKey(req)}`, 10);
     if (!rl.ok) throw new ApiError(429, "rate_limited", "Слишком много попыток — подожди минуту");
 
     const body = z

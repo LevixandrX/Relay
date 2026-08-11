@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PasswordField } from "@/components/PasswordField";
+import { OAuthButtons } from "@/components/OAuthButtons";
+import { BrandLockup } from "@/components/BrandMark";
 
 const STARTERS = [
   {
@@ -80,9 +82,7 @@ export default function RegisterPage() {
     <div className="relay-auth">
       {step === 1 ? (
         <form className="relay-auth-card" onSubmit={goNext}>
-          <div className="relay-brand">
-            Relay<span className="relay-brand-dot" />
-          </div>
+          <BrandLockup href="/" />
           <h1>Создай аккаунт</h1>
           <p className="lede">Потом выберешь старт пространства — займёт секунду.</p>
 
@@ -123,20 +123,14 @@ export default function RegisterPage() {
           <button className="relay-btn relay-btn-accent" style={{ width: "100%" }} type="submit">
             Дальше
           </button>
-          <div className="relay-oauth-row">
-            <a className="relay-btn" href="/api/v1/auth/oauth/google?client=web">
-              Google
-            </a>
-            <a className="relay-btn" href="/api/v1/auth/oauth/github?client=web">
-              GitHub
-            </a>
-          </div>
+          <OAuthButtons />
           <p style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.9rem" }}>
             Уже есть аккаунт? <Link href="/login">Войти</Link>
           </p>
         </form>
       ) : (
         <form className="relay-auth-card relay-auth-wide" onSubmit={onSubmit}>
+          <BrandLockup href="/" />
           <button type="button" className="relay-back" onClick={() => setStep(1)}>
             ← Назад
           </button>

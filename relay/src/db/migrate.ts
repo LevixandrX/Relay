@@ -12,6 +12,14 @@ const statements = [
     onboarding_completed_at TEXT,
     created_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id)`,
   `CREATE TABLE IF NOT EXISTS oauth_accounts (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -21,6 +29,15 @@ const statements = [
     created_at TEXT NOT NULL
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS oauth_provider_uid ON oauth_accounts(provider, provider_user_id)`,
+  `CREATE TABLE IF NOT EXISTS auth_pairings (
+    code TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    claim_secret_hash TEXT NOT NULL DEFAULT '',
+    access_token TEXT,
+    error TEXT,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS subscriptions (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     plan TEXT NOT NULL DEFAULT 'free',
@@ -107,6 +124,7 @@ const statements = [
 const softAlters = [
   `ALTER TABLE workspaces ADD COLUMN board TEXT`,
   `ALTER TABLE pages ADD COLUMN board TEXT`,
+  `ALTER TABLE auth_pairings ADD COLUMN claim_secret_hash TEXT NOT NULL DEFAULT ''`,
 ];
 
 async function migrate() {
@@ -120,6 +138,9 @@ async function migrate() {
       // колонка уже есть
     }
   }
+
+  // Drop leftover pairings from before claim-secret hardening — they are unsafe to claim.
+  await client.execute(`DELETE FROM auth_pairings WHERE claim_secret_hash = '' OR claim_secret_hash IS NULL`);
 
   // Backfill subscriptions for existing users
   await client.execute(`

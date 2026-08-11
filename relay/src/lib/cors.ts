@@ -15,17 +15,20 @@ export function corsOrigins(): string[] {
   return fromEnv.length ? fromEnv : DEFAULT_ORIGINS;
 }
 
+/** Only echo ACAO for an allowlisted Origin — never fall back to a "default" origin. */
 export function corsHeaders(origin: string | null): HeadersInit {
   const allowed = corsOrigins();
-  const ok = origin && allowed.includes(origin) ? origin : allowed[0];
-  return {
-    "Access-Control-Allow-Origin": ok ?? "*",
-    "Access-Control-Allow-Credentials": "true",
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
+  if (origin && allowed.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+  return headers;
 }
 
 export function withCors(res: Response, origin: string | null) {

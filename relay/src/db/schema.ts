@@ -12,6 +12,17 @@ export const users = sqliteTable("users", {
   createdAt: text("created_at").notNull(),
 });
 
+/** Server-side session rows — JWT carries `jti`, logout sets revoked_at. */
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(), // jti
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  expiresAt: text("expires_at").notNull(),
+  revokedAt: text("revoked_at"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const oauthAccounts = sqliteTable(
   "oauth_accounts",
   {
@@ -27,7 +38,18 @@ export const oauthAccounts = sqliteTable(
   (t) => [uniqueIndex("oauth_provider_uid").on(t.provider, t.providerUserId)],
 );
 
-/** Billing / trial attached to the account (SaaS freemium foundation). */
+/** Short-lived handshake rows used by the desktop app to pick up a token after browser OAuth. */
+export const authPairings = sqliteTable("auth_pairings", {
+  code: text("code").primaryKey(),
+  provider: text("provider").notNull(), // google | github | yandex | vk
+  /** SHA-256 of the claim secret returned only to the desktop app that started the flow. */
+  claimSecretHash: text("claim_secret_hash").notNull(),
+  accessToken: text("access_token"),
+  error: text("error"),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const subscriptions = sqliteTable("subscriptions", {
   userId: text("user_id")
     .primaryKey()

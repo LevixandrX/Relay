@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ApiError, handleRouteError } from "@/lib/errors";
 import {
-  githubAuthUrl,
-  googleAuthUrl,
+  authorizeUrl,
+  providerEnvPrefix,
   signOAuthState,
   type OAuthClient,
   type OAuthProvider,
@@ -14,27 +14,40 @@ function parseClient(url: URL): OAuthClient {
   return c === "desktop" ? "desktop" : "web";
 }
 
+export function providerNotConfigured(provider: OAuthProvider) {
+  const key = providerEnvPrefix(provider);
+  return new ApiError(
+    503,
+    "oauth_not_configured",
+    `${provider} OAuth не настроен: добавь ${key}_CLIENT_ID и ${key}_CLIENT_SECRET в relay/.env.local и перезапусти сервер`,
+  );
+}
+
+export async function buildAuthorizeUrl(input: {
+  provider: OAuthProvider;
+  client: OAuthClient;
+  pair?: string;
+}) {
+  const state = await signOAuthState({
+    provider: input.provider,
+    client: input.client,
+    nonce: id.token(),
+    pair: input.pair,
+  });
+  return authorizeUrl(input.provider, state);
+}
+
 export async function startOAuth(provider: OAuthProvider, req: Request) {
   try {
     const url = new URL(req.url);
     const client = parseClient(url);
-    const state = await signOAuthState({
-      provider,
-      client,
-      nonce: id.token(),
-    });
-    const dest =
-      provider === "google" ? googleAuthUrl(state) : githubAuthUrl(state);
+    // Pairing codes are only valid for the desktop handshake — ignore on web.
+    const pair = client === "desktop" ? (url.searchParams.get("pair") ?? undefined) : undefined;
+    const dest = await buildAuthorizeUrl({ provider, client, pair });
     return NextResponse.redirect(dest);
   } catch (err) {
     if (err instanceof Error && err.message.includes("not set")) {
-      return handleRouteError(
-        new ApiError(
-          503,
-          "oauth_not_configured",
-          `${provider} OAuth не настроен. Добавь CLIENT_ID/SECRET в .env`,
-        ),
-      );
+      return handleRouteError(providerNotConfigured(provider));
     }
     return handleRouteError(err);
   }

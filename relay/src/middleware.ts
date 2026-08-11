@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { corsHeaders, corsOrigins } from "@/lib/cors";
+import { corsHeaders } from "@/lib/cors";
 
 export function middleware(req: NextRequest) {
   if (!req.nextUrl.pathname.startsWith("/api/")) {
@@ -16,10 +16,6 @@ export function middleware(req: NextRequest) {
   const res = NextResponse.next();
   for (const [k, v] of Object.entries(headers)) {
     res.headers.set(k, v);
-  }
-  // Ensure we never echo a disallowed origin as credentialed *
-  if (origin && !corsOrigins().includes(origin)) {
-    res.headers.set("Access-Control-Allow-Origin", corsOrigins()[0] ?? "http://127.0.0.1:1420");
   }
   return res;
 }
