@@ -32,6 +32,9 @@ export default defineConfig({
     },
   },
   envPrefix: ["VITE_", "TAURI_"],
+  optimizeDeps: {
+    exclude: ["tauri-plugin-snap-layout"],
+  },
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,

@@ -37,8 +37,30 @@ export async function api<T>(
   return data as T;
 }
 
-export function oauthUrl(provider: "google" | "github") {
-  return `${API_URL}/api/v1/auth/oauth/${provider}?client=desktop`;
+export type OAuthProvider = "google" | "github" | "yandex" | "vk";
+
+export type PairingStatus =
+  | { status: "pending" }
+  | { status: "ready"; accessToken: string }
+  | { status: "error"; message: string }
+  | { status: "expired" };
+
+/** Ask the server for a handshake code + provider URL to open in the system browser. */
+export function startPairing(provider: OAuthProvider) {
+  return api<{ code: string; claimSecret: string; url: string; expiresInSec: number }>(
+    "/auth/desktop/pair",
+    {
+      method: "POST",
+      body: JSON.stringify({ provider }),
+    },
+  );
+}
+
+export function claimPairing(code: string, claimSecret: string) {
+  return api<PairingStatus>("/auth/desktop/claim", {
+    method: "POST",
+    body: JSON.stringify({ code, claimSecret }),
+  });
 }
 
 export { API_URL };

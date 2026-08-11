@@ -2467,6 +2467,36 @@
           "type": "string",
           "const": "shell:deny-stdin-write",
           "markdownDescription": "Denies the stdin_write command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the snap-layout plugin\n#### This default permission set includes:\n\n- `allow-update-snap-bounds`\n- `allow-detach-snap-bounds`",
+          "type": "string",
+          "const": "snap-layout:default",
+          "markdownDescription": "Default permissions for the snap-layout plugin\n#### This default permission set includes:\n\n- `allow-update-snap-bounds`\n- `allow-detach-snap-bounds`"
+        },
+        {
+          "description": "Allows the frontend to detach window snapping hitboxes",
+          "type": "string",
+          "const": "snap-layout:allow-detach-snap-bounds",
+          "markdownDescription": "Allows the frontend to detach window snapping hitboxes"
+        },
+        {
+          "description": "Allows the frontend to update window snapping hitboxes",
+          "type": "string",
+          "const": "snap-layout:allow-update-snap-bounds",
+          "markdownDescription": "Allows the frontend to update window snapping hitboxes"
+        },
+        {
+          "description": "Denies the detach_snap_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "snap-layout:deny-detach-snap-bounds",
+          "markdownDescription": "Denies the detach_snap_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_snap_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "snap-layout:deny-update-snap-bounds",
+          "markdownDescription": "Denies the update_snap_bounds command without any pre-configured scope."
         }
       ]
     },

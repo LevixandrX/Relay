@@ -11,6 +11,14 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
-    "shell:allow-open"
+    "snap-layout:default",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://localhost*" },
+        { "url": "http://127.0.0.1*" }
+      ]
+    }
   ]
 }

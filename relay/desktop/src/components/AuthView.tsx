@@ -1,6 +1,19 @@
 import { useState } from "react";
 import { useAuth } from "../lib/auth";
-import { ApiClientError } from "../lib/api";
+import { ApiClientError, type OAuthProvider } from "../lib/api";
+import { GithubMark, GoogleMark, Spinner, YandexMark } from "./ProviderMarks";
+import { openExternal } from "../lib/open-external";
+
+/** VK ID requires business/INN verification — kept out of UI until that exists. */
+const PROVIDERS: {
+  id: Exclude<OAuthProvider, "vk">;
+  label: string;
+  mark: (props: { size?: number }) => React.ReactElement;
+}[] = [
+  { id: "google", label: "Google", mark: GoogleMark },
+  { id: "github", label: "GitHub", mark: GithubMark },
+  { id: "yandex", label: "Яндекс", mark: YandexMark },
+];
 
 export function AuthView({ onDone }: { onDone: () => void }) {
   const auth = useAuth();
@@ -8,9 +21,11 @@ export function AuthView({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [tokenPaste, setTokenPaste] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const flow = auth.oauthFlow;
+  const loggedIn = !!auth.user;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,38 +42,139 @@ export function AuthView({ onDone }: { onDone: () => void }) {
     }
   }
 
+  async function provider(id: OAuthProvider) {
+    setError(null);
+    try {
+      if (await auth.signInWithProvider(id)) onDone();
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError || err instanceof Error
+          ? err.message
+          : "Не удалось войти через провайдера",
+      );
+    }
+  }
+
+  if (loggedIn) {
+    return (
+      <div className="auth-shell">
+        <section className="auth-panel">
+          <div className="auth-panel-head">
+            <h1>Аккаунт</h1>
+            <p className="muted">Облако подключено — можно выйти или сменить пространство слева.</p>
+          </div>
+          <div className="auth-account">
+            <strong>{auth.user!.name}</strong>
+            <span className="muted">{auth.user!.email}</span>
+            {auth.subscription && (
+              <span className="auth-plan">
+                {auth.subscription.isPro
+                  ? auth.subscription.status === "trialing"
+                    ? "Pro · пробный период"
+                    : "План Pro"
+                  : "План Free"}
+              </span>
+            )}
+            <button type="button" className="btn btn-accent" onClick={() => void auth.logout()}>
+              Выйти
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <div className="toprow">
-        <div className="page-title">
-          <h1>{mode === "login" ? "Вход в облако" : "Регистрация"}</h1>
+    <div className="auth-shell">
+      <section className="auth-panel">
+        <div className="auth-panel-head">
+          <h1>Облако Relay</h1>
+          <p className="muted">
+            Sync, команда и 14 дней Pro. Без входа всё остаётся локально на этом ПК.
+          </p>
         </div>
-        <div className="tabs">
+
+        <div className="auth-switch" role="tablist" aria-label="Вход или регистрация">
           <button
             type="button"
-            className="tab"
+            role="tab"
+            aria-selected={mode === "login"}
             data-active={mode === "login"}
-            onClick={() => setMode("login")}
+            onClick={() => {
+              setMode("login");
+              setError(null);
+            }}
           >
             Вход
           </button>
           <button
             type="button"
-            className="tab"
+            role="tab"
+            aria-selected={mode === "register"}
             data-active={mode === "register"}
-            onClick={() => setMode("register")}
+            onClick={() => {
+              setMode("register");
+              setError(null);
+            }}
           >
-            Аккаунт
+            Регистрация
           </button>
         </div>
-      </div>
 
-      <section className="card theme-panel">
+        <div className="oauth-row oauth-row-3">
+          {PROVIDERS.map(({ id, label, mark: Mark }) => {
+            const active = flow?.provider === id;
+            const disabled = busy || (!!flow && !active);
+            return (
+              <button
+                key={id}
+                type="button"
+                className="oauth-btn"
+                data-provider={id}
+                data-busy={active || undefined}
+                disabled={disabled}
+                onClick={() => void provider(id)}
+              >
+                <span className="oauth-mark">{active ? <Spinner /> : <Mark size={20} />}</span>
+                <span className="oauth-label">
+                  {active
+                    ? flow?.stage === "opening"
+                      ? "Открываем…"
+                      : "Ждём…"
+                    : label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {flow?.stage === "waiting" && (
+          <div className="oauth-hint">
+            <p className="muted">
+              Заверши вход в браузере — приложение подхватит сессию само. Окно не закрывай.
+            </p>
+            <div className="oauth-hint-actions">
+              {flow.url && (
+                <button type="button" className="btn btn-xs" onClick={() => void openExternal(flow.url!)}>
+                  Открыть ссылку снова
+                </button>
+              )}
+              <button type="button" className="btn btn-xs" onClick={auth.cancelOAuth}>
+                Отменить
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="auth-divider">
+          <span>или по email</span>
+        </div>
+
         <form onSubmit={(e) => void submit(e)} className="auth-form">
           {mode === "register" && (
             <label className="field">
               <span>Имя</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
+              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </label>
           )}
           <label className="field">
@@ -82,46 +198,13 @@ export function AuthView({ onDone }: { onDone: () => void }) {
               autoComplete={mode === "login" ? "current-password" : "new-password"}
             />
           </label>
-          {error && <p className="muted" style={{ color: "var(--danger)" }}>{error}</p>}
-          <button type="submit" className="btn btn-accent" disabled={busy}>
+          <button type="submit" className="btn btn-accent auth-submit" disabled={busy || !!flow}>
             {busy ? "…" : mode === "login" ? "Войти" : "Создать аккаунт"}
           </button>
         </form>
 
-        <div>
-          <h2 style={{ margin: "0 0 0.55rem" }}>Или через провайдера</h2>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" className="btn" onClick={() => auth.openOAuth("google")}>
-              Google
-            </button>
-            <button type="button" className="btn" onClick={() => auth.openOAuth("github")}>
-              GitHub
-            </button>
-          </div>
-          <p className="muted" style={{ marginTop: 8 }}>
-            После OAuth браузер откроет deep link. Если не сработал — вставь токен из URL
-            (`?token=…`) ниже.
-          </p>
-          <div className="custom-row" style={{ marginTop: 8 }}>
-            <input
-              value={tokenPaste}
-              onChange={(e) => setTokenPaste(e.target.value)}
-              placeholder="accessToken"
-              style={{ flex: 1, minWidth: 0 }}
-            />
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                if (!tokenPaste.trim()) return;
-                void auth.setToken(tokenPaste.trim()).then(onDone);
-              }}
-            >
-              Применить
-            </button>
-          </div>
-        </div>
+        {error && <p className="auth-error">{error}</p>}
       </section>
-    </>
+    </div>
   );
 }

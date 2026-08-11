@@ -4,10 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { api, oauthUrl } from "./api";
+import { api, claimPairing, startPairing, type OAuthProvider } from "./api";
+import { openExternal } from "./open-external";
 
 const TOKEN_KEY = "relay-desktop-token-v1";
 
@@ -38,19 +40,40 @@ export type CloudSubscription = {
   };
 };
 
+export type OAuthFlow = {
+  provider: OAuthProvider;
+  /** `opening` — asking the server for a handshake, `waiting` — browser is open. */
+  stage: "opening" | "waiting";
+  url?: string;
+};
+
 type AuthContextValue = {
   token: string | null;
   user: CloudUser | null;
   workspaces: CloudWorkspace[];
   subscription: CloudSubscription | null;
   loading: boolean;
+  oauthFlow: OAuthFlow | null;
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; name: string }) => Promise<void>;
   logout: () => Promise<void>;
   setToken: (token: string) => Promise<void>;
   refreshMe: () => Promise<void>;
-  openOAuth: (provider: "google" | "github") => void;
+  /** Resolves `true` when a token arrived, `false` if the user cancelled. */
+  signInWithProvider: (provider: OAuthProvider) => Promise<boolean>;
+  cancelOAuth: () => void;
 };
+
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Tight polling while the user is likely still clicking, then relaxed. */
+function pollDelay(elapsedMs: number) {
+  if (elapsedMs < 30_000) return 1200;
+  if (elapsedMs < 90_000) return 2500;
+  return 5000;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -74,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<CloudWorkspace[]>([]);
   const [subscription, setSubscription] = useState<CloudSubscription | null>(null);
   const [loading, setLoading] = useState(!!token);
+  const [oauthFlow, setOauthFlow] = useState<OAuthFlow | null>(null);
 
   const applyMe = useCallback(async (t: string) => {
     const me = await loadMe(t);
@@ -150,9 +174,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(null);
   }, [token]);
 
-  const openOAuth = useCallback((provider: "google" | "github") => {
-    window.open(oauthUrl(provider), "_blank", "noopener,noreferrer");
+  const cancelRef = useRef(false);
+
+  const cancelOAuth = useCallback(() => {
+    cancelRef.current = true;
+    setOauthFlow(null);
   }, []);
+
+  const signInWithProvider = useCallback(
+    async (provider: OAuthProvider) => {
+      cancelRef.current = false;
+      setOauthFlow({ provider, stage: "opening" });
+      try {
+        const { code, claimSecret, url } = await startPairing(provider);
+        await openExternal(url);
+        setOauthFlow({ provider, stage: "waiting", url });
+
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
+          if (cancelRef.current) return false;
+          await sleep(pollDelay(Date.now() - startedAt));
+          if (cancelRef.current) return false;
+
+          const res = await claimPairing(code, claimSecret).catch(() => null);
+          if (!res) continue;
+          if (res.status === "ready") {
+            await setToken(res.accessToken);
+            setOauthFlow(null);
+            return true;
+          }
+          if (res.status === "error") throw new Error(res.message);
+          if (res.status === "expired") {
+            throw new Error("Время ожидания истекло — попробуй ещё раз");
+          }
+        }
+        throw new Error("Ждали 5 минут и остановились — нажми кнопку входа ещё раз");
+      } catch (err) {
+        setOauthFlow(null);
+        throw err;
+      }
+    },
+    [setToken],
+  );
 
   const value = useMemo(
     () => ({
@@ -161,12 +224,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaces,
       subscription,
       loading,
+      oauthFlow,
       login,
       register,
       logout,
       setToken,
       refreshMe,
-      openOAuth,
+      signInWithProvider,
+      cancelOAuth,
     }),
     [
       token,
@@ -174,12 +239,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaces,
       subscription,
       loading,
+      oauthFlow,
       login,
       register,
       logout,
       setToken,
       refreshMe,
-      openOAuth,
+      signInWithProvider,
+      cancelOAuth,
     ],
   );
 
