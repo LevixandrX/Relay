@@ -16,7 +16,7 @@
   --radius-sm: 12px;
   --font-ui: "Manrope", system-ui, sans-serif;
   --font-display: "Unbounded", "Manrope", sans-serif;
-  --titlebar: 36px;
+  --titlebar: 40px;
   --accent: #3b82f6;
   --accent-glow: rgba(59, 130, 246, 0.35);
 }
@@ -66,64 +66,114 @@ button {
   height: 100%;
   display: grid;
   grid-template-rows: var(--titlebar) 1fr;
-  background:
-    radial-gradient(900px 420px at 10% -10%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 55%),
-    radial-gradient(700px 360px at 90% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 50%),
-    var(--bg);
+  background: var(--bg);
 }
 
-/* Custom titlebar */
+/* Custom titlebar — Windows 11 caption strip (40px, Fluent glyphs, snap overlay) */
 .titlebar {
+  height: var(--titlebar);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
-  padding: 0 0.75rem 0 1rem;
+  padding: 0 0 0 0.85rem;
   border-bottom: 1px solid var(--line);
-  background: color-mix(in oklab, var(--bg-elev) 88%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--bg-elev);
   -webkit-app-region: drag;
 }
 
 .titlebar-brand {
   font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: -0.03em;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  color: var(--text);
 }
 
-.titlebar-dot {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-glow);
+.titlebar-mark {
+  display: block;
+  border-radius: 3px;
+  flex: none;
 }
 
 .titlebar-actions {
   display: flex;
-  gap: 0.25rem;
+  height: 100%;
+  margin-left: auto;
   -webkit-app-region: no-drag;
 }
 
 .win-btn {
-  width: 34px;
-  height: 24px;
+  width: 46px;
+  height: 100%;
+  min-width: 46px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
-  color: var(--text-soft);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: background 0.06s ease;
 }
 
-.win-btn:hover {
-  background: color-mix(in oklab, var(--text) 8%, transparent);
+.win-glyph {
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  line-height: 1;
 }
 
-.win-btn.close:hover {
-  background: color-mix(in oklab, var(--danger) 35%, transparent);
-  color: white;
+.win-glyph-fluent {
+  display: none;
+  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.win-glyph-svg {
+  display: block;
+}
+
+html[data-fluent-icons="1"] .win-glyph-fluent {
+  display: block;
+}
+
+html[data-fluent-icons="1"] .win-glyph-svg {
+  display: none;
+}
+
+.win-btn:hover,
+.win-btn.is-hovered {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.win-btn:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="light"] .win-btn:hover,
+[data-theme="light"] .win-btn.is-hovered {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .win-btn:active {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.win-btn-close:hover,
+.win-btn-close.is-hovered {
+  background: #c42b1c;
+  color: #fff;
+}
+
+.win-btn-close:active {
+  background: #b22216;
+  color: #fff;
 }
 
 .shell {
@@ -155,15 +205,13 @@ button {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
   width: 100%;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-soft);
-  border-radius: 12px;
-  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
   text-align: left;
-  font-weight: 700;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -173,10 +221,86 @@ button {
 }
 
 .nav-item[data-active="true"] {
-  background: color-mix(in oklab, var(--accent) 16%, var(--card));
-  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  background: color-mix(in oklab, var(--accent) 12%, var(--card));
+  border-color: color-mix(in oklab, var(--accent) 28%, transparent);
   color: var(--text);
-  box-shadow: 0 0 24px var(--accent-glow);
+}
+
+.nav-copy {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.nav-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.nav-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.nav-item[data-active="true"] .nav-hint {
+  color: var(--text-soft);
+}
+
+.start-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.start-tile {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  padding: 0.9rem 1rem;
+  color: var(--text);
+  min-height: 7.2rem;
+  align-content: start;
+}
+
+.start-tile:hover {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--line));
+  background: color-mix(in oklab, var(--card) 92%, var(--accent));
+}
+
+.start-tile-static {
+  cursor: default;
+}
+
+.start-tile-static:hover {
+  border-color: var(--line);
+  background: var(--card);
+}
+
+.start-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.start-tile strong {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.howto {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.45rem;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .nav-ico {
@@ -239,9 +363,9 @@ button {
 
 .tabs {
   display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  border-radius: 999px;
+  gap: 0.2rem;
+  padding: 0.18rem;
+  border-radius: 10px;
   background: color-mix(in oklab, var(--card) 80%, transparent);
   border: 1px solid var(--line);
 }
@@ -250,68 +374,62 @@ button {
   border: none;
   background: transparent;
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 650;
   font-size: 0.78rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
+  padding: 0.38rem 0.75rem;
+  border-radius: 8px;
 }
 
 .tab[data-active="true"] {
-  background: color-mix(in oklab, var(--accent) 22%, var(--card-2));
+  background: color-mix(in oklab, var(--accent) 16%, var(--card-2));
   color: var(--text);
-  box-shadow: 0 0 18px var(--accent-glow);
 }
 
 .btn {
   border: 1px solid var(--line);
   background: var(--card);
   color: var(--text);
-  border-radius: 999px;
-  padding: 0.45rem 0.85rem;
-  font-weight: 700;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  border-radius: 10px;
+  padding: 0.48rem 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .btn:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in oklab, var(--accent) 40%, var(--line));
-  box-shadow: 0 8px 22px var(--accent-glow);
+  background: color-mix(in oklab, var(--card) 88%, var(--text));
+  border-color: color-mix(in oklab, var(--line) 70%, var(--text));
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .btn-accent {
-  background: linear-gradient(120deg, var(--accent), color-mix(in oklab, var(--accent) 55%, #fff));
-  border-color: transparent;
-  color: #0b1220;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.btn-accent:hover {
+  background: color-mix(in oklab, var(--accent) 88%, black);
+  border-color: color-mix(in oklab, var(--accent) 88%, black);
 }
 
 [data-theme="dark"] .btn-accent {
   color: white;
 }
 
+[data-theme="light"] .btn-accent {
+  color: white;
+}
+
 .card {
-  background: linear-gradient(180deg, color-mix(in oklab, var(--card) 96%, var(--accent)), var(--card));
+  background: var(--card);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   padding: 1rem;
-  box-shadow: var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-
-.card::before {
-  content: "";
-  position: absolute;
-  inset: -40% auto auto -20%;
-  width: 60%;
-  height: 70%;
-  background: radial-gradient(circle, var(--accent-glow), transparent 65%);
-  pointer-events: none;
-  opacity: 0.55;
-}
-
-.card > * {
-  position: relative;
-  z-index: 1;
 }
 
 .card-head {
@@ -564,14 +682,241 @@ button {
   cursor: pointer;
 }
 
+.auth-shell {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+.auth-panel {
+  width: min(480px, 100%);
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.35rem, 3vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.auth-panel-head h1 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  letter-spacing: -0.03em;
+}
+
+.auth-panel-head .muted {
+  margin: 0;
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.auth-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+}
+
+.auth-switch button {
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 750;
+  font-size: 0.95rem;
+  padding: 0.72rem 0.85rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.auth-switch button:hover {
+  color: var(--text);
+}
+
+.auth-switch button[data-active="true"] {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--text) 8%, transparent);
+}
+
+.auth-submit {
+  width: 100%;
+  min-height: 2.7rem;
+  font-weight: 750;
+}
+
+.auth-account {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.auth-account .btn {
+  margin-top: 0.65rem;
+  width: 100%;
+}
+
+.auth-plan {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
 .auth-form {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.85rem;
+}
+
+.main[data-auth="true"] {
+  align-content: stretch;
+  padding: 0;
+}
+
+.oauth-stack {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.oauth-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.oauth-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.oauth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.oauth-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--bg-elev) 88%, var(--text));
+  border-color: color-mix(in oklab, var(--line) 65%, var(--text));
+}
+
+.oauth-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.oauth-btn[data-busy] {
+  opacity: 1;
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--line));
+}
+
+.oauth-btn[data-provider="github"] .oauth-mark {
+  color: var(--text);
+}
+
+.oauth-mark {
+  display: grid;
+  place-items: center;
+}
+
+.provider-mark-yandex {
+  display: inline-grid;
+  place-items: center;
+  background: #fc3f1d;
+  color: #fff;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  user-select: none;
+}
+
+.oauth-label {
+  text-align: center;
+}
+
+.oauth-hint {
+  border: 1px dashed color-mix(in oklab, var(--accent) 35%, var(--line));
+  border-radius: 12px;
+  padding: 0.6rem 0.7rem;
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.oauth-hint p {
+  margin: 0;
+}
+
+.oauth-hint-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.btn-xs {
+  padding: 0.28rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1rem 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-error {
+  margin: 0.75rem 0 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.spinner {
+  display: inline-block;
+  border: 2px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .field {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.35rem;
   font-weight: 700;
   font-size: 0.85rem;
 }
@@ -582,11 +927,20 @@ button {
   border-radius: 12px;
   background: var(--bg-elev);
   color: var(--text);
-  padding: 0.55rem 0.7rem;
+  padding: 0.85rem 0.95rem;
+  min-height: 2.85rem;
   font: inherit;
   font-weight: 500;
+  line-height: 1.3;
   user-select: text;
   -webkit-user-select: text;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
 }
 
 .team-mini {

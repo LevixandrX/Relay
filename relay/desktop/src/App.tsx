@@ -61,7 +61,7 @@ export function App() {
             if (id === "team") setRoute({ kind: "team" });
           }}
         />
-        <main className="main" data-fill={fill}>
+        <main className="main" data-fill={fill} data-auth={route.kind === "auth" || undefined}>
           {auth.loading && (
             <section className="card">
               <p className="muted">Синхронизация аккаунта…</p>
@@ -73,6 +73,7 @@ export function App() {
               onOpenPages={() => setRoute({ kind: "pages" })}
               onOpenPage={openPage}
               onNeedAuth={() => setRoute({ kind: "auth" })}
+              onCreatePage={() => void createAndOpen()}
             />
           )}
           {!auth.loading && route.kind === "board" && <BoardView />}

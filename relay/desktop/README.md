@@ -40,7 +40,15 @@ npm run tauri:dev           # нативное окно
 2. В консолях провайдеров добавь redirect:
    - `http://localhost:3000/api/v1/auth/oauth/google/callback`
    - `http://localhost:3000/api/v1/auth/oauth/github/callback`
-3. В приложении: **Аккаунт → Google/GitHub**. После логина откроется `relay://auth?token=…` (или вставь токен вручную из URL).
+3. В приложении: **Аккаунт → Продолжить с Google/GitHub/Яндекс/VK**. Откроется системный браузер; после
+   подтверждения приложение само подхватит сессию (одноразовый `code` + `claimSecret` через
+   `/api/v1/auth/desktop/pair` + `/claim`), регистрировать `relay://` в системе не нужно.
+
+Callback URLs (локально):
+- `http://localhost:3000/api/v1/auth/oauth/google/callback`
+- `http://localhost:3000/api/v1/auth/oauth/github/callback`
+- `http://localhost:3000/api/v1/auth/oauth/yandex/callback`
+- `http://localhost:3000/api/v1/auth/oauth/vk/callback`
 
 ## Темы
 

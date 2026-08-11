@@ -4,14 +4,18 @@ import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { ApiClientError } from "../lib/api";
 
-const ITEMS: { id: ViewId; label: string; icon: string }[] = [
-  { id: "home", label: "Обзор", icon: "◈" },
-  { id: "board", label: "Холст", icon: "∞" },
-  { id: "pages", label: "Страницы", icon: "◇" },
-  { id: "team", label: "Команда", icon: "◎" },
-  { id: "theme", label: "Тема", icon: "◐" },
-  { id: "auth", label: "Аккаунт", icon: "☺" },
-];
+function navItems(loggedIn: boolean): { id: ViewId; label: string; hint: string }[] {
+  return [
+    { id: "home", label: "Старт", hint: "Что делать дальше" },
+    { id: "board", label: "Холст", hint: "Доска пространства" },
+    { id: "pages", label: "Страницы", hint: "Текст и заметки" },
+    { id: "team", label: "Команда", hint: "Участники" },
+    { id: "theme", label: "Тема", hint: "Светлая / тёмная" },
+    loggedIn
+      ? { id: "auth", label: "Аккаунт", hint: "Профиль и выход" }
+      : { id: "auth", label: "Вход", hint: "Войти или регистрация" },
+  ];
+}
 
 export function Sidebar({
   view,
@@ -24,10 +28,11 @@ export function Sidebar({
   const ws = useWorkspace();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const items = navItems(!!auth.user);
 
   return (
     <aside className="sidebar">
-      <div className="nav-label">Пространство</div>
+      <div className="nav-label">Меню</div>
       {ws.mode === "cloud" && auth.workspaces.length > 0 && (
         <select
           className="ws-select"
@@ -42,16 +47,19 @@ export function Sidebar({
           ))}
         </select>
       )}
-      {ITEMS.map((item) => (
+      {items.map((item) => (
         <button
           key={item.id}
           type="button"
           className="nav-item"
           data-active={view === item.id}
+          title={item.hint}
           onClick={() => onNavigate(item.id)}
         >
-          <span className="nav-ico">{item.icon}</span>
-          {item.label}
+          <span className="nav-copy">
+            <span className="nav-title">{item.label}</span>
+            <span className="nav-hint">{item.hint}</span>
+          </span>
         </button>
       ))}
 
@@ -102,13 +110,7 @@ export function Sidebar({
                 void ws
                   .inviteMember(inviteEmail, "editor")
                   .then((r) => {
-                    setInviteMsg(
-                      r.autoAccepted
-                        ? "Участник добавлен"
-                        : r.acceptToken
-                          ? `Токен: ${r.acceptToken}`
-                          : "Отправлено",
-                    );
+                    setInviteMsg(r.acceptToken ? `Токен: ${r.acceptToken}` : "Отправлено");
                     setInviteEmail("");
                     void ws.refreshMembers();
                   })

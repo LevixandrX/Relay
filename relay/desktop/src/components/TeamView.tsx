@@ -66,13 +66,7 @@ export function TeamView() {
               void ws
                 .inviteMember(email, role)
                 .then((r) => {
-                  setMsg(
-                    r.autoAccepted
-                      ? "Уже в аккаунте — добавлен сразу."
-                      : r.acceptToken
-                        ? `Ссылка: /invite/${r.acceptToken}`
-                        : "Готово",
-                  );
+                  setMsg(r.acceptToken ? `Ссылка: /invite/${r.acceptToken}` : "Готово");
                   setEmail("");
                   void ws.refreshMembers();
                 })

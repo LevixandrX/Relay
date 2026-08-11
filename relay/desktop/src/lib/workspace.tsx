@@ -55,8 +55,7 @@ type WorkspaceContextValue = {
   refreshPages: () => Promise<void>;
   refreshMembers: () => Promise<void>;
   inviteMember: (email: string, role: "editor" | "viewer") => Promise<{
-    acceptToken: string | null;
-    autoAccepted: boolean;
+    acceptToken: string;
   }>;
 };
 
@@ -347,14 +346,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const inviteMember = useCallback(
     async (email: string, role: "editor" | "viewer") => {
       if (!auth.token || !activeWs) throw new Error("Нужен вход");
-      return api<{ acceptToken: string | null; autoAccepted: boolean }>(
-        `/workspaces/${activeWs.id}/invites`,
-        {
-          method: "POST",
-          token: auth.token,
-          body: JSON.stringify({ email, role }),
-        },
-      );
+      return api<{ acceptToken: string }>(`/workspaces/${activeWs.id}/invites`, {
+        method: "POST",
+        token: auth.token,
+        body: JSON.stringify({ email, role }),
+      });
     },
     [auth.token, activeWs],
   );
