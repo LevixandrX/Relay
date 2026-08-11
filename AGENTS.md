@@ -1,3 +1,10 @@
+# Workspace note
+
+Приложение **Relay** живёт в `./relay`. Читай сначала:
+
+- `relay/docs/SPEC.md` — ТЗ и архитектурные запреты  
+- `relay/AGENTS.md` — entrypoint для агентов  
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

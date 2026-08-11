@@ -17,8 +17,16 @@ CORS: origins from `CORS_ORIGINS` (desktop Vite `:1420` included by default).
 | GET | `/auth/oauth/google/callback` | |
 | GET | `/auth/oauth/github?client=web\|desktop` | start GitHub OAuth |
 | GET | `/auth/oauth/github/callback` | |
+| GET | `/auth/oauth/yandex?client=web\|desktop` | start Yandex OAuth |
+| GET | `/auth/oauth/yandex/callback` | |
+| GET | `/auth/oauth/vk?client=web\|desktop` | start VK OAuth |
+| GET | `/auth/oauth/vk/callback` | |
+| POST | `/auth/desktop/pair` | `{ provider }` → `{ code, claimSecret, url }` — one-time handshake for the desktop app |
+| POST | `/auth/desktop/claim` | `{ code, claimSecret }` → `{ status: pending \| ready \| error \| expired }`, token returned once |
 
-OAuth callback sets cookie and redirects: web → `/app?token=…`, desktop → `relay://auth?token=…`.
+OAuth callback sets the session cookie, then redirects: web → `/app`, desktop → `/auth/desktop?status=…`
+(the app picks the token up via `/auth/desktop/claim` with the claimSecret). Handshake rows live in `auth_pairings` for 10 minutes.
+JWT is never placed in URLs or deep links.
 
 ## Workspaces
 

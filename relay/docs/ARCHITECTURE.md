@@ -1,56 +1,65 @@
 # Architecture
 
-## Stack
+> Полное ТЗ и запреты: **[SPEC.md](./SPEC.md)**. Этот файл — краткая карта стека и границ.
+
+## Stack (сетевой бэкенд и БД)
 
 | Layer | Choice | Notes |
 |---|---|---|
-| App | Next.js 16 App Router + TypeScript | Route Handlers under `/api/v1` |
-| UI | React 19 + Tailwind CSS 4 | Design tokens in `globals.css` |
-| Editor | TipTap (ProseMirror) | Document stored as JSON AST |
-| DB | LibSQL (local file) via Drizzle | Swap to Neon Postgres later with same schema shape |
-| Auth | Custom `jose` JWT (cookie **or** Bearer) | Email/password + Google/GitHub OAuth; desktop uses Bearer |
-| Billing | `subscriptions` + entitlements | 14-day Pro trial; Stripe later |
-| Validation | Zod | Shared for API + document AST |
-
-## Multi-tenancy
-
-Shared tables, `workspace_id` on every domain row. Access is enforced in **repositories** via membership joins — handlers must not query pages by id alone.
+| **Backend (HTTP API)** | **Next.js 16** App Router, TypeScript | Route Handlers `/api/v1/*` — отдельного сервиса нет |
+| **Database** | **LibSQL** (file) + **Drizzle ORM** | Локально `file:./data/relay.db`; позже Neon Postgres |
+| Web UI | React 19 + CSS tokens (`globals.css`) | |
+| Desktop | Tauri 2 + React/Vite | Тот же API по HTTP + Bearer |
+| Editor | TipTap (ProseMirror) | Документ = JSON AST |
+| Canvas | tldraw | Snapshot в JSON (workspace/page `board`) |
+| Auth | `jose` JWT + таблица `sessions` | Cookie (web) или `Authorization: Bearer` (desktop) |
+| Billing | `subscriptions` + entitlements | Free / Pro trial 14d |
+| Validation | Zod | API + document AST |
 
 ## Request path
 
 ```
-Browser → Route Handler → requireSession / requireWorkspaceAccess
-       → domain repo (tenant-scoped) → LibSQL
-       → optional audit_logs write (same logical unit)
+Browser / Tauri
+  → /api/v1/...
+  → requireSession / requireWorkspaceAccess
+  → domain/* (tenant-scoped)
+  → Drizzle → LibSQL
+  → optional audit_logs
 ```
 
-## Key modules
+## Module boundaries
 
 ```
 src/
-  app/                 # routes + UI
-  db/                  # drizzle schema + client + migrate
-  domain/
-    access.ts          # RBAC
-    blocks/            # AST schema + serializers
-    pages/             # page repo + search
-    workspaces/        # workspace + memberships
-    prompts/           # Live Prompt runners
-    onboarding/        # intent templates + checklist
-  editor/              # TipTap extensions + Editor component
-  lib/                 # session, errors, ids, rate-limit (in-memory)
-  components/          # UI chrome, onboarding, pulse
+  app/           # тонкие routes + UI pages — без тяжёлой бизнес-логики
+  domain/        # auth, access, pages, workspaces, billing, prompts
+  db/            # schema + migrate + client
+  editor/        # TipTap
+  lib/           # session, cors, errors, rate-limit, ids
+  components/    # UI chrome
+desktop/         # shell; cloud через API; guest — local store
 ```
 
-## Environments
+**Правило:** логика «можно ли?» и «как сохранить?» живёт в `domain/`, не в кнопках.
 
-- Local: `file:./data/relay.db` (LibSQL)
-- Prod target: Neon Postgres + Vercel (migration path documented in DEVELOPMENT.md)
+## Multi-tenancy
+
+На доменных строках есть `workspace_id`. Доступ только через membership join.  
+Нет membership → **404** (не светим существование ресурса).
+
+## Auth sketch
+
+- Web: HttpOnly cookie `relay_session`
+- Desktop: Bearer после login / OAuth pairing
+- JWT содержит `sub` + `jti`; строка в `sessions`; logout → `revoked_at`
+- OAuth providers: google, github, yandex (vk отложен)
 
 ## Security baseline
 
-- Session cookie: `HttpOnly`, `SameSite=Lax`, `Secure` in production
-- IDOR: missing membership → **404** (not 403)
-- Document AST validated with Zod whitelist before persist
-- Embeds: hostname allowlist only
-- Rate limit: in-memory Map (swap to Upstash in prod)
+См. SPEC §3–4. Кратко: RBAC, отзываемые сессии, CORS allowlist, no JWT-in-URL, claimSecret для desktop pair, CSP в Tauri.
+
+## Environments & evolution
+
+- Local DB: LibSQL file  
+- Prod DB: **не зафиксирована** (Postgres — кандидат; выбор после MVP, см. SPEC §1.1)  
+- **Не тащить Redis/микросервисы по умолчанию.** Сначала закрыть MVP на текущем стеке, потом эволюция слоёв целиком.

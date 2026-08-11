@@ -56,7 +56,9 @@ npm run dev          # → relay
 npm run db:migrate
 ```
 
-### Minimal `.env.local`
+### Minimal `relay/.env.local`
+
+> Env vars are read from **`relay/.env.local`** only — the root of the repo is just a wrapper.
 
 ```env
 AUTH_SECRET=replace-with-a-long-random-string
@@ -64,10 +66,9 @@ DATABASE_URL=file:./data/relay.db
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 AUTH_URL=http://localhost:3000
 CORS_ORIGINS=http://127.0.0.1:1420,http://localhost:1420,tauri://localhost,https://tauri.localhost
-DESKTOP_DEEP_LINK=relay://auth
 ```
 
-Optional later: `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`, `OPENAI_API_KEY`.  
+Optional later: `GOOGLE_*`, `GITHUB_*`, `YANDEX_*`, `VK_*`, `OPENAI_API_KEY`.  
 See [`relay/.env.example`](./relay/.env.example) for the full list and OAuth redirect URLs.
 
 ---
@@ -99,14 +100,20 @@ More detail: [`relay/desktop/README.md`](./relay/desktop/README.md).
 | Method | Notes |
 |---|---|
 | Email + password | Works out of the box |
-| Google / GitHub | Create **Web** OAuth clients; set env vars |
+| Google / GitHub / Yandex / VK | Create **Web** OAuth clients; set env vars |
 
 Redirect URIs (local):
 
 - `http://localhost:3000/api/v1/auth/oauth/google/callback`
 - `http://localhost:3000/api/v1/auth/oauth/github/callback`
+- `http://localhost:3000/api/v1/auth/oauth/yandex/callback`
+- `http://localhost:3000/api/v1/auth/oauth/vk/callback`
 
 API accepts session **cookie** or `Authorization: Bearer` (desktop).
+
+**Desktop OAuth** uses a browser handshake: the app asks
+`POST /api/v1/auth/desktop/pair` for a one-time `{ code, claimSecret }`, opens the provider in the system browser,
+and polls `POST /api/v1/auth/desktop/claim` until the token is ready. Nothing to register in the OS.
 
 ---
 
@@ -116,8 +123,9 @@ All docs are under [`relay/docs/`](./relay/docs/):
 
 | Doc | Contents |
 |---|---|
+| [SPEC](./relay/docs/SPEC.md) | **ТЗ / source of truth для агентов** |
 | [PRODUCT](./relay/docs/PRODUCT.md) | Scope & principles |
-| [ARCHITECTURE](./relay/docs/ARCHITECTURE.md) | Stack & security |
+| [ARCHITECTURE](./relay/docs/ARCHITECTURE.md) | Stack & module boundaries |
 | [API](./relay/docs/API.md) | REST `/api/v1` |
 | [DATA-MODEL](./relay/docs/DATA-MODEL.md) | Schema |
 | [UX](./relay/docs/UX.md) | Design notes |

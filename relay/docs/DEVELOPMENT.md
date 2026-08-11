@@ -17,8 +17,25 @@ Application lives in this folder (`relay/`). Parent `Notion 2/` may be empty wra
 ```bash
 cd relay
 npm run db:migrate
-npm run dev          # сам освобождает порт 3000
-npm run dev:clean    # + чистит .next при зависаниях
+npm run dev          # сайт http://localhost:3000 (сам освобождает порт)
+```
+
+**Десктоп с рабочего стола**
+
+| Ярлык | Когда |
+|---|---|
+| `Relay.bat` / `.vbs` | Обычный запуск (release, UI «заморожен» до rebuild) |
+| `Relay-dev.bat` | Свежий UI сразу (API + Vite + окно) |
+| `Relay-rebuild.bat` | Пересобрать release после правок дизайна, потом открыть |
+
+Или из терминала:
+
+```bash
+cd relay
+npm run dev                              # сайт
+npm run desktop:start -- -Dev            # десктоп с живым UI
+# после правок UI, чтобы обновить ярлык Relay.bat:
+powershell -File scripts/start-desktop.ps1 -Rebuild
 ```
 
 Открывай http://localhost:3000
@@ -41,7 +58,11 @@ npm run dev:clean    # + чистит .next при зависаниях
 
 ## Env
 
-See `.env.example`. Minimum: `AUTH_SECRET` (32+ chars). Optional: `OPENAI_API_KEY`, `DATABASE_URL`, `GOOGLE_*` / `GITHUB_*` OAuth, `CORS_ORIGINS`, `DESKTOP_DEEP_LINK`.
+Variables are read from `relay/.env.local` (see `.env.example`) — a copy in the repo root is ignored.
+Minimum: `AUTH_SECRET` (32+ chars). Optional: `OPENAI_API_KEY`, `DATABASE_URL`, `GOOGLE_*` / `GITHUB_*` / `YANDEX_*` / `VK_*` OAuth, `CORS_ORIGINS`, `TRUST_PROXY`.
+
+Desktop OAuth needs no OS registration: the app pairs via `/api/v1/auth/desktop/pair`, opens the
+provider in the system browser and polls `/api/v1/auth/desktop/claim` (code + claimSecret). After editing OAuth env vars, restart `npm run dev`.
 
 Desktop cloud: start API (`npm run dev`), then `npm run desktop:dev` with `VITE_API_URL=http://127.0.0.1:3000`.
 
