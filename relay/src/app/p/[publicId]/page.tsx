@@ -5,6 +5,7 @@ import { pages } from "@/db/schema";
 import { DocRenderer } from "@/editor/DocRenderer";
 import type { Doc } from "@/domain/blocks/schema";
 import Link from "next/link";
+import { BrandLockup } from "@/components/BrandMark";
 
 type Props = { params: Promise<{ publicId: string }> };
 
@@ -23,8 +24,8 @@ export default async function PublicPage({ params }: Props) {
   return (
     <div className="relay-landing" style={{ minHeight: "100%" }}>
       <nav className="relay-landing-nav">
-        <Link href="/" className="relay-brand">
-          Relay
+        <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <BrandLockup size={26} />
         </Link>
         <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>Публичная страница</span>
       </nav>

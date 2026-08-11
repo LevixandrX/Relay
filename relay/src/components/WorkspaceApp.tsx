@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { BlockEditor } from "@/editor/BlockEditor";
 import { InfiniteBoard, type BoardSnapshot } from "@/components/InfiniteBoard";
 import type { Doc } from "@/domain/blocks/schema";
+import { BrandLockup } from "@/components/BrandMark";
 
 type PageMeta = {
   id: string;
@@ -328,11 +329,7 @@ export function WorkspaceApp({
       setInviteMsg(data.message ?? "Не удалось пригласить");
       return;
     }
-    setInviteMsg(
-      data.autoAccepted
-        ? "Человек добавлен в пространство."
-        : `Приглашение создано. Токен (пока без почты): ${data.acceptToken}`,
-    );
+    setInviteMsg(`Приглашение создано. Токен (пока без почты): ${data.acceptToken}`);
     setInviteEmail("");
     void refreshPulse();
   }
@@ -364,9 +361,7 @@ export function WorkspaceApp({
       <aside className="relay-sidebar">
         <div className="relay-sidebar-top">
           <div>
-            <div className="relay-brand">
-              Relay<span className="relay-brand-dot" />
-            </div>
+            <BrandLockup size={26} />
             <div className="relay-ws-name">{workspaceName}</div>
           </div>
           <div className="relay-sidebar-actions">

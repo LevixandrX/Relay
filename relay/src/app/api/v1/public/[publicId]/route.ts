@@ -3,11 +3,16 @@ import { db } from "@/db/client";
 import { pages } from "@/db/schema";
 import { ApiError, handleRouteError, json } from "@/lib/errors";
 import type { Doc } from "@/domain/blocks/schema";
+import { rateLimit } from "@/lib/rate-limit";
+import { clientKey } from "@/lib/client-ip";
 
 type Ctx = { params: Promise<{ publicId: string }> };
 
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   try {
+    const rl = rateLimit(`public:${clientKey(req)}`, 60);
+    if (!rl.ok) throw new ApiError(429, "rate_limited", "Слишком много запросов");
+
     const { publicId } = await ctx.params;
     const rows = await db
       .select()

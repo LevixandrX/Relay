@@ -7,7 +7,7 @@ import { id, now, slugify } from "@/lib/ids";
 import { writeAudit } from "@/domain/audit";
 import { createPage } from "@/domain/pages/repo";
 import { emptyDoc } from "@/domain/blocks/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { assertEntitlement } from "@/domain/billing/entitlements";
 
 export async function GET() {
@@ -22,7 +22,7 @@ export async function GET() {
       })
       .from(memberships)
       .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
-      .where(eq(memberships.userId, user.id));
+      .where(and(eq(memberships.userId, user.id), isNull(workspaces.deletedAt)));
     return json({ workspaces: rows });
   } catch (err) {
     return handleRouteError(err);

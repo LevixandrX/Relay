@@ -11,6 +11,14 @@ import {
 } from "@/domain/blocks/schema";
 import { writeAudit } from "@/domain/audit";
 
+/** Soft caps — keep DoS surface small without dragging Redis into the stack. */
+const MAX_CONTENT_JSON = 2_000_000;
+const MAX_BOARD_JSON = 8_000_000;
+
+function escapeLike(q: string) {
+  return q.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 export async function getPageForUser(userId: string, pageId: string) {
   const rows = await db
     .select({
@@ -62,8 +70,29 @@ export async function createPage(input: {
   content?: Doc;
   position?: number;
 }) {
+  if (input.parentPageId) {
+    const parent = await db
+      .select({ id: pages.id })
+      .from(pages)
+      .where(
+        and(
+          eq(pages.id, input.parentPageId),
+          eq(pages.workspaceId, input.workspaceId),
+          isNull(pages.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!parent[0]) {
+      throw new ApiError(400, "validation_error", "Родительская страница не найдена в этом пространстве");
+    }
+  }
+
   const pageId = id.page();
   const content = input.content ?? emptyDoc();
+  const contentJson = JSON.stringify(content);
+  if (contentJson.length > MAX_CONTENT_JSON) {
+    throw new ApiError(400, "validation_error", "Документ слишком большой");
+  }
   const ts = now();
   await db.insert(pages).values({
     id: pageId,
@@ -72,7 +101,7 @@ export async function createPage(input: {
     title: input.title ?? "",
     icon: input.icon ?? null,
     position: input.position ?? Date.now() % 1_000_000,
-    content: JSON.stringify(content),
+    content: contentJson,
     plainText: docToPlainText(content),
     createdBy: input.userId,
     createdAt: ts,
@@ -114,11 +143,14 @@ export async function updatePage(input: {
   if (input.content !== undefined) {
     const doc = parseDoc(input.content);
     contentJson = JSON.stringify(doc);
+    if (contentJson.length > MAX_CONTENT_JSON) {
+      throw new ApiError(400, "validation_error", "Документ слишком большой");
+    }
     plainText = docToPlainText(doc);
   }
   if (input.board !== undefined) {
     const raw = JSON.stringify(input.board);
-    if (raw.length > 8_000_000) {
+    if (raw.length > MAX_BOARD_JSON) {
       throw new ApiError(400, "validation_error", "Холст слишком большой");
     }
     boardJson = raw;
@@ -182,7 +214,9 @@ export async function searchPages(userId: string, workspaceId: string, q: string
     .limit(1);
   if (!mem[0]) throw new ApiError(404, "not_found", "Not found");
 
-  const term = `%${q.trim()}%`;
+  const trimmed = q.trim().slice(0, 120);
+  if (!trimmed) return [];
+  const term = `%${escapeLike(trimmed)}%`;
   const rows = await db
     .select({
       pageId: pages.id,
@@ -201,7 +235,7 @@ export async function searchPages(userId: string, workspaceId: string, q: string
     .limit(20);
 
   return rows.map((r) => {
-    const idx = r.plainText.toLowerCase().indexOf(q.trim().toLowerCase());
+    const idx = r.plainText.toLowerCase().indexOf(trimmed.toLowerCase());
     const snippet =
       idx >= 0
         ? r.plainText.slice(Math.max(0, idx - 40), idx + 80)

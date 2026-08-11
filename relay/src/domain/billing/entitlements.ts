@@ -101,15 +101,25 @@ export async function getEffectivePlan(userId: string): Promise<EffectivePlan> {
   };
 }
 
+/** Billing for workspace-scoped features follows the workspace owner, not the actor. */
+async function planForWorkspaceFeature(actorId: string, workspaceId: string) {
+  const owners = await db
+    .select({ userId: memberships.userId })
+    .from(memberships)
+    .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.role, "owner")))
+    .limit(1);
+  const ownerId = owners[0]?.userId ?? actorId;
+  return getEffectivePlan(ownerId);
+}
+
 export async function assertEntitlement(
   userId: string,
   feature: EntitlementFeature,
   ctx?: { workspaceId?: string },
 ) {
-  const effective = await getEffectivePlan(userId);
-  const limits = effective.limits;
-
   if (feature === "create_workspace") {
+    const effective = await getEffectivePlan(userId);
+    const limits = effective.limits;
     const [{ value }] = await db
       .select({ value: count() })
       .from(memberships)
@@ -131,11 +141,15 @@ export async function assertEntitlement(
         { feature, limits },
       );
     }
+    return;
   }
 
+  const wid = ctx?.workspaceId;
+  if (!wid) throw new ApiError(400, "validation_error", "workspaceId required");
+  const effective = await planForWorkspaceFeature(userId, wid);
+  const limits = effective.limits;
+
   if (feature === "create_page") {
-    const wid = ctx?.workspaceId;
-    if (!wid) throw new ApiError(400, "validation_error", "workspaceId required");
     const [{ value }] = await db
       .select({ value: count() })
       .from(pages)
@@ -151,8 +165,6 @@ export async function assertEntitlement(
   }
 
   if (feature === "invite_member") {
-    const wid = ctx?.workspaceId;
-    if (!wid) throw new ApiError(400, "validation_error", "workspaceId required");
     const [{ value }] = await db
       .select({ value: count() })
       .from(memberships)
@@ -168,8 +180,6 @@ export async function assertEntitlement(
   }
 
   if (feature === "publish_page") {
-    const wid = ctx?.workspaceId;
-    if (!wid) throw new ApiError(400, "validation_error", "workspaceId required");
     const [{ value }] = await db
       .select({ value: count() })
       .from(pages)

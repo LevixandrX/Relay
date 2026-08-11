@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { invites, memberships, users } from "@/db/schema";
+import { invites } from "@/db/schema";
 import { ApiError, handleRouteError, json } from "@/lib/errors";
 import { requireSession } from "@/lib/session";
 import { requireWorkspaceAccess } from "@/domain/access";
@@ -35,6 +34,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const inviteId = id.invite();
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Always pending — the invitee must accept (no silent membership injection).
     await db.insert(invites).values({
       id: inviteId,
       workspaceId: wid,
@@ -44,27 +44,6 @@ export async function POST(req: Request, ctx: Ctx) {
       expiresAt: expires,
       createdAt: now(),
     });
-
-    // Auto-accept if user already exists (MVP: no email provider required)
-    const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (existing[0]) {
-      const memId = id.membership();
-      try {
-        await db.insert(memberships).values({
-          id: memId,
-          workspaceId: wid,
-          userId: existing[0].id,
-          role: body.role,
-          createdAt: now(),
-        });
-        await db
-          .update(invites)
-          .set({ acceptedAt: now() })
-          .where(eq(invites.id, inviteId));
-      } catch {
-        // already a member
-      }
-    }
 
     await writeAudit({
       workspaceId: wid,
@@ -81,8 +60,7 @@ export async function POST(req: Request, ctx: Ctx) {
         email,
         role: body.role,
         // Returned once for MVP without email — paste to teammate
-        acceptToken: existing[0] ? null : token,
-        autoAccepted: Boolean(existing[0]),
+        acceptToken: token,
         expiresAt: expires,
       },
       201,
