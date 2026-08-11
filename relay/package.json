@@ -11,7 +11,10 @@
     "db:migrate": "tsx --env-file=.env.local src/db/migrate.ts",
     "desktop:dev": "npm --prefix desktop run dev",
     "desktop:tauri": "npm --prefix desktop run tauri:dev",
-    "desktop:build": "npm --prefix desktop run tauri:build"
+    "desktop:build": "npm --prefix desktop run tauri:build",
+    "desktop:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1",
+    "desktop:dev-ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Dev",
+    "desktop:rebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Rebuild"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

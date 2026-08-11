@@ -16,6 +16,10 @@ const unbounded = Unbounded({
 export const metadata: Metadata = {
   title: "Relay — пространство без краёв",
   description: "Холст, схемы и текст в одном живом пространстве.",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
+    apple: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

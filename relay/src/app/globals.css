@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   --ink: #0b1220;
@@ -73,46 +73,49 @@ kbd {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
-  border-radius: 999px;
-  padding: 0.55rem 1.1rem;
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   transition:
-    transform 0.2s var(--ease),
-    box-shadow 0.2s var(--ease),
-    background 0.2s var(--ease),
-    border-color 0.2s var(--ease);
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 }
 
 .relay-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(11, 18, 32, 0.1);
+  background: color-mix(in oklab, var(--surface) 88%, var(--ink));
+  border-color: color-mix(in oklab, var(--line) 70%, var(--ink));
 }
 
 .relay-btn:active {
-  transform: translateY(0);
+  background: color-mix(in oklab, var(--surface) 80%, var(--ink));
+}
+
+.relay-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .relay-btn-accent {
-  background: linear-gradient(120deg, var(--accent), #2563eb 45%, var(--accent-2));
-  border-color: transparent;
+  background: var(--accent);
+  border-color: var(--accent);
   color: white;
-  box-shadow: 0 12px 30px rgba(29, 78, 216, 0.28);
 }
 
 .relay-btn-accent:hover {
-  box-shadow: 0 16px 36px rgba(14, 165, 164, 0.28);
+  background: color-mix(in oklab, var(--accent) 88%, black);
+  border-color: color-mix(in oklab, var(--accent) 88%, black);
 }
 
 .relay-btn-ghost {
   background: transparent;
   border-color: transparent;
-  box-shadow: none;
 }
 
 .relay-btn-ghost:hover {
   background: rgba(11, 18, 32, 0.05);
-  box-shadow: none;
 }
 
 .relay-btn-xs {
@@ -121,29 +124,16 @@ kbd {
 }
 
 .relay-btn-magnetic {
-  position: relative;
-  overflow: hidden;
-}
-
-.relay-btn-magnetic::after {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35), transparent 45%);
-  opacity: 0;
-  transition: opacity 0.25s var(--ease);
-}
-
-.relay-btn-magnetic:hover::after {
-  opacity: 1;
+  /* kept for existing markup - no decorative glow */
 }
 
 .relay-input {
   width: 100%;
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 14px;
-  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  min-height: 2.85rem;
   outline: none;
   transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
 }
@@ -171,388 +161,41 @@ kbd {
   letter-spacing: -0.04em;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  color: inherit;
+}
+
+.relay-brand-link {
+  text-decoration: none;
+  width: fit-content;
+  cursor: pointer;
+  color: inherit;
+}
+
+.relay-brand-link:hover {
+  opacity: 0.85;
+}
+
+.relay-brand-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.relay-brand-mark {
+  display: block;
+  border-radius: 7px;
+  flex: none;
+  box-shadow: 0 1px 0 rgba(11, 18, 32, 0.06);
 }
 
 .relay-brand-dot {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.15);
-  animation: relay-dot 2.4s var(--ease) infinite;
+  background: var(--accent);
 }
 
-@keyframes relay-dot {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
-}
-
-/* ===== Landing ===== */
-.relay-landing {
-  min-height: 100%;
-  position: relative;
-  overflow: clip;
-  background: linear-gradient(180deg, #f7f9fc 0%, var(--bg) 40%, #e8eef8 100%);
-}
-
-.relay-landing-aurora {
-  position: absolute;
-  inset: -20% -10% auto;
-  height: 70%;
-  background:
-    radial-gradient(40% 50% at 20% 40%, rgba(29, 78, 216, 0.18), transparent 70%),
-    radial-gradient(35% 45% at 75% 30%, rgba(14, 165, 164, 0.16), transparent 70%),
-    radial-gradient(30% 40% at 55% 70%, rgba(99, 102, 241, 0.1), transparent 70%);
-  filter: blur(28px);
-  animation: relay-aurora 14s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-
-@keyframes relay-aurora {
-  from {
-    transform: translate3d(-2%, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(3%, 4%, 0) scale(1.05);
-  }
-}
-
-.relay-landing-noise {
-  position: absolute;
-  inset: 0;
-  opacity: 0.035;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.relay-landing-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.1rem 1.5rem;
-  position: relative;
-  z-index: 2;
-}
-
-.relay-landing-nav-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.relay-landing-hero {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  gap: 1.5rem;
-  width: min(1120px, calc(100% - 2rem));
-  margin: 0.5rem auto 1.5rem;
-  align-items: center;
-}
-
-@media (max-width: 960px) {
-  .relay-landing-hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-.relay-landing-copy .relay-kicker,
-.relay-landing-copy h1,
-.relay-landing-copy .lede,
-.relay-landing-copy .relay-landing-cta,
-.relay-landing-copy .relay-landing-stats {
-  animation: relay-rise 0.7s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 70ms);
-}
-
-.relay-kicker {
-  display: inline-flex;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--line);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin: 0 0 0.9rem;
-}
-
-.relay-landing-copy h1 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(2.5rem, 6vw, 4.2rem);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
-  margin: 0 0 1rem;
-}
-
-.relay-landing-copy h1 em {
-  font-style: normal;
-  background: linear-gradient(120deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.relay-landing-copy .lede {
-  color: var(--ink-soft);
-  max-width: 38ch;
-  margin: 0 0 1.4rem;
-  font-size: 1.08rem;
-}
-
-.relay-landing-cta {
-  display: flex;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.4rem;
-}
-
-.relay-landing-stats {
-  list-style: none;
-  display: flex;
-  gap: 1.25rem;
-  padding: 0;
-  margin: 0;
-}
-
-.relay-landing-stats li {
-  display: grid;
-}
-
-.relay-landing-stats strong {
-  font-family: var(--font-display);
-  font-size: 1.4rem;
-  letter-spacing: -0.03em;
-}
-
-.relay-landing-stats span {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.relay-demo {
-  position: relative;
-  height: min(520px, 62vh);
-  border-radius: 28px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.78)),
-    radial-gradient(circle at 30% 20%, rgba(29, 78, 216, 0.08), transparent 45%),
-    radial-gradient(circle at 80% 70%, rgba(14, 165, 164, 0.08), transparent 40%);
-  border: 1px solid rgba(11, 18, 32, 0.08);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-  animation: relay-rise 0.8s var(--ease) 0.12s both;
-}
-
-.relay-demo-scenes {
-  position: absolute;
-  z-index: 4;
-  top: 14px;
-  left: 14px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  max-width: calc(100% - 28px);
-}
-
-.relay-demo-scene {
-  border: 1px solid rgba(11, 18, 32, 0.08);
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 999px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  cursor: pointer;
-  color: var(--ink-soft);
-  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.2s var(--ease);
-}
-
-.relay-demo-scene:hover {
-  transform: translateY(-1px);
-}
-
-.relay-demo-scene[data-active="true"] {
-  background: var(--ink);
-  color: white;
-  border-color: transparent;
-}
-
-.relay-demo-blurb {
-  position: absolute;
-  z-index: 4;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
-  margin: 0;
-  padding: 0.55rem 0.8rem;
-  border-radius: 12px;
-  background: rgba(11, 18, 32, 0.78);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.relay-demo-links {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.relay-demo-line {
-  stroke: rgba(29, 78, 216, 0.28);
-  stroke-width: 0.35;
-  transition: stroke 0.25s var(--ease), stroke-width 0.25s var(--ease);
-}
-
-.relay-demo-line[data-hot="true"] {
-  stroke: rgba(14, 165, 164, 0.85);
-  stroke-width: 0.55;
-}
-
-.relay-demo-node {
-  position: absolute;
-  z-index: 2;
-  transform: translate(-50%, -50%);
-  border: none;
-  cursor: default;
-  padding: 0.65rem 0.9rem;
-  border-radius: 14px;
-  font-weight: 800;
-  box-shadow: 0 10px 28px rgba(11, 18, 32, 0.1);
-  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
-  animation: relay-rise 0.5s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 50ms);
-  user-select: none;
-}
-
-.relay-demo-breathe {
-  animation: relay-breathe 4.5s ease-in-out infinite;
-  animation-delay: calc(var(--i, 0) * 0.35s);
-}
-
-@keyframes relay-breathe {
-  0%,
-  100% {
-    transform: translate(-50%, -50%) translateY(0);
-  }
-  50% {
-    transform: translate(-50%, -50%) translateY(-3px);
-  }
-}
-
-.relay-demo-node[data-focus="true"] {
-  animation: none;
-  transform: translate(-50%, -50%) scale(1.08);
-  box-shadow: 0 16px 36px rgba(11, 18, 32, 0.16);
-  z-index: 3;
-}
-
-.relay-board-loading {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.relay-demo-tone-a {
-  background: linear-gradient(160deg, #eff6ff, #dbeafe);
-  color: #1e3a8a;
-}
-
-.relay-demo-tone-b {
-  background: linear-gradient(160deg, #ecfeff, #cffafe);
-  color: #115e59;
-}
-
-.relay-demo-tone-c {
-  background: linear-gradient(160deg, #f5f3ff, #ede9fe);
-  color: #5b21b6;
-}
-
-.relay-landing-strip {
-  position: relative;
-  z-index: 2;
-  width: min(1120px, calc(100% - 2rem));
-  margin: 0 auto 2.5rem;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.85rem;
-}
-
-@media (max-width: 800px) {
-  .relay-landing-strip {
-    grid-template-columns: 1fr;
-  }
-}
-
-.relay-strip-card {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(11, 18, 32, 0.07);
-  border-radius: 18px;
-  padding: 1.15rem 1.2rem;
-  backdrop-filter: blur(8px);
-  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
-  animation: relay-rise 0.6s var(--ease) both;
-  animation-delay: calc(0.25s + var(--i, 0) * 80ms);
-}
-
-.relay-strip-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow);
-}
-
-.relay-strip-card h2 {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  margin: 0 0 0.4rem;
-  letter-spacing: -0.02em;
-}
-
-.relay-strip-card p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-}
-
-@keyframes relay-rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .relay-landing-copy .relay-kicker,
-  .relay-landing-copy h1,
-  .relay-landing-copy .lede,
-  .relay-landing-copy .relay-landing-cta,
-  .relay-demo,
-  .relay-demo-node,
-  .relay-strip-card,
-  .relay-brand-dot,
-  .relay-landing-aurora {
-    animation: none !important;
-  }
-}
 
 /* ===== Auth ===== */
 .relay-auth {
@@ -589,16 +232,90 @@ kbd {
   margin-bottom: 1.25rem;
 }
 
+.relay-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.15rem 0 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+.relay-divider::before,
+.relay-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line), transparent);
+}
+
 .relay-oauth-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
-  margin-top: 0.75rem;
 }
 
-.relay-oauth-row .relay-btn {
-  text-align: center;
+.relay-oauth-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.relay-oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.9rem;
   text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.relay-oauth-btn svg,
+.relay-oauth-btn .provider-mark-yandex {
+  flex: none;
+}
+
+.provider-mark-yandex {
+  display: inline-grid;
+  place-items: center;
+  background: #fc3f1d;
+  color: #fff;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  user-select: none;
+}
+
+.relay-oauth-btn:hover {
+  background: color-mix(in oklab, var(--surface) 90%, var(--ink));
+  border-color: color-mix(in oklab, var(--line) 65%, var(--ink));
+}
+
+.relay-oauth-btn:active {
+  background: color-mix(in oklab, var(--surface) 82%, var(--ink));
+}
+
+.relay-oauth-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@media (max-width: 420px) {
+  .relay-oauth-row,
+  .relay-oauth-row-3 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .relay-field {
@@ -745,9 +462,9 @@ kbd {
 
 .relay-starter-preview span {
   font-size: 0.72rem;
-  font-weight: 800;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  font-weight: 700;
+  padding: 0.22rem 0.45rem;
+  border-radius: 6px;
   background: rgba(11, 18, 32, 0.05);
   color: var(--ink-soft);
 }
@@ -1046,7 +763,7 @@ kbd {
 .relay-mode-switch {
   display: inline-flex;
   padding: 3px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: rgba(11, 18, 32, 0.06);
   gap: 2px;
 }
@@ -1054,7 +771,7 @@ kbd {
 .relay-mode-switch button {
   border: none;
   background: transparent;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 0.4rem 0.85rem;
   cursor: pointer;
   font-weight: 800;
