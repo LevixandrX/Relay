@@ -7,6 +7,7 @@ import { BlockEditor } from "@/editor/BlockEditor";
 import { InfiniteBoard, type BoardSnapshot } from "@/components/InfiniteBoard";
 import type { Doc } from "@/domain/blocks/schema";
 import { BrandLockup } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type PageMeta = {
   id: string;
@@ -365,6 +366,7 @@ export function WorkspaceApp({
             <div className="relay-ws-name">{workspaceName}</div>
           </div>
           <div className="relay-sidebar-actions">
+            <ThemeToggle variant="sidebar" />
             <button
               type="button"
               className="relay-icon-btn"
@@ -517,6 +519,7 @@ export function WorkspaceApp({
             <span className="relay-save">{saveLabel}</span>
           </div>
           <div className="relay-topbar-actions">
+            <ThemeToggle variant="toolbar" />
             {pageId && (
               <button
                 type="button"

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { PasswordField } from "@/components/PasswordField";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { BrandLockup } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const STARTERS = [
   {
@@ -80,6 +81,7 @@ export default function RegisterPage() {
 
   return (
     <div className="relay-auth">
+      <ThemeToggle variant="floating" />
       {step === 1 ? (
         <form className="relay-auth-card" onSubmit={goNext}>
           <BrandLockup href="/" />

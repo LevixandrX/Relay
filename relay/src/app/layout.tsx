@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Unbounded } from "next/font/google";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -24,8 +25,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru" className={`${manrope.variable} ${unbounded.variable} h-full`}>
-      <body className="min-h-full antialiased">{children}</body>
+    <html
+      lang="ru"
+      className={`${manrope.variable} ${unbounded.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-full antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

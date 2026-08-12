@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BrandLockup } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import "@/app/landing.css";
 
 function useInView(idleAfterMs = 4000) {
@@ -722,7 +723,8 @@ export function LandingInteractive() {
       <nav className="ld-nav">
         <BrandLockup size={28} />
         <div className="ld-nav-actions">
-          <Link href="/login" className="relay-btn relay-btn-ghost">
+          <ThemeToggle variant="landing" />
+          <Link href="/login" className="ld-nav-login">
             Войти
           </Link>
           <Link href="/register" className="ld-nav-cta">

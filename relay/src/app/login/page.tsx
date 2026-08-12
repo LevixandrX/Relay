@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { PasswordField } from "@/components/PasswordField";
 import { OAuthButtons, oauthErrorText } from "@/components/OAuthButtons";
 import { BrandLockup } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function LoginPage() {
 
   return (
     <div className="relay-auth">
+      <ThemeToggle variant="floating" />
       <form className="relay-auth-card" onSubmit={onSubmit}>
         <BrandLockup href="/" />
         <h1>С возвращением</h1>

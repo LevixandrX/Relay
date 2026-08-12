@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Tldraw,
   getSnapshot,
@@ -27,6 +28,18 @@ export default function InfiniteBoardInner({
   const loadedRef = useRef(false);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const { resolvedTheme } = useTheme();
+
+  const syncBoardTheme = useCallback((editor: Editor) => {
+    editor.user.updateUserPreferences({
+      colorScheme: resolvedTheme === "dark" ? "dark" : "light",
+    });
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    if (!ready || !editorRef.current) return;
+    syncBoardTheme(editorRef.current);
+  }, [ready, syncBoardTheme]);
 
   const persist = useCallback(() => {
     const editor = editorRef.current;
@@ -57,6 +70,7 @@ export default function InfiniteBoardInner({
             loadedRef.current = true;
           }
           editor.updateInstanceState({ isReadonly: !editable });
+          syncBoardTheme(editor);
           setReady(true);
 
           let timer: ReturnType<typeof setTimeout> | undefined;
