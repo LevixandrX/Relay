@@ -1,6 +1,8 @@
+import { useTranslations } from "use-intl";
 import { useWorkspace } from "../lib/workspace";
 import { useAuth } from "../lib/auth";
 import { formatRelative } from "../lib/store";
+import { useAppLocale } from "../i18n/LocaleProvider";
 
 export function HomeView({
   onOpenBoard,
@@ -15,6 +17,9 @@ export function HomeView({
   onNeedAuth: () => void;
   onCreatePage: () => void;
 }) {
+  const t = useTranslations("desktop");
+  const tc = useTranslations("common");
+  const { locale } = useAppLocale();
   const { pages, mode, guestLimit, offline } = useWorkspace();
   const auth = useAuth();
   const recent = [...pages]
@@ -22,65 +27,65 @@ export function HomeView({
     .slice(0, 5);
   const empty = pages.length === 0;
 
+  function planLabel() {
+    if (!auth.subscription) return null;
+    if (auth.subscription.isPro) {
+      return auth.subscription.status === "trialing" ? t("planProTrial") : t("planPro");
+    }
+    return t("planFree");
+  }
+
   return (
     <>
       <div className="toprow">
         <div className="page-title">
-          <h1>С чего начать</h1>
+          <h1>{t("homeTitle")}</h1>
           <p className="muted" style={{ margin: "0.2rem 0 0" }}>
             {mode === "cloud"
-              ? "Облачное пространство синхронизируется с сервером."
-              : `Гостевой режим на этом ПК · до ${guestLimit} страниц без входа.`}
-            {offline ? " Сейчас офлайн — правки могут не уйти в облако." : ""}
+              ? t("homeCloudMode")
+              : t("homeGuestMode", { limit: guestLimit })}
+            {offline ? t("homeOffline") : ""}
           </p>
         </div>
         {!auth.user && (
           <button type="button" className="btn btn-accent" onClick={onNeedAuth}>
-            Войти в облако
+            {t("loginCloud")}
           </button>
         )}
       </div>
 
       <section className="start-grid">
         <button type="button" className="start-tile" onClick={onOpenBoard}>
-          <span className="start-kicker">Главное</span>
-          <strong>Открыть холст</strong>
-          <span className="muted">
-            Бесконечная доска пространства: схемы, стикеры, стрелки.
-          </span>
+          <span className="start-kicker">{t("kickMain")}</span>
+          <strong>{t("openBoard")}</strong>
+          <span className="muted">{t("openBoardDesc")}</span>
         </button>
         <button type="button" className="start-tile" onClick={onCreatePage}>
-          <span className="start-kicker">Текст</span>
-          <strong>Новая страница</strong>
-          <span className="muted">Заметки и документы в блочном редакторе.</span>
+          <span className="start-kicker">{t("kickText")}</span>
+          <strong>{t("newPage")}</strong>
+          <span className="muted">{t("newPageDesc")}</span>
         </button>
         <button type="button" className="start-tile" onClick={onOpenPages}>
-          <span className="start-kicker">Список</span>
-          <strong>Все страницы</strong>
+          <span className="start-kicker">{t("kickList")}</span>
+          <strong>{t("allPages")}</strong>
           <span className="muted">
             {pages.length
-              ? `Сейчас ${pages.length} · найти и открыть`
-              : "Пока пусто — создай первую"}
+              ? t("pagesCount", { count: pages.length })
+              : t("pagesEmptyHint")}
           </span>
         </button>
         {!auth.user ? (
           <button type="button" className="start-tile" onClick={onNeedAuth}>
-            <span className="start-kicker">Облако</span>
-            <strong>Войти или создать аккаунт</strong>
-            <span className="muted">
-              Sync, команда и 14 дней Pro. Google, GitHub, Яндекс или email.
-            </span>
+            <span className="start-kicker">{t("kickCloud")}</span>
+            <strong>{t("authCta")}</strong>
+            <span className="muted">{t("authCtaDesc")}</span>
           </button>
         ) : (
           <div className="start-tile start-tile-static">
-            <span className="start-kicker">Аккаунт</span>
+            <span className="start-kicker">{t("kickAccount")}</span>
             <strong>{auth.user.name}</strong>
             <span className="muted">
-              {auth.subscription?.isPro
-                ? auth.subscription.status === "trialing"
-                  ? "Pro · пробный период"
-                  : "План Pro"
-                : "План Free"}
+              {planLabel()}
               {" · "}
               {auth.user.email}
             </span>
@@ -90,35 +95,29 @@ export function HomeView({
 
       <section className="card">
         <div className="card-head">
-          <h2 style={{ margin: 0 }}>{empty ? "Дальше" : "Недавние страницы"}</h2>
+          <h2 style={{ margin: 0 }}>{empty ? t("nextTitle") : t("recentTitle")}</h2>
           {!empty && (
             <button type="button" className="btn" onClick={onOpenPages}>
-              Все
+              {tc("all")}
             </button>
           )}
         </div>
         {empty ? (
           <ol className="howto">
-            <li>
-              Нажми <strong>Открыть холст</strong> — это «доска» пространства.
-            </li>
-            <li>
-              Или <strong>Новая страница</strong> — обычный текст и блоки.
-            </li>
-            <li>
-              Слева меню: Холст, Страницы, Команда, Тема, Аккаунт.
-            </li>
+            <li>{t("howto1")}</li>
+            <li>{t("howto2")}</li>
+            <li>{t("howto3")}</li>
           </ol>
         ) : (
           <div className="page-list">
             {recent.map((p) => (
               <div key={p.id} className="page-row">
                 <div>
-                  <strong>{p.title || "Без названия"}</strong>
-                  <div className="muted">{formatRelative(p.updatedAt)}</div>
+                  <strong>{p.title || tc("untitled")}</strong>
+                  <div className="muted">{formatRelative(p.updatedAt, t, locale)}</div>
                 </div>
                 <button type="button" className="btn" onClick={() => onOpenPage(p.id)}>
-                  Открыть
+                  {tc("open")}
                 </button>
               </div>
             ))}

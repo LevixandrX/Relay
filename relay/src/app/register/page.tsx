@@ -2,34 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { PasswordField } from "@/components/PasswordField";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { BrandLockup } from "@/components/BrandMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-
-const STARTERS = [
-  {
-    id: "write" as const,
-    title: "Пишу и собираю мысли",
-    preview: ["Черновик", "Заметки", "Холст идей"],
-    desc: "Стартовые страницы под тексты и свободный холст.",
-  },
-  {
-    id: "plan" as const,
-    title: "Планирую проект",
-    preview: ["Дорожная карта", "Неделя", "Холст плана"],
-    desc: "Чеклисты, этапы и схема на холсте.",
-  },
-  {
-    id: "team" as const,
-    title: "Веду команду",
-    preview: ["Хаб", "Встречи", "Холст ролей"],
-    desc: "Общее пространство и зоны ответственности.",
-  },
-];
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 export default function RegisterPage() {
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");
@@ -39,19 +22,44 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const starters = useMemo(
+    () =>
+      [
+        {
+          id: "write" as const,
+          title: t("starterWriteTitle"),
+          preview: [t("starterWritePreview1"), t("starterWritePreview2"), t("starterWritePreview3")],
+          desc: t("starterWriteDesc"),
+        },
+        {
+          id: "plan" as const,
+          title: t("starterPlanTitle"),
+          preview: [t("starterPlanPreview1"), t("starterPlanPreview2"), t("starterPlanPreview3")],
+          desc: t("starterPlanDesc"),
+        },
+        {
+          id: "team" as const,
+          title: t("starterTeamTitle"),
+          preview: [t("starterTeamPreview1"), t("starterTeamPreview2"), t("starterTeamPreview3")],
+          desc: t("starterTeamDesc"),
+        },
+      ] as const,
+    [t],
+  );
+
   function goNext(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (name.trim().length < 1) {
-      setError("Укажи имя");
+      setError(t("errorName"));
       return;
     }
     if (!email.includes("@")) {
-      setError("Похоже, email указан неверно");
+      setError(t("errorEmail"));
       return;
     }
     if (password.length < 8) {
-      setError("Пароль — минимум 8 символов");
+      setError(t("errorPassword"));
       return;
     }
     setStep(2);
@@ -60,7 +68,7 @@ export default function RegisterPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!intent) {
-      setError("Выбери, с чего начнём — так мы подготовим пространство");
+      setError(t("errorIntent"));
       return;
     }
     setLoading(true);
@@ -73,7 +81,7 @@ export default function RegisterPage() {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(data.message ?? "Не удалось зарегистрироваться");
+      setError(data.message ?? t("registerFailed"));
       return;
     }
     router.push(`/w/${data.workspaceId}/board`);
@@ -81,15 +89,18 @@ export default function RegisterPage() {
 
   return (
     <div className="relay-auth">
-      <ThemeToggle variant="floating" />
+      <div className="relay-auth-floating-actions">
+        <LanguageToggle variant="floating" />
+        <ThemeToggle variant="floating" />
+      </div>
       {step === 1 ? (
         <form className="relay-auth-card" onSubmit={goNext}>
           <BrandLockup href="/" />
-          <h1>Создай аккаунт</h1>
-          <p className="lede">Потом выберешь старт пространства — займёт секунду.</p>
+          <h1>{t("registerTitle")}</h1>
+          <p className="lede">{t("registerLede")}</p>
 
           <div className="relay-field">
-            <label htmlFor="name">Имя</label>
+            <label htmlFor="name">{tc("name")}</label>
             <input
               id="name"
               className="relay-input"
@@ -100,7 +111,7 @@ export default function RegisterPage() {
             />
           </div>
           <div className="relay-field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">{tc("email")}</label>
             <input
               id="email"
               type="email"
@@ -113,7 +124,7 @@ export default function RegisterPage() {
           </div>
           <PasswordField
             id="password"
-            label="Пароль"
+            label={tc("password")}
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
@@ -123,26 +134,24 @@ export default function RegisterPage() {
 
           {error && <p className="relay-error">{error}</p>}
           <button className="relay-btn relay-btn-accent" style={{ width: "100%" }} type="submit">
-            Дальше
+            {t("registerNext")}
           </button>
           <OAuthButtons />
           <p style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-            Уже есть аккаунт? <Link href="/login">Войти</Link>
+            {t("haveAccount")} <Link href="/login">{t("loginSubmit")}</Link>
           </p>
         </form>
       ) : (
         <form className="relay-auth-card relay-auth-wide" onSubmit={onSubmit}>
           <BrandLockup href="/" />
           <button type="button" className="relay-back" onClick={() => setStep(1)}>
-            ← Назад
+            ← {t("registerBack")}
           </button>
-          <h1>С чего начнём?</h1>
-          <p className="lede">
-            Выбери сценарий — мы подготовим страницы и откроем холст. Без выбора дальше нельзя.
-          </p>
+          <h1>{t("intentTitle")}</h1>
+          <p className="lede">{t("intentLede")}</p>
 
           <div className="relay-starter-grid">
-            {STARTERS.map((item) => (
+            {starters.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -171,7 +180,7 @@ export default function RegisterPage() {
             disabled={loading || !intent}
             type="submit"
           >
-            {loading ? "Создаём…" : "Открыть пространство"}
+            {loading ? t("intentSubmitting") : t("intentSubmit")}
           </button>
         </form>
       )}

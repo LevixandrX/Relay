@@ -28,6 +28,12 @@ OAuth callback sets the session cookie, then redirects: web → `/app`, desktop 
 (the app picks the token up via `/auth/desktop/claim` with the claimSecret). Handshake rows live in `auth_pairings` for 10 minutes.
 JWT is never placed in URLs or deep links.
 
+## Locale (web UI)
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/locale` | `{ locale: "ru" \| "en" }` → sets cookie `relay-locale` (1 year). No auth required. Without cookie, UI locale follows `Accept-Language` (`ru*` → ru, else en). |
+
 ## Workspaces
 
 | Method | Path |

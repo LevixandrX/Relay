@@ -25,7 +25,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tauri-plugin-snap-layout": "^1.0.9",
-    "tldraw": "^5.2.5"
+    "tldraw": "^5.2.5",
+    "use-intl": "^4.13.6"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.5.0",

@@ -8,6 +8,8 @@ import { InfiniteBoard, type BoardSnapshot } from "@/components/InfiniteBoard";
 import type { Doc } from "@/domain/blocks/schema";
 import { BrandLockup } from "@/components/BrandMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useTranslations } from "next-intl";
 
 type PageMeta = {
   id: string;
@@ -67,6 +69,8 @@ export function WorkspaceApp({
   checklist: initialChecklist,
   defaultMode = "board",
 }: Props) {
+  const t = useTranslations("app");
+  const tc = useTranslations("common");
   const router = useRouter();
   const canWrite = role === "owner" || role === "editor";
   const isWorkspaceBoard = !pageId;
@@ -105,11 +109,9 @@ export function WorkspaceApp({
     if (localStorage.getItem(key) === "1") return;
     setCoach({
       show: true,
-      text: isWorkspaceBoard
-        ? "Колёсико — масштаб, пробел+тяни — панорама. Инструменты — слева на холсте."
-        : "Переключай «Холст / Текст» сверху. В тексте клавиша / открывает блоки.",
+      text: isWorkspaceBoard ? t("coachBoard") : t("coachPage"),
     });
-  }, [isWorkspaceBoard, pageId]);
+  }, [isWorkspaceBoard, pageId, t]);
 
   function dismissCoach() {
     if (!coach) return;
@@ -241,7 +243,7 @@ export function WorkspaceApp({
     const res = await fetch(`/api/v1/workspaces/${workspaceId}/pages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Новая страница" }),
+      body: JSON.stringify({ title: t("newPageTitle") }),
     });
     const data = await res.json();
     if (!res.ok) return;
@@ -327,7 +329,7 @@ export function WorkspaceApp({
     });
     const data = await res.json();
     if (!res.ok) {
-      setInviteMsg(data.message ?? "Не удалось пригласить");
+      setInviteMsg(data.message ?? t("inviteFailed"));
       return;
     }
     setInviteMsg(`Приглашение создано. Токен (пока без почты): ${data.acceptToken}`);
@@ -343,19 +345,23 @@ export function WorkspaceApp({
 
   function labelAction(action: string) {
     const map: Record<string, string> = {
-      "page.create": "создал(а) страницу",
-      "page.update": "изменил(а) страницу",
-      "page.publish": "опубликовал(а) страницу",
-      "page.prompt": "запустил(а) Live Prompt",
-      "member.invite": "пригласил(а) участника",
-      "workspace.create": "создал(а) пространство",
-      "board.update": "рисовал(а) на холсте",
+      "page.create": t("actionPageCreate"),
+      "page.update": t("actionPageUpdate"),
+      "page.publish": t("actionPagePublish"),
+      "page.prompt": t("actionPagePrompt"),
+      "member.invite": t("actionMemberInvite"),
+      "workspace.create": t("actionWorkspaceCreate"),
+      "board.update": t("actionBoardUpdate"),
     };
     return map[action] ?? action;
   }
 
   const saveLabel =
-    saveState === "saving" ? "Сохраняем…" : saveState === "error" ? "Ошибка сохранения" : "Сохранено";
+    saveState === "saving"
+      ? tc("saving")
+      : saveState === "error"
+        ? tc("saveError")
+        : tc("save");
 
   return (
     <div className="relay-shell">
@@ -366,13 +372,14 @@ export function WorkspaceApp({
             <div className="relay-ws-name">{workspaceName}</div>
           </div>
           <div className="relay-sidebar-actions">
+            <LanguageToggle variant="sidebar" />
             <ThemeToggle variant="sidebar" />
             <button
               type="button"
               className="relay-icon-btn"
               onClick={() => setCompassOpen(true)}
-              title="Поиск (⌘K)"
-              aria-label="Поиск"
+              title={t("searchTitle")}
+              aria-label={tc("search")}
             >
               ⌕
             </button>
@@ -381,8 +388,8 @@ export function WorkspaceApp({
                 type="button"
                 className="relay-icon-btn"
                 onClick={() => setMenuOpen((v) => !v)}
-                aria-label="Меню"
-                title="Ещё"
+                aria-label={tc("menu")}
+                title={tc("more")}
               >
                 ···
               </button>
@@ -397,7 +404,7 @@ export function WorkspaceApp({
                       );
                     }}
                   >
-                    Выйти
+                    {tc("logout")}
                   </button>
                 </div>
               )}
@@ -411,26 +418,26 @@ export function WorkspaceApp({
           data-active={isWorkspaceBoard}
         >
           <span className="icon">∞</span>
-          <span className="relay-ellipsis">Бесконечный холст</span>
+          <span className="relay-ellipsis">{t("infiniteBoard")}</span>
         </Link>
 
         <div className="relay-nav-row">
-          <div className="relay-nav-label">Страницы</div>
+          <div className="relay-nav-label">{t("pages")}</div>
           {canWrite && (
             <button
               type="button"
               className="relay-link-btn"
               onClick={() => void createPage()}
-              title="Новая страница"
+              title={t("newPageTitle")}
             >
-              + страница
+              + {t("newPage")}
             </button>
           )}
         </div>
 
         <div className="relay-page-list">
           {pages.length === 0 && (
-            <div className="relay-empty-side">Пока пусто — оставайся на холсте или создай страницу.</div>
+            <div className="relay-empty-side">{t("emptyPages")}</div>
           )}
           {pages.map((p) => (
             <Link
@@ -438,22 +445,22 @@ export function WorkspaceApp({
               href={`/w/${workspaceId}/p/${p.id}`}
               className="relay-page-link"
               data-active={p.id === pageId}
-              title={p.title || "Без названия"}
+              title={p.title || tc("untitled")}
             >
               <span className="icon">{p.icon ?? "◇"}</span>
-              <span className="relay-ellipsis">{p.title || "Без названия"}</span>
+              <span className="relay-ellipsis">{p.title || tc("untitled")}</span>
             </Link>
           ))}
         </div>
 
         <div className="relay-pulse">
-          <div className="relay-nav-label">Пульс</div>
+          <div className="relay-nav-label">{t("pulse")}</div>
           {pulse.length === 0 && (
-            <div className="relay-pulse-item">Тишина — правки появятся здесь.</div>
+            <div className="relay-pulse-item">{t("pulseEmpty")}</div>
           )}
           {pulse.slice(0, 4).map((ev) => (
             <div key={ev.id} className="relay-pulse-item">
-              <strong>{ev.actorName ?? "Кто-то"}</strong> {labelAction(ev.action)}
+              <strong>{ev.actorName ?? tc("someone")}</strong> {labelAction(ev.action)}
             </div>
           ))}
         </div>
@@ -461,26 +468,26 @@ export function WorkspaceApp({
         {checklist && !checklist.dismissed && (
           <div className="relay-checklist">
             <div className="relay-checklist-head">
-              <h3>Первые шаги</h3>
+              <h3>{t("firstSteps")}</h3>
               <button
                 type="button"
                 className="relay-link-btn"
                 onClick={() => void markChecklist("dismissed")}
               >
-                Скрыть
+                {t("hide")}
               </button>
             </div>
             <div className="relay-check-item" data-done={checklist.editedPage}>
               <span>{checklist.editedPage ? "✓" : "1"}</span>
-              <span>Нарисуй или напиши</span>
+              <span>{t("stepDraw")}</span>
             </div>
             <div className="relay-check-item" data-done={checklist.usedSlashOrPrompt}>
               <span>{checklist.usedSlashOrPrompt ? "✓" : "2"}</span>
-              <span>Нажми / или Live Prompt</span>
+              <span>{t("stepSlash")}</span>
             </div>
             <div className="relay-check-item" data-done={checklist.openedShare}>
               <span>{checklist.openedShare ? "✓" : "3"}</span>
-              <span>Открой «Поделиться»</span>
+              <span>{t("stepShare")}</span>
             </div>
           </div>
         )}
@@ -490,7 +497,7 @@ export function WorkspaceApp({
         <div className="relay-topbar">
           <div className="relay-topbar-left">
             {!isWorkspaceBoard && (
-              <div className="relay-mode-switch" role="tablist" aria-label="Режим">
+              <div className="relay-mode-switch" role="tablist" aria-label={t("mode")}>
                 <button
                   type="button"
                   role="tab"
@@ -498,7 +505,7 @@ export function WorkspaceApp({
                   data-active={mode === "board"}
                   onClick={() => setMode("board")}
                 >
-                  Холст
+                  {t("board")}
                 </button>
                 <button
                   type="button"
@@ -507,18 +514,19 @@ export function WorkspaceApp({
                   data-active={mode === "text"}
                   onClick={() => setMode("text")}
                 >
-                  Текст
+                  {t("text")}
                 </button>
               </div>
             )}
             {isWorkspaceBoard && (
               <div className="relay-context-title">
-                Бесконечный холст · <span>{workspaceName}</span>
+                {t("boardContext")} · <span>{workspaceName}</span>
               </div>
             )}
             <span className="relay-save">{saveLabel}</span>
           </div>
           <div className="relay-topbar-actions">
+            <LanguageToggle variant="toolbar" />
             <ThemeToggle variant="toolbar" />
             {pageId && (
               <button
@@ -529,7 +537,7 @@ export function WorkspaceApp({
                   void markChecklist("openedShare");
                 }}
               >
-                Поделиться
+                {t("share")}
               </button>
             )}
           </div>
@@ -539,7 +547,7 @@ export function WorkspaceApp({
           <div className="relay-coach">
             <span>{coach.text}</span>
             <button type="button" className="relay-link-btn" onClick={dismissCoach}>
-              Понятно
+              {t("gotIt")}
             </button>
           </div>
         )}
@@ -562,7 +570,7 @@ export function WorkspaceApp({
             <input
               className="relay-title"
               value={title}
-              placeholder="Название страницы"
+              placeholder={t("pageTitlePlaceholder")}
               disabled={!canWrite}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -580,12 +588,10 @@ export function WorkspaceApp({
       {shareOpen && (
         <div className="relay-modal-backdrop" onClick={() => setShareOpen(false)}>
           <div className="relay-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Поделиться</h2>
-            <p className="relay-modal-lede">
-              Публичная ссылка — только чтение. Или пригласи коллегу в пространство.
-            </p>
+            <h2>{t("shareTitle")}</h2>
+            <p className="relay-modal-lede">{t("shareLede")}</p>
             <button type="button" className="relay-btn relay-btn-accent" onClick={() => void togglePublish()}>
-              {publicId ? "Снять с публикации" : "Опубликовать ссылку"}
+              {publicId ? t("unpublish") : t("publish")}
             </button>
             {publicUrl && (
               <input
@@ -598,16 +604,16 @@ export function WorkspaceApp({
             )}
             {role === "owner" && (
               <div style={{ marginTop: 16 }}>
-                <div className="relay-nav-label">Пригласить</div>
+                <div className="relay-nav-label">{t("invite")}</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input
                     className="relay-input"
-                    placeholder="коллега@компания.ru"
+                    placeholder={t("invitePlaceholder")}
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                   />
                   <button type="button" className="relay-btn" onClick={() => void sendInvite()}>
-                    Ок
+                    {t("ok")}
                   </button>
                 </div>
                 {inviteMsg && <p className="relay-muted">{inviteMsg}</p>}
@@ -615,7 +621,7 @@ export function WorkspaceApp({
             )}
             <div style={{ marginTop: 16, textAlign: "right" }}>
               <button type="button" className="relay-btn" onClick={() => setShareOpen(false)}>
-                Закрыть
+                {t("close")}
               </button>
             </div>
           </div>
@@ -625,11 +631,11 @@ export function WorkspaceApp({
       {compassOpen && (
         <div className="relay-modal-backdrop" onClick={() => setCompassOpen(false)}>
           <div className="relay-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Компас</h2>
+            <h2>{t("compass")}</h2>
             <input
               className="relay-input"
               autoFocus
-              placeholder="Найти страницу…"
+              placeholder={t("searchPlaceholder")}
               value={compassQ}
               onChange={(e) => setCompassQ(e.target.value)}
             />
@@ -642,10 +648,10 @@ export function WorkspaceApp({
                   router.push(`/w/${workspaceId}/board`);
                 }}
               >
-                ∞ Открыть бесконечный холст
+                ∞ {t("openBoard")}
               </button>
               <button type="button" className="relay-page-link" onClick={() => void createPage()}>
-                + Новая страница
+                + {t("newPageTitle")}
               </button>
               {searchResults.map((r) => (
                 <button

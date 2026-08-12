@@ -1,26 +1,34 @@
 import { ACCENTS, type AccentId } from "../theme/tokens";
 import { useTheme } from "../theme/ThemeProvider";
+import { LanguageToggle } from "./LanguageToggle";
+import { useTranslations } from "use-intl";
 
 export function ThemeView() {
   const theme = useTheme();
+  const t = useTranslations("desktop");
 
   return (
     <>
       <div className="toprow">
         <div className="page-title">
-          <h1>Тема оформления</h1>
+          <h1>{t("themeTitle")}</h1>
         </div>
       </div>
 
       <section className="card theme-panel">
         <div>
-          <h2 style={{ margin: "0 0 0.55rem" }}>Режим</h2>
+          <h2 style={{ margin: "0 0 0.55rem" }}>{t("languageHint")}</h2>
+          <LanguageToggle />
+        </div>
+
+        <div>
+          <h2 style={{ margin: "0 0 0.55rem" }}>{t("themeMode")}</h2>
           <div className="segment">
             {(
               [
-                ["dark", "Тёмная"],
-                ["light", "Светлая"],
-                ["system", "Системная"],
+                ["dark", t("themeDark")],
+                ["light", t("themeLight")],
+                ["system", t("themeSystem")],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -36,37 +44,60 @@ export function ThemeView() {
         </div>
 
         <div>
-          <h2 style={{ margin: "0 0 0.55rem" }}>Акцент</h2>
+          <h2 style={{ margin: "0 0 0.55rem" }}>{t("themeAccent")}</h2>
           <div className="swatches">
-            {(Object.keys(ACCENTS) as Exclude<AccentId, "custom">[]).map((id) => (
-              <button
-                key={id}
-                type="button"
-                className="swatch"
-                title={ACCENTS[id].label}
-                data-active={theme.accent === id}
-                style={{ background: ACCENTS[id].hex }}
-                onClick={() => theme.setAccent(id)}
-              />
-            ))}
+            {(Object.keys(ACCENTS) as Exclude<AccentId, "custom">[]).map((id) => {
+              const label = t(
+                (
+                  {
+                    cobalt: "accentCobalt",
+                    mint: "accentMint",
+                    rose: "accentRose",
+                    amber: "accentAmber",
+                    violet: "accentViolet",
+                  } as const
+                )[id],
+              );
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="swatch"
+                  title={label}
+                  data-active={theme.accent === id}
+                  style={{ background: ACCENTS[id].hex }}
+                  onClick={() => theme.setAccent(id)}
+                />
+              );
+            })}
           </div>
           <p className="muted" style={{ marginTop: 8 }}>
             {theme.accent === "custom"
-              ? "Свой цвет"
-              : ACCENTS[theme.accent as Exclude<AccentId, "custom">].label}
+              ? t("themeCustomColor")
+              : t(
+                  (
+                    {
+                      cobalt: "accentCobalt",
+                      mint: "accentMint",
+                      rose: "accentRose",
+                      amber: "accentAmber",
+                      violet: "accentViolet",
+                    } as const
+                  )[theme.accent],
+                )}
           </p>
         </div>
 
         <div>
-          <h2 style={{ margin: "0 0 0.55rem" }}>Своя тема</h2>
+          <h2 style={{ margin: "0 0 0.55rem" }}>{t("themeCustom")}</h2>
           <div className="custom-row">
             <input
               type="color"
               value={theme.customAccent}
               onChange={(e) => theme.setCustomAccent(e.target.value)}
-              aria-label="Свой акцентный цвет"
+              aria-label={t("themeCustomColor")}
             />
-            <span className="muted">Выбери любой акцент — свечение подстроится автоматически</span>
+            <span className="muted">{t("themeCustomHint")}</span>
           </div>
         </div>
       </section>

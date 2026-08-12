@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { PasswordField } from "@/components/PasswordField";
 import { OAuthButtons, oauthErrorText } from "@/components/OAuthButtons";
 import { BrandLockup } from "@/components/BrandMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 export default function LoginPage() {
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,10 +24,10 @@ export default function LoginPage() {
     const url = new URL(window.location.href);
     const code = url.searchParams.get("error");
     if (!code) return;
-    setProviderError(oauthErrorText(code));
+    setProviderError(oauthErrorText(code, t));
     url.searchParams.delete("error");
     window.history.replaceState({}, "", url.pathname + url.search);
-  }, []);
+  }, [t]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +41,7 @@ export default function LoginPage() {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(data.message ?? "Не удалось войти");
+      setError(data.message ?? t("loginFailed"));
       return;
     }
     router.push("/app");
@@ -45,14 +49,17 @@ export default function LoginPage() {
 
   return (
     <div className="relay-auth">
-      <ThemeToggle variant="floating" />
+      <div className="relay-auth-floating-actions">
+        <LanguageToggle variant="floating" />
+        <ThemeToggle variant="floating" />
+      </div>
       <form className="relay-auth-card" onSubmit={onSubmit}>
         <BrandLockup href="/" />
-        <h1>С возвращением</h1>
-        <p className="lede">Продолжи там, где остановился — холст или страница.</p>
+        <h1>{t("loginTitle")}</h1>
+        <p className="lede">{t("loginLede")}</p>
         {providerError && <p className="relay-error">{providerError}</p>}
         <div className="relay-field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">{tc("email")}</label>
           <input
             id="email"
             type="email"
@@ -65,7 +72,7 @@ export default function LoginPage() {
         </div>
         <PasswordField
           id="password"
-          label="Пароль"
+          label={tc("password")}
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
@@ -73,11 +80,11 @@ export default function LoginPage() {
         />
         {error && <p className="relay-error">{error}</p>}
         <button className="relay-btn relay-btn-accent" style={{ width: "100%" }} disabled={loading}>
-          {loading ? "Входим…" : "Войти"}
+          {loading ? t("loginSubmitting") : t("loginSubmit")}
         </button>
         <OAuthButtons />
         <p style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-          Новый здесь? <Link href="/register">Создать аккаунт</Link>
+          {t("newHere")} <Link href="/register">{t("createAccount")}</Link>
         </p>
       </form>
     </div>

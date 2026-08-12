@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 import { InfiniteBoard } from "../board/InfiniteBoard";
 import { useWorkspace } from "../lib/workspace";
 import type { BoardSnapshot } from "../lib/types";
 
 export function BoardView() {
+  const t = useTranslations("desktop");
+  const ta = useTranslations("app");
   const { workspaceBoard, setWorkspaceBoard, mode, offline } = useWorkspace();
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
 
@@ -16,20 +19,20 @@ export function BoardView() {
     <div className="workspace-fill">
       <div className="toprow workspace-bar">
         <div className="page-title">
-          <h1>Бесконечный холст</h1>
+          <h1>{ta("infiniteBoard")}</h1>
           <span className="badge">
             <span className="dot" />
             {offline
-              ? "Офлайн"
+              ? t("statusOffline")
               : saveState === "saving"
-                ? "Сохранение…"
+                ? t("statusSaving")
                 : mode === "cloud"
-                  ? "Облако"
-                  : "Локально"}
+                  ? t("statusCloud")
+                  : t("statusLocal")}
           </span>
         </div>
         <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-          Колёсико — масштаб · пробел + тяни — панорама
+          {t("boardHint")}
         </p>
       </div>
       <div className="board-wrap">

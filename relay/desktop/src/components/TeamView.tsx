@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { ApiClientError } from "../lib/api";
 
 export function TeamView() {
+  const t = useTranslations("desktop");
+  const tc = useTranslations("common");
+  const ta = useTranslations("app");
   const auth = useAuth();
   const ws = useWorkspace();
   const [email, setEmail] = useState("");
@@ -13,10 +17,8 @@ export function TeamView() {
   if (ws.mode === "guest") {
     return (
       <section className="card">
-        <h2 style={{ marginTop: 0 }}>Команда</h2>
-        <p className="muted">
-          Войди в аккаунт, чтобы приглашать коллег в пространство и видеть участников.
-        </p>
+        <h2 style={{ marginTop: 0 }}>{t("teamTitle")}</h2>
+        <p className="muted">{t("teamGuestLede")}</p>
       </section>
     );
   }
@@ -25,21 +27,23 @@ export function TeamView() {
     <>
       <div className="toprow">
         <div className="page-title">
-          <h1>Команда</h1>
+          <h1>{t("teamTitle")}</h1>
           {auth.subscription && (
             <span className="badge">
-              {auth.subscription.isPro ? "Pro" : "Free"} · до{" "}
-              {auth.subscription.limits.membersPerWorkspace} уч.
+              {t("membersLimit", {
+                plan: auth.subscription.isPro ? t("planProShort") : t("planFreeShort"),
+                limit: auth.subscription.limits.membersPerWorkspace,
+              })}
             </span>
           )}
         </div>
         <button type="button" className="btn" onClick={() => void ws.refreshMembers()}>
-          Обновить
+          {tc("refresh")}
         </button>
       </div>
 
       <section className="card">
-        <h2 style={{ marginTop: 0 }}>Участники</h2>
+        <h2 style={{ marginTop: 0 }}>{t("members")}</h2>
         <div className="page-list">
           {ws.members.map((m) => (
             <div key={m.id} className="page-row">
@@ -51,13 +55,13 @@ export function TeamView() {
               </div>
             </div>
           ))}
-          {ws.members.length === 0 && <p className="muted">Пока только ты.</p>}
+          {ws.members.length === 0 && <p className="muted">{t("membersEmpty")}</p>}
         </div>
       </section>
 
       {ws.activeRole === "owner" && (
         <section className="card">
-          <h2 style={{ marginTop: 0 }}>Пригласить</h2>
+          <h2 style={{ marginTop: 0 }}>{t("invite")}</h2>
           <form
             className="auth-form"
             onSubmit={(e) => {
@@ -66,17 +70,21 @@ export function TeamView() {
               void ws
                 .inviteMember(email, role)
                 .then((r) => {
-                  setMsg(r.acceptToken ? `Ссылка: /invite/${r.acceptToken}` : "Готово");
+                  setMsg(
+                    r.acceptToken
+                      ? t("inviteLink", { token: r.acceptToken })
+                      : tc("done"),
+                  );
                   setEmail("");
                   void ws.refreshMembers();
                 })
                 .catch((err) => {
-                  setMsg(err instanceof ApiClientError ? err.message : "Ошибка");
+                  setMsg(err instanceof ApiClientError ? err.message : tc("error"));
                 });
             }}
           >
             <label className="field">
-              <span>Email</span>
+              <span>{tc("email")}</span>
               <input
                 type="email"
                 required
@@ -85,17 +93,17 @@ export function TeamView() {
               />
             </label>
             <label className="field">
-              <span>Роль</span>
+              <span>{t("role")}</span>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as "editor" | "viewer")}
               >
-                <option value="editor">Редактор</option>
-                <option value="viewer">Наблюдатель</option>
+                <option value="editor">{t("roleEditor")}</option>
+                <option value="viewer">{t("roleViewer")}</option>
               </select>
             </label>
             <button type="submit" className="btn btn-accent">
-              Пригласить
+              {ta("invite")}
             </button>
             {msg && <p className="muted">{msg}</p>}
           </form>

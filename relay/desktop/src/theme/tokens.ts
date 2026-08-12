@@ -10,13 +10,13 @@ export type ThemeState = {
 
 export const ACCENTS: Record<
   Exclude<AccentId, "custom">,
-  { label: string; hex: string; glow: string }
+  { hex: string; glow: string }
 > = {
-  cobalt: { label: "Кобальт", hex: "#3b82f6", glow: "rgba(59, 130, 246, 0.35)" },
-  mint: { label: "Мята", hex: "#2dd4bf", glow: "rgba(45, 212, 191, 0.32)" },
-  rose: { label: "Роза", hex: "#fb7185", glow: "rgba(251, 113, 133, 0.32)" },
-  amber: { label: "Янтарь", hex: "#f59e0b", glow: "rgba(245, 158, 11, 0.32)" },
-  violet: { label: "Фиолет", hex: "#a78bfa", glow: "rgba(167, 139, 250, 0.32)" },
+  cobalt: { hex: "#3b82f6", glow: "rgba(59, 130, 246, 0.35)" },
+  mint: { hex: "#2dd4bf", glow: "rgba(45, 212, 191, 0.32)" },
+  rose: { hex: "#fb7185", glow: "rgba(251, 113, 133, 0.32)" },
+  amber: { hex: "#f59e0b", glow: "rgba(245, 158, 11, 0.32)" },
+  violet: { hex: "#a78bfa", glow: "rgba(167, 139, 250, 0.32)" },
 };
 
 export const DEFAULT_THEME: ThemeState = {

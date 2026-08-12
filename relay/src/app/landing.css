@@ -353,7 +353,7 @@
 }
 
 .ld-soon {
-  margin: 0.85rem 0 0 !important;
+  margin: 0.85rem 0 0;
   font-size: 0.78rem;
   font-weight: 750;
   letter-spacing: 0.1em;
@@ -644,6 +644,13 @@
   white-space: nowrap;
   letter-spacing: 0;
   word-spacing: 0.12em;
+}
+
+/* EN copy column on desktop only — never shrink mobile CTAs via vw */
+@media (min-width: 901px) {
+  html[lang="en"] .ld-shell-field .ld-copy-on-field {
+    max-width: min(30rem, 44vw);
+  }
 }
 
 .ld-copy h1 {
@@ -1862,15 +1869,37 @@
     max-width: min(100%, 26rem);
     order: 0;
     flex: 0 0 auto;
-    text-align: center;
-    margin-inline: auto;
+    text-align: left;
+    margin-inline: 0;
+    align-self: stretch;
     position: relative;
     z-index: 2;
     padding-block: 0.35rem;
   }
 
+  .ld-shell-hero-m .ld-copy-on-field {
+    text-align: center;
+    margin-inline: auto;
+    max-width: min(100%, 26rem);
+    width: 100%;
+  }
+
+  .ld-shell-hero-m .ld-lede {
+    max-width: 34ch;
+    margin-inline: auto;
+    text-align: center;
+    text-wrap: balance;
+  }
+
   .ld-shell-hero-m .ld-cta {
     justify-content: center;
+    width: 100%;
+  }
+
+  .ld-shell-hero-m .ld-cta .ld-btn,
+  .ld-shell-hero-m .ld-cta .ld-btn-soft {
+    width: 100%;
+    max-width: none;
   }
 
   .ld-shell-field .ld-copy-on-field::before {
@@ -1970,6 +1999,10 @@
 
   .ld-copy h1 {
     font-size: clamp(2rem, 8.5vw, 2.55rem);
+  }
+
+  .ld-h1-line {
+    white-space: normal;
   }
 
   .ld-nav-actions .ld-nav-login {
@@ -2161,15 +2194,26 @@
   #text .ld-shell {
     gap: 0.85rem;
     align-content: start;
+    justify-items: stretch;
+  }
+
+  #text .ld-copy {
+    text-align: left;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+    margin-inline: 0;
   }
 
   #text .ld-copy h2 {
     font-size: clamp(1.45rem, 6vw, 1.85rem);
+    text-align: left;
   }
 
   #text .ld-copy > p {
     font-size: 0.95rem;
     max-width: none;
+    text-align: left;
   }
 
   #text .ld-panel-doc {
@@ -2291,12 +2335,19 @@
   #ai .ld-copy > p,
   #ai .ld-soon {
     text-align: center;
-    margin-inline: auto;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   #ai .ld-copy .ld-eyebrow {
     display: block;
     width: fit-content;
+  }
+
+  #ai .ld-soon {
+    display: block;
+    width: fit-content;
+    margin-top: 0.85rem;
   }
 
   #ai .ld-copy > p {
@@ -2413,6 +2464,57 @@
 
   .ld-close h2 {
     font-size: clamp(2rem, 9vw, 2.8rem);
+  }
+}
+
+/* EN hero mobile: keep CTA readable; don't let decor crush the copy column */
+@media (max-width: 600px) {
+  .ld-shell-hero-m .ld-cta .ld-btn,
+  .ld-shell-hero-m .ld-cta .ld-btn-soft {
+    white-space: nowrap;
+    font-size: 0.98rem;
+    padding-inline: 1.15rem;
+    width: 100%;
+  }
+
+  .ld-shell-hero-m .ld-lede {
+    max-width: 32ch;
+    text-wrap: balance;
+  }
+
+  html[lang="en"] .ld-mdecor {
+    min-height: 6.5rem;
+    max-height: 30vh;
+  }
+
+  html[lang="en"] .ld-mh-d {
+    bottom: 14%;
+    left: 2%;
+  }
+
+  html[lang="en"] .ld-mh-e {
+    top: 36%;
+    left: 6%;
+  }
+
+  html[lang="en"] .ld-mh-c {
+    top: 6%;
+    right: 2%;
+  }
+
+  html[lang="en"] .ld-mh-f {
+    bottom: 20%;
+    right: 4%;
+  }
+
+  html[lang="en"] .ld-ms-box {
+    top: 8%;
+    left: 4%;
+  }
+
+  html[lang="en"] .ld-ms-rect-hero {
+    bottom: 28%;
+    left: 48%;
   }
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "use-intl";
 import { BlockEditor } from "../editor/BlockEditor";
 import { InfiniteBoard } from "../board/InfiniteBoard";
 import { useWorkspace } from "../lib/workspace";
@@ -13,6 +14,9 @@ export function PageView({
   pageId: string;
   onBack: () => void;
 }) {
+  const t = useTranslations("desktop");
+  const tc = useTranslations("common");
+  const ta = useTranslations("app");
   const { loadPage, updatePage, offline } = useWorkspace();
   const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
@@ -50,9 +54,9 @@ export function PageView({
   if (missing) {
     return (
       <section className="card">
-        <p className="muted">Страница не найдена.</p>
+        <p className="muted">{t("pageNotFound")}</p>
         <button type="button" className="btn" onClick={onBack}>
-          К списку
+          {t("backToList")}
         </button>
       </section>
     );
@@ -61,7 +65,7 @@ export function PageView({
   if (saveState === "loading") {
     return (
       <section className="card">
-        <p className="muted">Загрузка…</p>
+        <p className="muted">{tc("loading")}</p>
       </section>
     );
   }
@@ -71,7 +75,7 @@ export function PageView({
     setSaveState("saving");
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = setTimeout(() => {
-      void updatePage(pageId, { title: next.trim() || "Без названия" })
+      void updatePage(pageId, { title: next.trim() || tc("untitled") })
         .then(() => setSaveState("saved"))
         .catch(() => setSaveState("error"));
     }, 400);
@@ -107,18 +111,18 @@ export function PageView({
             className="title-input"
             value={title}
             onChange={(e) => scheduleTitle(e.target.value)}
-            placeholder="Название"
-            aria-label="Название страницы"
+            placeholder={t("titlePlaceholder")}
+            aria-label={t("titleAria")}
           />
           <span className="badge">
             <span className="dot" />
             {offline
-              ? "Офлайн"
+              ? t("statusOffline")
               : saveState === "saving"
-                ? "Сохранение…"
+                ? t("statusSaving")
                 : saveState === "error"
-                  ? "Ошибка"
-                  : "Сохранено"}
+                  ? t("statusError")
+                  : tc("save")}
           </span>
         </div>
         <div className="tabs">
@@ -128,7 +132,7 @@ export function PageView({
             data-active={mode === "text"}
             onClick={() => setMode("text")}
           >
-            Текст
+            {ta("text")}
           </button>
           <button
             type="button"
@@ -136,7 +140,7 @@ export function PageView({
             data-active={mode === "board"}
             onClick={() => setMode("board")}
           >
-            Холст
+            {ta("board")}
           </button>
         </div>
       </div>

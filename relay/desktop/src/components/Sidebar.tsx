@@ -1,21 +1,9 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 import type { ViewId } from "../App";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { ApiClientError } from "../lib/api";
-
-function navItems(loggedIn: boolean): { id: ViewId; label: string; hint: string }[] {
-  return [
-    { id: "home", label: "Старт", hint: "Что делать дальше" },
-    { id: "board", label: "Холст", hint: "Доска пространства" },
-    { id: "pages", label: "Страницы", hint: "Текст и заметки" },
-    { id: "team", label: "Команда", hint: "Участники" },
-    { id: "theme", label: "Тема", hint: "Светлая / тёмная" },
-    loggedIn
-      ? { id: "auth", label: "Аккаунт", hint: "Профиль и выход" }
-      : { id: "auth", label: "Вход", hint: "Войти или регистрация" },
-  ];
-}
 
 export function Sidebar({
   view,
@@ -24,21 +12,40 @@ export function Sidebar({
   view: ViewId;
   onNavigate: (id: ViewId) => void;
 }) {
+  const t = useTranslations("desktop");
+  const tc = useTranslations("common");
+  const ta = useTranslations("app");
   const auth = useAuth();
   const ws = useWorkspace();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
-  const items = navItems(!!auth.user);
+
+  const items: { id: ViewId; label: string; hint: string }[] = [
+    { id: "home", label: t("navHome"), hint: t("navHomeHint") },
+    { id: "board", label: t("navBoard"), hint: t("navBoardHint") },
+    { id: "pages", label: t("navPages"), hint: t("navPagesHint") },
+    { id: "team", label: t("navTeam"), hint: t("navTeamHint") },
+    { id: "theme", label: t("navTheme"), hint: t("navThemeHint") },
+    { id: "auth", label: t("navAuth"), hint: t("navAuthHint") },
+  ];
+
+  function planLabel() {
+    if (!auth.subscription) return null;
+    if (auth.subscription.isPro) {
+      return auth.subscription.status === "trialing" ? t("planProTrial") : t("planProShort");
+    }
+    return t("planFreeShort");
+  }
 
   return (
     <aside className="sidebar">
-      <div className="nav-label">Меню</div>
+      <div className="nav-label">{tc("menu")}</div>
       {ws.mode === "cloud" && auth.workspaces.length > 0 && (
         <select
           className="ws-select"
           value={ws.activeWorkspaceId ?? ""}
           onChange={(e) => ws.setActiveWorkspace(e.target.value)}
-          aria-label="Пространство"
+          aria-label={t("workspaceAria")}
         >
           {auth.workspaces.map((w) => (
             <option key={w.id} value={w.id}>
@@ -73,29 +80,25 @@ export function Sidebar({
           </div>
           {auth.subscription && (
             <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
-              {auth.subscription.isPro
-                ? auth.subscription.status === "trialing"
-                  ? "Pro · пробный период"
-                  : "Pro"
-                : "Free"}
+              {planLabel()}
             </div>
           )}
           <button type="button" className="btn" style={{ marginTop: 8, width: "100%" }} onClick={() => void auth.logout()}>
-            Выйти
+            {tc("logout")}
           </button>
         </div>
       ) : (
         <p className="footer-note">
-          Гость · до {ws.guestLimit} стр.{" "}
+          {t("guestFooter", { limit: ws.guestLimit })}{" "}
           <button type="button" className="linkish" onClick={() => onNavigate("auth")}>
-            Войти
+            {tc("login")}
           </button>
         </p>
       )}
 
       {view === "team" && ws.mode === "cloud" && (
         <div className="team-mini">
-          <div className="nav-label">Участники</div>
+          <div className="nav-label">{t("members")}</div>
           {ws.members.map((m) => (
             <div key={m.id} className="muted" style={{ fontSize: "0.78rem", padding: "0.2rem 0.45rem" }}>
               {m.name} · {m.role}
@@ -110,12 +113,14 @@ export function Sidebar({
                 void ws
                   .inviteMember(inviteEmail, "editor")
                   .then((r) => {
-                    setInviteMsg(r.acceptToken ? `Токен: ${r.acceptToken}` : "Отправлено");
+                    setInviteMsg(
+                      r.acceptToken ? t("inviteToken", { token: r.acceptToken }) : t("inviteSent"),
+                    );
                     setInviteEmail("");
                     void ws.refreshMembers();
                   })
                   .catch((err) => {
-                    setInviteMsg(err instanceof ApiClientError ? err.message : "Ошибка");
+                    setInviteMsg(err instanceof ApiClientError ? err.message : tc("error"));
                   });
               }}
             >
@@ -128,7 +133,7 @@ export function Sidebar({
                 style={{ width: "100%" }}
               />
               <button type="submit" className="btn btn-accent">
-                Пригласить
+                {ta("invite")}
               </button>
               {inviteMsg && <p className="muted" style={{ fontSize: "0.72rem", margin: 0 }}>{inviteMsg}</p>}
             </form>

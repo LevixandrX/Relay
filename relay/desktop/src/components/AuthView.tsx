@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 import { useAuth } from "../lib/auth";
 import { ApiClientError, type OAuthProvider } from "../lib/api";
 import { GithubMark, GoogleMark, Spinner, YandexMark } from "./ProviderMarks";
@@ -16,6 +17,9 @@ const PROVIDERS: {
 ];
 
 export function AuthView({ onDone }: { onDone: () => void }) {
+  const t = useTranslations("desktop");
+  const tc = useTranslations("common");
+  const ta = useTranslations("auth");
   const auth = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -36,7 +40,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
       else await auth.register({ email, password, name: name || email.split("@")[0] });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Не удалось войти");
+      setError(err instanceof ApiClientError ? err.message : ta("loginFailed"));
     } finally {
       setBusy(false);
     }
@@ -50,9 +54,17 @@ export function AuthView({ onDone }: { onDone: () => void }) {
       setError(
         err instanceof ApiClientError || err instanceof Error
           ? err.message
-          : "Не удалось войти через провайдера",
+          : t("oauthFailed"),
       );
     }
+  }
+
+  function planLabel() {
+    if (!auth.subscription) return null;
+    if (auth.subscription.isPro) {
+      return auth.subscription.status === "trialing" ? t("planProTrial") : t("planPro");
+    }
+    return t("planFree");
   }
 
   if (loggedIn) {
@@ -60,23 +72,15 @@ export function AuthView({ onDone }: { onDone: () => void }) {
       <div className="auth-shell">
         <section className="auth-panel">
           <div className="auth-panel-head">
-            <h1>Аккаунт</h1>
-            <p className="muted">Облако подключено — можно выйти или сменить пространство слева.</p>
+            <h1>{t("accountTitle")}</h1>
+            <p className="muted">{t("accountConnected")}</p>
           </div>
           <div className="auth-account">
             <strong>{auth.user!.name}</strong>
             <span className="muted">{auth.user!.email}</span>
-            {auth.subscription && (
-              <span className="auth-plan">
-                {auth.subscription.isPro
-                  ? auth.subscription.status === "trialing"
-                    ? "Pro · пробный период"
-                    : "План Pro"
-                  : "План Free"}
-              </span>
-            )}
+            {auth.subscription && <span className="auth-plan">{planLabel()}</span>}
             <button type="button" className="btn btn-accent" onClick={() => void auth.logout()}>
-              Выйти
+              {tc("logout")}
             </button>
           </div>
         </section>
@@ -88,13 +92,11 @@ export function AuthView({ onDone }: { onDone: () => void }) {
     <div className="auth-shell">
       <section className="auth-panel">
         <div className="auth-panel-head">
-          <h1>Облако Relay</h1>
-          <p className="muted">
-            Sync, команда и 14 дней Pro. Без входа всё остаётся локально на этом ПК.
-          </p>
+          <h1>{t("cloudTitle")}</h1>
+          <p className="muted">{t("cloudLede")}</p>
         </div>
 
-        <div className="auth-switch" role="tablist" aria-label="Вход или регистрация">
+        <div className="auth-switch" role="tablist" aria-label={t("modeSwitchAria")}>
           <button
             type="button"
             role="tab"
@@ -105,7 +107,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
               setError(null);
             }}
           >
-            Вход
+            {t("tabLogin")}
           </button>
           <button
             type="button"
@@ -117,7 +119,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
               setError(null);
             }}
           >
-            Регистрация
+            {t("tabRegister")}
           </button>
         </div>
 
@@ -139,8 +141,8 @@ export function AuthView({ onDone }: { onDone: () => void }) {
                 <span className="oauth-label">
                   {active
                     ? flow?.stage === "opening"
-                      ? "Открываем…"
-                      : "Ждём…"
+                      ? t("oauthOpening")
+                      : t("oauthWaiting")
                     : label}
                 </span>
               </button>
@@ -150,35 +152,33 @@ export function AuthView({ onDone }: { onDone: () => void }) {
 
         {flow?.stage === "waiting" && (
           <div className="oauth-hint">
-            <p className="muted">
-              Заверши вход в браузере — приложение подхватит сессию само. Окно не закрывай.
-            </p>
+            <p className="muted">{t("oauthBrowserHint")}</p>
             <div className="oauth-hint-actions">
               {flow.url && (
                 <button type="button" className="btn btn-xs" onClick={() => void openExternal(flow.url!)}>
-                  Открыть ссылку снова
+                  {t("oauthOpenAgain")}
                 </button>
               )}
               <button type="button" className="btn btn-xs" onClick={auth.cancelOAuth}>
-                Отменить
+                {tc("cancel")}
               </button>
             </div>
           </div>
         )}
 
         <div className="auth-divider">
-          <span>или по email</span>
+          <span>{t("orByEmail")}</span>
         </div>
 
         <form onSubmit={(e) => void submit(e)} className="auth-form">
           {mode === "register" && (
             <label className="field">
-              <span>Имя</span>
+              <span>{tc("name")}</span>
               <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </label>
           )}
           <label className="field">
-            <span>Email</span>
+            <span>{tc("email")}</span>
             <input
               type="email"
               required
@@ -188,7 +188,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
             />
           </label>
           <label className="field">
-            <span>Пароль</span>
+            <span>{tc("password")}</span>
             <input
               type="password"
               required
@@ -199,7 +199,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
             />
           </label>
           <button type="submit" className="btn btn-accent auth-submit" disabled={busy || !!flow}>
-            {busy ? "…" : mode === "login" ? "Войти" : "Создать аккаунт"}
+            {busy ? "…" : mode === "login" ? tc("login") : tc("register")}
           </button>
         </form>
 

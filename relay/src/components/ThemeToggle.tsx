@@ -2,10 +2,11 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 type Props = {
-  variant?: "toolbar" | "sidebar" | "floating" | "landing";
+  variant?: "toolbar" | "sidebar" | "floating" | "landing" | "inline";
 };
 
 function systemTheme(): "light" | "dark" {
@@ -14,6 +15,8 @@ function systemTheme(): "light" | "dark" {
 }
 
 export function ThemeToggle({ variant = "toolbar" }: Props) {
+  const t = useTranslations("theme");
+  const tc = useTranslations("common");
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -21,8 +24,7 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
 
   const resolved = resolvedTheme === "dark" ? "dark" : "light";
   const Icon = resolved === "dark" ? Moon : Sun;
-  const nextLabel =
-    resolved === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему";
+  const nextLabel = resolved === "dark" ? t("switchToLight") : t("switchToDark");
 
   const btnClass =
     variant === "sidebar"
@@ -55,7 +57,7 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
       <button
         type="button"
         className={btnClass}
-        aria-label="Тема"
+        aria-label={tc("theme")}
         disabled
         aria-hidden
       />
@@ -64,7 +66,7 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
 
   const outerClass =
     variant === "floating"
-      ? "relay-theme-floating"
+      ? ""
       : variant === "sidebar"
         ? "relay-theme-sidebar-only"
         : variant === "toolbar"
@@ -80,8 +82,8 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
       onClick={toggleTheme}
     >
       <Icon size={variant === "sidebar" ? 16 : 18} strokeWidth={2} aria-hidden />
-      {variant !== "sidebar" && variant !== "landing" && (
-        <span className="relay-theme-btn-label">Тема</span>
+      {(variant === "toolbar" || variant === "inline") && (
+        <span className="relay-theme-btn-label">{tc("theme")}</span>
       )}
     </button>
   );

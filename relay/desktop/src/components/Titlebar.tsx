@@ -1,5 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
+import { useTranslations } from "use-intl";
+import { LanguageToggle } from "./LanguageToggle";
 
 async function safeWindowAction(action: "minimize" | "toggleMaximize" | "close") {
   try {
@@ -58,6 +60,7 @@ function CaptionGlyph({ kind }: { kind: "min" | "max" | "restore" | "close" }) {
 }
 
 export function Titlebar() {
+  const t = useTranslations("desktop");
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -93,11 +96,14 @@ export function Titlebar() {
         Relay
       </div>
       <div className="titlebar-actions">
+        <div className="titlebar-locale" data-tauri-drag-region="false">
+          <LanguageToggle />
+        </div>
         <button
           type="button"
           className="win-btn"
-          aria-label="Свернуть"
-          title="Свернуть"
+          aria-label={t("winMinimize")}
+          title={t("winMinimize")}
           onClick={() => void safeWindowAction("minimize")}
         >
           <CaptionGlyph kind="min" />
@@ -106,8 +112,8 @@ export function Titlebar() {
           type="button"
           id="relay-snap-btn"
           className="win-btn win-btn-max"
-          aria-label={maximized ? "Восстановить" : "Развернуть"}
-          title={maximized ? "Восстановить" : "Развернуть"}
+          aria-label={maximized ? t("winRestore") : t("winMaximize")}
+          title={maximized ? t("winRestore") : t("winMaximize")}
           onClick={() => void safeWindowAction("toggleMaximize")}
         >
           <CaptionGlyph kind={maximized ? "restore" : "max"} />
@@ -115,8 +121,8 @@ export function Titlebar() {
         <button
           type="button"
           className="win-btn win-btn-close"
-          aria-label="Закрыть"
-          title="Закрыть"
+          aria-label={t("winClose")}
+          title={t("winClose")}
           onClick={() => void safeWindowAction("close")}
         >
           <CaptionGlyph kind="close" />

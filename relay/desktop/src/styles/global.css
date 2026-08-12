@@ -94,7 +94,7 @@ button {
 
 .titlebar-mark {
   display: block;
-  border-radius: 3px;
+  border-radius: 22%;
   flex: none;
 }
 
@@ -103,6 +103,112 @@ button {
   height: 100%;
   margin-left: auto;
   -webkit-app-region: no-drag;
+  align-items: stretch;
+}
+
+.titlebar-locale {
+  display: flex;
+  align-items: center;
+  padding: 0 0.45rem 0 0.25rem;
+}
+
+.locale-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag;
+}
+
+.locale-cycle {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  padding: 0.32rem 0.4rem;
+  line-height: 1.15;
+  cursor: pointer;
+  border-radius: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.locale-cycle:hover {
+  color: var(--text);
+  background: color-mix(in oklab, var(--text) 8%, transparent);
+}
+
+.locale-menu-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.locale-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  min-width: 196px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  z-index: 30;
+}
+
+.locale-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.locale-menu button:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--text) 8%, transparent);
+}
+
+.locale-menu button[data-active="true"] {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.locale-menu button:disabled,
+.locale-menu button.is-preview {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.locale-menu-code {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.locale-menu-sep {
+  height: 1px;
+  margin: 0.15rem 0.35rem;
+  background: var(--line);
+}
+
+.locale-menu-soon {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .win-btn {

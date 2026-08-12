@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 import { Titlebar } from "./components/Titlebar";
 import { Sidebar } from "./components/Sidebar";
 import { HomeView } from "./components/HomeView";
@@ -26,6 +27,8 @@ export function App() {
   const [route, setRoute] = useState<Route>({ kind: "home" });
   const { createPage } = useWorkspace();
   const auth = useAuth();
+  const t = useTranslations("desktop");
+  const ta = useTranslations("app");
 
   const navView: ViewId =
     route.kind === "page" ? "pages" : route.kind === "home" ? "home" : route.kind;
@@ -38,10 +41,10 @@ export function App() {
 
   async function createAndOpen() {
     try {
-      const page = await createPage("Новая страница");
+      const page = await createPage(ta("newPageTitle"));
       openPage(page.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Не удалось создать");
+      alert(err instanceof Error ? err.message : t("createFailed"));
       setRoute({ kind: "auth" });
     }
   }
@@ -64,7 +67,7 @@ export function App() {
         <main className="main" data-fill={fill} data-auth={route.kind === "auth" || undefined}>
           {auth.loading && (
             <section className="card">
-              <p className="muted">Синхронизация аккаунта…</p>
+              <p className="muted">{t("syncAccount")}</p>
             </section>
           )}
           {!auth.loading && route.kind === "home" && (

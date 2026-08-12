@@ -581,7 +581,10 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
-  padding: 0.3rem;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   z-index: 20;
 }
 
@@ -598,13 +601,35 @@ kbd {
   color: inherit;
 }
 
-.relay-menu button:hover {
+.relay-menu button:hover:not(:disabled) {
   background: var(--hover);
 }
 
 .relay-menu button[data-active="true"] {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.relay-menu button:disabled,
+.relay-menu button.is-preview {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.relay-menu-sep {
+  height: 1px;
+  margin: 0.15rem 0.35rem;
+  background: var(--line);
+}
+
+.relay-menu-soon {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.9;
 }
 
 .relay-ws-name {
@@ -1129,6 +1154,21 @@ kbd {
   z-index: 40;
 }
 
+.relay-auth-floating-actions {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.relay-auth-floating-actions .relay-theme-floating,
+.relay-auth-floating-actions .relay-theme-floating-btn {
+  position: static;
+}
+
 .relay-theme-floating-btn {
   display: inline-flex;
   align-items: center;
@@ -1137,13 +1177,19 @@ kbd {
 }
 
 .relay-theme-menu {
-  min-width: 168px;
+  min-width: 196px;
 }
 
 .relay-theme-menu button {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+.relay-locale-code {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 @media (max-width: 860px) {

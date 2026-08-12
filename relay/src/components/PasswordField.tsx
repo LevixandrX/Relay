@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 type Props = {
   id: string;
@@ -21,6 +22,7 @@ export function PasswordField({
   minLength,
   required,
 }: Props) {
+  const t = useTranslations("auth");
   const [show, setShow] = useState(false);
 
   return (
@@ -41,9 +43,9 @@ export function PasswordField({
           type="button"
           className="relay-password-toggle"
           onClick={() => setShow((v) => !v)}
-          aria-label={show ? "Скрыть пароль" : "Показать пароль"}
+          aria-label={show ? t("hidePasswordAria") : t("showPasswordAria")}
         >
-          {show ? "Скрыть" : "Показать"}
+          {show ? t("hidePassword") : t("showPassword")}
         </button>
       </div>
     </div>

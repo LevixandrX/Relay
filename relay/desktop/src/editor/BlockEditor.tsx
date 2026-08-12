@@ -4,66 +4,9 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "use-intl";
 import type { Doc } from "../lib/types";
-
-const SLASH_ITEMS: {
-  id: string;
-  label: string;
-  hint: string;
-  keywords: string;
-  run: (editor: Editor) => void;
-}[] = [
-  {
-    id: "text",
-    label: "Текст",
-    hint: "Обычный абзац",
-    keywords: "paragraph текст",
-    run: (e) => e.chain().focus().setParagraph().run(),
-  },
-  {
-    id: "h1",
-    label: "Заголовок 1",
-    hint: "Крупный раздел",
-    keywords: "heading h1 заголовок",
-    run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run(),
-  },
-  {
-    id: "h2",
-    label: "Заголовок 2",
-    hint: "Подраздел",
-    keywords: "heading h2",
-    run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(),
-  },
-  {
-    id: "todo",
-    label: "Чеклист",
-    hint: "Задачи",
-    keywords: "todo task чеклист",
-    run: (e) => e.chain().focus().toggleTaskList().run(),
-  },
-  {
-    id: "bullet",
-    label: "Список",
-    hint: "Маркированный",
-    keywords: "bullet list список",
-    run: (e) => e.chain().focus().toggleBulletList().run(),
-  },
-  {
-    id: "code",
-    label: "Код",
-    hint: "Фрагмент кода",
-    keywords: "code код",
-    run: (e) => e.chain().focus().toggleCodeBlock().run(),
-  },
-  {
-    id: "quote",
-    label: "Цитата",
-    hint: "Выделить мысль",
-    keywords: "quote цитата",
-    run: (e) => e.chain().focus().toggleBlockquote().run(),
-  },
-];
 
 type Props = {
   content: Doc;
@@ -72,10 +15,67 @@ type Props = {
 };
 
 export function BlockEditor({ content, editable = true, onChange }: Props) {
+  const t = useTranslations("desktop");
   const [slash, setSlash] = useState<{ top: number; left: number; query: string } | null>(
     null,
   );
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  const slashItems = useMemo(
+    () =>
+      [
+        {
+          id: "text",
+          label: t("slashText"),
+          hint: t("slashTextHint"),
+          keywords: "paragraph текст text",
+          run: (e: Editor) => e.chain().focus().setParagraph().run(),
+        },
+        {
+          id: "h1",
+          label: t("slashH1"),
+          hint: t("slashH1Hint"),
+          keywords: "heading h1 заголовок",
+          run: (e: Editor) => e.chain().focus().toggleHeading({ level: 1 }).run(),
+        },
+        {
+          id: "h2",
+          label: t("slashH2"),
+          hint: t("slashH2Hint"),
+          keywords: "heading h2",
+          run: (e: Editor) => e.chain().focus().toggleHeading({ level: 2 }).run(),
+        },
+        {
+          id: "todo",
+          label: t("slashTodo"),
+          hint: t("slashTodoHint"),
+          keywords: "todo task чеклист checklist",
+          run: (e: Editor) => e.chain().focus().toggleTaskList().run(),
+        },
+        {
+          id: "bullet",
+          label: t("slashBullet"),
+          hint: t("slashBulletHint"),
+          keywords: "bullet list список",
+          run: (e: Editor) => e.chain().focus().toggleBulletList().run(),
+        },
+        {
+          id: "code",
+          label: t("slashCode"),
+          hint: t("slashCodeHint"),
+          keywords: "code код",
+          run: (e: Editor) => e.chain().focus().toggleCodeBlock().run(),
+        },
+        {
+          id: "quote",
+          label: t("slashQuote"),
+          hint: t("slashQuoteHint"),
+          keywords: "quote цитата",
+          run: (e: Editor) => e.chain().focus().toggleBlockquote().run(),
+        },
+      ] as const,
+    [t],
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -84,8 +84,8 @@ export function BlockEditor({ content, editable = true, onChange }: Props) {
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({
         placeholder: ({ node }) => {
-          if (node.type.name === "heading") return "Заголовок";
-          return "Пиши или нажми «/» для блоков…";
+          if (node.type.name === "heading") return t("editorPhHeading");
+          return t("editorPhBody");
         },
       }),
       TaskList,
@@ -129,7 +129,7 @@ export function BlockEditor({ content, editable = true, onChange }: Props) {
   if (!editor) return <div className="relay-editor-skeleton" />;
 
   const filtered = slash
-    ? SLASH_ITEMS.filter((i) =>
+    ? slashItems.filter((i) =>
         `${i.label} ${i.keywords}`.toLowerCase().includes(slash.query.toLowerCase()),
       )
     : [];

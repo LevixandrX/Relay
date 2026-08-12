@@ -17,7 +17,9 @@
 - **Гость** (десктоп без аккаунта) — локально и с лимитами
 - **Облако** после входа — sync через API, trial Pro 14 дней
 
-Интерфейс MVP — **русский**.
+Интерфейс MVP — **русский** + **английский** (`next-intl` / `use-intl`). Без URL-префиксов локали на MVP, чтобы не ломать OAuth/deep links.
+
+**Язык по умолчанию:** если явного выбора ещё нет (cookie `relay-locale` / desktop `localStorage`), берём предпочтения системы: любой `ru*` → русский, иначе → английский (`Accept-Language` на web, `navigator.languages` на desktop). Ручной переключатель сохраняет явный выбор.
 
 ---
 
@@ -91,7 +93,7 @@
 
 - Веб-приложение (логин, workspace, board, editor)
 - Десктоп Tauri (темы, titlebar, cloud/guest)
-- Ярлык запуска: рабочий стол `Relay.vbs` / `Relay.bat`
+- Ярлык запуска: один `Relay.lnk` на рабочем столе (`scripts/install-desktop-shortcut.ps1`)
 
 ### Безопасность (база)
 

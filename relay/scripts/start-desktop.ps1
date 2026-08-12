@@ -1,8 +1,13 @@
-﻿# Launches Relay API (if needed) + desktop window.
-# Release embeds UI (stale until rebuild). -Dev uses Vite :1420 with live UI.
+﻿# Launches Relay desktop with LIVE UI via `tauri:dev` (Vite :1420 + cargo).
+#
+# Do not open a prebuilt exe for daily use — it embeds frontendDist (frozen UI).
+# Do not pass --no-dev-server: that flag is unrelated to Vite and breaks:dev.
+#
+# -Rebuild / -Release: optional frozen release builds only.
 param(
   [switch]$Dev,
-  [switch]$Rebuild
+  [switch]$Rebuild,
+  [switch]$Release
 )
 $ErrorActionPreference = "Stop"
 $relayRoot = Split-Path $PSScriptRoot -Parent
@@ -34,12 +39,28 @@ function Wait-HttpReady([string]$Url, [int]$TimeoutSec, [string]$Label) {
   throw "$Label did not become ready ($Url)."
 }
 
-function Start-NpmDev([string]$WorkDir, [string]$Title) {
-  $npm = Get-NpmCmd
-  Start-Process -FilePath "cmd.exe" `
-    -ArgumentList "/c", "title $Title && `"$npm`" run dev" `
-    -WorkingDirectory $WorkDir `
-    -WindowStyle Minimized
+function Stop-ListenersOnPort([int]$Port) {
+  $pids = @()
+  try {
+    $pids = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty OwningProcess -Unique
+  } catch {
+    # fallback below
+  }
+  if (-not $pids) {
+    $lines = netstat -ano | Select-String ":$Port\s+.*LISTENING"
+    foreach ($line in $lines) {
+      $parts = ($line.ToString() -split '\s+') | Where-Object { $_ }
+      if ($parts.Count -ge 5) { $pids += [int]$parts[-1] }
+    }
+    $pids = $pids | Select-Object -Unique
+  }
+  foreach ($procId in $pids) {
+    if ($procId -and $procId -ne 0) {
+      Write-Host "Stopping PID $procId on :$Port"
+      Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+    }
+  }
 }
 
 function Ensure-Api {
@@ -48,20 +69,13 @@ function Ensure-Api {
     return
   }
   Write-Host "Starting API (Next.js :3000)..."
-  Start-NpmDev -WorkDir $relayRoot -Title "Relay API"
+  $npm = Get-NpmCmd
+  Start-Process -FilePath "cmd.exe" `
+    -ArgumentList "/c", "title Relay API && `"$npm`" run dev" `
+    -WorkingDirectory $relayRoot `
+    -WindowStyle Minimized
   Wait-HttpReady "http://127.0.0.1:3000/" 90 "API"
   Write-Host "API ready"
-}
-
-function Ensure-Vite {
-  if (Test-HttpReady "http://127.0.0.1:1420/") {
-    Write-Host "Vite already on :1420"
-    return
-  }
-  Write-Host "Starting Vite (:1420)..."
-  Start-NpmDev -WorkDir $desktopRoot -Title "Relay Vite"
-  Wait-HttpReady "http://127.0.0.1:1420/" 90 "Vite"
-  Write-Host "Vite ready"
 }
 
 function Stop-RelayDesktop {
@@ -73,7 +87,6 @@ $releaseExe = @(
   (Join-Path $desktopRoot "src-tauri\target\release\relay_desktop.exe"),
   (Join-Path $desktopRoot "src-tauri\target\release\Relay.exe")
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-$debugExe = Join-Path $desktopRoot "src-tauri\target\debug\relay_desktop.exe"
 
 if ($Rebuild) {
   Write-Host "Rebuilding release desktop (may take a few minutes)..."
@@ -96,38 +109,28 @@ if ($Rebuild) {
   return
 }
 
-if ($Dev -or $env:RELAY_DESKTOP_DEV -eq "1") {
-  Write-Host "Dev mode: API + Vite + debug exe (live UI)"
+if ($Release) {
+  if (-not $releaseExe) { throw "No release build. Run with -Rebuild first." }
   Ensure-Api
-  Ensure-Vite
-  Stop-RelayDesktop
-  if (-not (Test-Path $debugExe)) {
-    Write-Host "No debug exe - first tauri:dev..."
-    Set-Location $desktopRoot
-    & $npm run tauri:dev
-    return
-  }
-  Write-Host "Opening: $debugExe"
-  Start-Process -FilePath $debugExe
-  return
-}
-
-if ($releaseExe) {
-  Ensure-Api
-  Write-Host "Opening release: $releaseExe"
-  Write-Host "Note: release UI is frozen until rebuild. After design changes use Relay-dev.bat or Relay-rebuild.bat"
+  Write-Host "Opening frozen release: $releaseExe"
+  Write-Host "UI updates need the default live shortcut (tauri:dev)."
   Start-Process -FilePath $releaseExe
   return
 }
 
-Write-Host "No release build - using dev mode (Vite :1420 + debug exe)."
+# Default: one tauri:dev owns Vite (:1420). Free the port first so beforeDevCommand can bind.
+Write-Host "Relay launch: API + tauri:dev (Vite live UI)"
 Ensure-Api
-Ensure-Vite
-if (-not (Test-Path $debugExe)) {
-  Write-Host "No debug exe - first tauri:dev..."
-  Set-Location $desktopRoot
+Stop-RelayDesktop
+Write-Host "Freeing :1420 for tauri:dev Vite..."
+Stop-ListenersOnPort 1420
+Start-Sleep -Milliseconds 400
+
+Push-Location $desktopRoot
+try {
+  Write-Host "Starting tauri:dev (starts Vite itself on :1420)..."
   & $npm run tauri:dev
-  return
+  if ($LASTEXITCODE -ne 0) { throw "tauri:dev failed with code $LASTEXITCODE" }
+} finally {
+  Pop-Location
 }
-Write-Host "Opening: $debugExe"
-Start-Process -FilePath $debugExe

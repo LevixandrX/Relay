@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -8,4 +11,4 @@ const nextConfig: NextConfig = {
   transpilePackages: ["tldraw", "@tldraw/editor", "@tldraw/store", "@tldraw/tlschema"],
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

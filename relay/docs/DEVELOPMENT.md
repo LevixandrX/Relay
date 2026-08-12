@@ -20,23 +20,26 @@ npm run db:migrate
 npm run dev          # сайт http://localhost:3000 (сам освобождает порт)
 ```
 
-**Десктоп с рабочего стола**
+**Десктоп — один ярлык**
 
-| Ярлык | Когда |
-|---|---|
-| `Relay.bat` / `.vbs` | Обычный запуск (release, UI «заморожен» до rebuild) |
-| `Relay-dev.bat` | Свежий UI сразу (API + Vite + окно) |
-| `Relay-rebuild.bat` | Пересобрать release после правок дизайна, потом открыть |
+На рабочем столе должен быть только **Relay.lnk**. Он поднимает API + Vite + **	auri:dev** (окно на :1420, правки UI видны сразу).
+
+Заранее собранный 
+elay_desktop.exe (debug/release) **вшивает** UI и **не** подхватывает Vite — поэтому ярлык его больше не открывает.
+
+`ash
+powershell -File scripts/install-desktop-shortcut.ps1
+`
+
+Опционально вшить UI в release-exe: powershell -File scripts/start-desktop.ps1 -Rebuild
 
 Или из терминала:
 
-```bash
+`ash
 cd relay
 npm run dev                              # сайт
-npm run desktop:start -- -Dev            # десктоп с живым UI
-# после правок UI, чтобы обновить ярлык Relay.bat:
-powershell -File scripts/start-desktop.ps1 -Rebuild
-```
+powershell -File scripts/start-desktop.ps1   # десктоп (live)
+`
 
 Открывай http://localhost:3000
 

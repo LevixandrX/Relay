@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { BrandLockup } from "@/components/BrandMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
 import "@/app/landing.css";
 
 function useInView(idleAfterMs = 4000) {
@@ -90,10 +92,11 @@ type FieldPhase = "hero" | "expand";
 
 /** Dense SVG scene for hero→canvas morph (desktop only) */
 function SharedFieldScene({ phase, armed }: { phase: FieldPhase; armed: boolean }) {
+  const t = useTranslations("scene");
   return (
     <div className={`ld-scene-frame${armed ? " is-armed" : ""}`} data-phase={phase} aria-hidden>
       <svg className="ld-scene ld-scene-desktop" data-phase={phase} viewBox="0 0 640 520">
-        {/* hero: to команда/схема/запуск/метрики/заметка/прототип/AI — not sticky */}
+        {/* hero: to team/diagram/launch/metrics/note/prototype/AI — not sticky */}
         <g className="ld-scene-links ld-scene-links-hero">
           <path className="ld-sl ld-sl1" d="M225.9 229.8 L250.4 145.6" />
           <path className="ld-sl ld-sl2" d="M241.6 229.8 L363.3 115.6" />
@@ -135,93 +138,93 @@ function SharedFieldScene({ phase, armed }: { phase: FieldPhase; armed: boolean 
         <g className="ld-sn ld-sn-core">
           <rect x="-48" y="-22" width="96" height="44" rx="22" />
           <text className="ld-sn-label-hero" y="1">
-            идея
+            {t("idea")}
           </text>
           <text className="ld-sn-label-expand" y="1">
-            мысль
+            {t("thought")}
           </text>
         </g>
 
         <g className="ld-sn ld-sn-hero" transform="translate(255 130)">
           <rect x="-46" y="-17" width="92" height="34" rx="17" />
-          <text y="1">команда</text>
+          <text y="1">{t("team")}</text>
         </g>
         <g className="ld-sn ld-sn-hero" transform="translate(380 100)">
           <rect x="-48" y="-17" width="96" height="34" rx="17" />
-          <text y="1">схема</text>
+          <text y="1">{t("diagram")}</text>
         </g>
         <g className="ld-sn ld-sn-hero" transform="translate(525 88)">
           <rect x="-44" y="-15" width="88" height="30" rx="15" />
-          <text y="1">запуск</text>
+          <text y="1">{t("launch")}</text>
         </g>
         <g className="ld-sn ld-sn-hero" transform="translate(555 195)">
           <rect x="-50" y="-18" width="100" height="36" rx="18" />
-          <text y="1">метрики</text>
+          <text y="1">{t("metrics")}</text>
         </g>
         <g className="ld-sn ld-sn-hero" transform="translate(435 305)">
           <rect x="-52" y="-17" width="104" height="34" rx="17" />
-          <text y="1">заметка</text>
+          <text y="1">{t("note")}</text>
         </g>
         <g className="ld-sn ld-sn-hero" transform="translate(310 415)">
           <rect x="-54" y="-15" width="108" height="30" rx="15" />
-          <text y="1">прототип</text>
+          <text y="1">{t("prototype")}</text>
         </g>
         <g className="ld-sn ld-sn-hero ld-sn-ai" transform="translate(155 355)">
           <rect x="-30" y="-15" width="60" height="30" rx="15" />
-          <text y="1">AI</text>
+          <text y="1">{t("ai")}</text>
         </g>
         <g className="ld-sn ld-sn-sticky ld-sn-hero" transform="translate(535 355) rotate(-3)">
           <rect x="-58" y="-20" width="116" height="40" rx="6" />
-          <text y="1">сделать демо</text>
+          <text y="1">{t("makeDemo")}</text>
         </g>
 
         <g className="ld-sn ld-sn-expand" transform="translate(318 92)">
           <rect x="-42" y="-17" width="84" height="34" rx="17" />
-          <text y="1">бриф</text>
+          <text y="1">{t("brief")}</text>
         </g>
         <g className="ld-sn ld-sn-expand" transform="translate(175 140)">
           <rect x="-68" y="-17" width="136" height="34" rx="17" />
-          <text y="1">исследование</text>
+          <text y="1">{t("research")}</text>
         </g>
         <g className="ld-sn ld-sn-expand" transform="translate(498 118)">
           <rect x="-52" y="-17" width="104" height="34" rx="17" />
-          <text y="1">прототип</text>
+          <text y="1">{t("prototype")}</text>
         </g>
         <g className="ld-sn ld-sn-expand" transform="translate(545 268)">
           <rect x="-48" y="-18" width="96" height="36" rx="18" />
-          <text y="1">запуск</text>
+          <text y="1">{t("launch")}</text>
         </g>
         <g className="ld-sn ld-sn-expand" transform="translate(170 390)">
           <rect x="-50" y="-15" width="100" height="30" rx="15" />
-          <text y="1">метрики</text>
+          <text y="1">{t("metrics")}</text>
         </g>
         <g className="ld-sn ld-sn-expand" transform="translate(318 448)">
           <rect x="-44" y="-15" width="88" height="30" rx="15" />
-          <text y="1">риски</text>
+          <text y="1">{t("risks")}</text>
         </g>
         <g className="ld-sn ld-sn-expand ld-sn-outer" transform="translate(95 78)">
           <rect x="-32" y="-13" width="64" height="26" rx="13" />
-          <text y="1">опрос</text>
+          <text y="1">{t("poll")}</text>
         </g>
         <g className="ld-sn ld-sn-expand ld-sn-outer" transform="translate(575 62)">
           <rect x="-30" y="-13" width="60" height="26" rx="13" />
-          <text y="1">демо</text>
+          <text y="1">{t("demo")}</text>
         </g>
         <g className="ld-sn ld-sn-expand ld-sn-outer" transform="translate(575 418)">
           <rect x="-32" y="-13" width="64" height="26" rx="13" />
-          <text y="1">релиз</text>
+          <text y="1">{t("release")}</text>
         </g>
         <g className="ld-sn ld-sn-expand ld-sn-outer" transform="translate(115 475)">
           <rect x="-40" y="-13" width="80" height="26" rx="13" />
-          <text y="1">ретеншн</text>
+          <text y="1">{t("retention")}</text>
         </g>
         <g className="ld-sn ld-sn-expand ld-sn-outer" transform="translate(485 475)">
           <rect x="-38" y="-13" width="76" height="26" rx="13" />
-          <text y="1">копия</text>
+          <text y="1">{t("copy")}</text>
         </g>
         <g className="ld-sn ld-sn-expand ld-sn-outer" transform="translate(95 250)">
           <rect x="-40" y="-13" width="80" height="26" rx="13" />
-          <text y="1">дизайн</text>
+          <text y="1">{t("design")}</text>
         </g>
       </svg>
     </div>
@@ -230,21 +233,22 @@ function SharedFieldScene({ phase, armed }: { phase: FieldPhase; armed: boolean 
 
 /** Mobile hero — top/bottom bands only, never over text */
 function MobileHeroDecor({ armed }: { armed: boolean }) {
+  const t = useTranslations("scene");
   return (
     <>
       <div className={`ld-mdecor ld-mdecor-top${armed ? " is-armed" : ""}`} aria-hidden>
-        <span className="ld-mchip ld-mh-a">схема</span>
-        <span className="ld-mchip ld-mh-b ld-mchip-ai">AI</span>
-        <span className="ld-mchip ld-mh-far">метрики</span>
-        <span className="ld-mchip ld-mh-sticky">сделать демо</span>
+        <span className="ld-mchip ld-mh-a">{t("diagram")}</span>
+        <span className="ld-mchip ld-mh-b ld-mchip-ai">{t("ai")}</span>
+        <span className="ld-mchip ld-mh-far">{t("metrics")}</span>
+        <span className="ld-mchip ld-mh-sticky">{t("makeDemo")}</span>
         <i className="ld-mshape ld-ms-tri" />
         <i className="ld-mshape ld-ms-oval ld-ms-oval-hero" />
       </div>
       <div className={`ld-mdecor ld-mdecor-bot${armed ? " is-armed" : ""}`} aria-hidden>
-        <span className="ld-mchip ld-mh-c">заметка</span>
-        <span className="ld-mchip ld-mh-d">прототип</span>
-        <span className="ld-mchip ld-mh-e">команда</span>
-        <span className="ld-mchip ld-mh-f ld-mchip-ai">идея</span>
+        <span className="ld-mchip ld-mh-c">{t("note")}</span>
+        <span className="ld-mchip ld-mh-d">{t("prototype")}</span>
+        <span className="ld-mchip ld-mh-e">{t("team")}</span>
+        <span className="ld-mchip ld-mh-f ld-mchip-ai">{t("idea")}</span>
         <i className="ld-mshape ld-ms-box" />
         <i className="ld-mshape ld-ms-rect ld-ms-rect-hero" />
       </div>
@@ -284,18 +288,19 @@ function MobPill({
 
 /** Mobile canvas — pure SVG; edge pills bleed past frame = no edges */
 function MobileCanvasVisual({ armed }: { armed: boolean }) {
+  const t = useTranslations("scene");
   const C = { x: 180, y: 200 };
   const nodes = {
-    research: { x: 78, y: 78, w: 108, h: 32, label: "исследован." },
-    proto: { x: 290, y: 70, w: 92, h: 32, label: "прототип" },
-    launch: { x: 330, y: 195, w: 84, h: 32, label: "запуск" },
-    metrics: { x: 58, y: 310, w: 92, h: 32, label: "метрики" },
-    risks: { x: 285, y: 318, w: 78, h: 32, label: "риски" },
-    demo: { x: 248, y: 18, w: 64, h: 28, label: "демо" },
-    release: { x: 155, y: 385, w: 72, h: 28, label: "релиз" },
+    research: { x: 78, y: 78, w: 108, h: 32, label: t("researchShort") },
+    proto: { x: 290, y: 70, w: 92, h: 32, label: t("prototype") },
+    launch: { x: 330, y: 195, w: 84, h: 32, label: t("launch") },
+    metrics: { x: 58, y: 310, w: 92, h: 32, label: t("metrics") },
+    risks: { x: 285, y: 318, w: 78, h: 32, label: t("risks") },
+    demo: { x: 248, y: 18, w: 64, h: 28, label: t("demo") },
+    release: { x: 155, y: 385, w: 72, h: 28, label: t("release") },
     // edge bleed — intentionally near/over viewBox bounds
-    poll: { x: 12, y: 160, w: 70, h: 28, label: "опрос" },
-    copy: { x: 348, y: 280, w: 70, h: 28, label: "копия" },
+    poll: { x: 12, y: 160, w: 70, h: 28, label: t("poll") },
+    copy: { x: 348, y: 280, w: 70, h: 28, label: t("copy") },
   } as const;
 
   const edge = (
@@ -358,7 +363,7 @@ function MobileCanvasVisual({ armed }: { armed: boolean }) {
         <path className="ld-mshape-svg" d="M160 48 L188 36 L178 68 Z" />
         <g className="ld-mvis-core-svg" transform={`translate(${C.x} ${C.y})`}>
           <rect x="-48" y="-22" width="96" height="44" rx="22" />
-          <text>мысль</text>
+          <text>{t("thought")}</text>
         </g>
         <MobPill x={nodes.research.x} y={nodes.research.y} w={nodes.research.w} h={nodes.research.h} label={nodes.research.label} />
         <MobPill x={nodes.proto.x} y={nodes.proto.y} w={nodes.proto.w} h={nodes.proto.h} label={nodes.proto.label} />
@@ -388,9 +393,12 @@ function FieldRun({ children, phase, armed }: { children: ReactNode; phase: Fiel
 }
 
 /** Text screen — slash-command insert demo */
-const SLASH_ITEMS = ["Текст", "Заголовок", "Цитата", "Код"] as const;
+const SLASH_KEYS = ["slashText", "slashHeading", "slashQuote", "slashCode"] as const;
+const AI_SCENE_COUNT = 6;
 
 function EditorDoc({ active }: { active: boolean }) {
+  const t = useTranslations("landing.demo");
+  const slashItems = SLASH_KEYS.map((k) => t(k));
   const [slash, setSlash] = useState("");
   const [menu, setMenu] = useState(false);
   const [hi, setHi] = useState(0);
@@ -430,7 +438,7 @@ function EditorDoc({ active }: { active: boolean }) {
         await wait(280);
         if (cancelled) return;
         setMenu(true);
-        for (let i = 0; i < SLASH_ITEMS.length; i++) {
+        for (let i = 0; i < SLASH_KEYS.length; i++) {
           if (cancelled) return;
           setHi(i);
           await wait(300);
@@ -453,34 +461,32 @@ function EditorDoc({ active }: { active: boolean }) {
 
   return (
     <div className={`ld-doc${baseIn ? " is-in" : ""}${inserted ? " is-inserted" : ""}`}>
-      <p className="ld-doc-meta">Страница · Бриф</p>
+      <p className="ld-doc-meta">{t("docMeta")}</p>
       <h3 className="ld-doc-title">
-        <span className="ld-type">Запуск v0.1</span>
+        <span className="ld-type">{t("docTitle")}</span>
         <i className="ld-caret" />
       </h3>
-      <p className="ld-doc-p ld-dp1">Онбординг гостя на десктопе</p>
-      <p className="ld-doc-p ld-dp2">Холст рядом со страницей — без смены контекста</p>
+      <p className="ld-doc-p ld-dp1">{t("docP1")}</p>
+      <p className="ld-doc-p ld-dp2">{t("docP2")}</p>
 
       <ul className="ld-doc-list">
         <li className="ld-dk1">
           <i />
-          Snap layouts в titlebar
+          {t("docListSnap")}
         </li>
         <li className="ld-dk2">
           <i />
-          Публичная ссылка
+          {t("docListPublic")}
         </li>
         <li className="ld-dk3">
           <i />
-          Sync в команду
+          {t("docListSync")}
         </li>
       </ul>
 
       <div className={`ld-doc-insert${inserted ? " is-on" : ""}`}>
-        <p className="ld-doc-insert-label">Цитата · из /</p>
-        <blockquote>
-          Сначала идея на холсте — потом текст рядом, без прыжков между вкладками.
-        </blockquote>
+        <p className="ld-doc-insert-label">{t("quoteLabel")}</p>
+        <blockquote>{t("quoteBody")}</blockquote>
       </div>
 
       <div className="ld-doc-compose">
@@ -492,16 +498,16 @@ function EditorDoc({ active }: { active: boolean }) {
             </>
           ) : (
             <>
-              <span className="ld-doc-ph-text">Начни писать или нажми </span>
+              <span className="ld-doc-ph-text">{t("phWrite")}</span>
               <kbd>/</kbd>
               <i className="ld-caret ld-caret-inline" />
             </>
           )}
         </p>
         <div className={`ld-slash${menu ? " is-open" : ""}`} aria-hidden>
-          <span className="ld-slash-h">Вставить блок</span>
-          {SLASH_ITEMS.map((item, i) => (
-            <button key={item} type="button" tabIndex={-1} className={hi === i ? "is-on" : ""}>
+          <span className="ld-slash-h">{t("slashInsert")}</span>
+          {slashItems.map((item, i) => (
+            <button key={SLASH_KEYS[i]} type="button" tabIndex={-1} className={hi === i ? "is-on" : ""}>
               {item}
             </button>
           ))}
@@ -511,42 +517,10 @@ function EditorDoc({ active }: { active: boolean }) {
   );
 }
 
-const CHAT_SCENES = [
-  {
-    id: "onboard",
-    user: "Собери схему онбординга из этого брифа",
-    bot: "Готово: 4 узла и связи. Могу уточнить шаги или дописать чеклист.",
-  },
-  {
-    id: "checklist",
-    user: "Добавь чеклист в заметку «Запуск»",
-    bot: "Вставил три пункта и связал их с узлами на холсте.",
-  },
-  {
-    id: "risk",
-    user: "Подсвети риски на схеме красным",
-    bot: "Отметил 2 узла. Могу предложить формулировки для заметок.",
-  },
-  {
-    id: "rename",
-    user: "Переименуй ветку «Исслед.» в «Discovery»",
-    bot: "Готово. Обновил подпись и связи на холсте.",
-  },
-  {
-    id: "share",
-    user: "Сделай публичную ссылку на страницу",
-    bot: "Ссылка готова. Права — только чтение, можно отозвать в один клик.",
-  },
-  {
-    id: "summary",
-    user: "Суммируй обсуждение команды за сегодня",
-    bot: "Три решения и один открытый вопрос. Закинул в бриф коротким блоком.",
-  },
-] as const;
-
 type ChatPhase = "compose" | "sent" | "reply" | "hold" | "fade";
 
 function AiChatReel({ active }: { active: boolean }) {
+  const t = useTranslations("landing.demo");
   const [scene, setScene] = useState(0);
   const [phase, setPhase] = useState<ChatPhase>("compose");
   const [inputText, setInputText] = useState("");
@@ -555,7 +529,9 @@ function AiChatReel({ active }: { active: boolean }) {
   const [showBot, setShowBot] = useState(false);
   const [fading, setFading] = useState(false);
 
-  const cur = CHAT_SCENES[scene]!;
+  const n = scene + 1;
+  const curUser = t(`ai${n}User` as "ai1User");
+  const curBot = t(`ai${n}Bot` as "ai1Bot");
 
   useEffect(() => {
     if (!active) return;
@@ -595,13 +571,13 @@ function AiChatReel({ active }: { active: boolean }) {
         setInputText("");
         await wait(280);
         if (cancelled) return;
-        await typeInto(cur.user, setInputText, 22);
+        await typeInto(curUser, setInputText, 22);
         if (cancelled) return;
         await wait(220);
         if (cancelled) return;
         setPhase("sent");
       } else if (phase === "sent") {
-        setUserMsg(cur.user);
+        setUserMsg(curUser);
         setInputText("");
         await wait(380);
         if (cancelled) return;
@@ -611,7 +587,7 @@ function AiChatReel({ active }: { active: boolean }) {
         setBotText("");
         await wait(160);
         if (cancelled) return;
-        await typeInto(cur.bot, setBotText, 14);
+        await typeInto(curBot, setBotText, 14);
         if (cancelled) return;
         setPhase("hold");
       } else if (phase === "hold") {
@@ -626,7 +602,7 @@ function AiChatReel({ active }: { active: boolean }) {
         setShowBot(false);
         setBotText("");
         setFading(false);
-        setScene((s) => (s + 1) % CHAT_SCENES.length);
+        setScene((s) => (s + 1) % AI_SCENE_COUNT);
         setPhase("compose");
       }
     })();
@@ -635,7 +611,7 @@ function AiChatReel({ active }: { active: boolean }) {
       cancelled = true;
       timers.forEach(clearTimeout);
     };
-  }, [active, phase, scene, cur.user, cur.bot]);
+  }, [active, phase, scene, curUser, curBot]);
 
   return (
     <div className="ld-chat" data-phase={phase}>
@@ -654,8 +630,8 @@ function AiChatReel({ active }: { active: boolean }) {
       <div className="ld-chat-compose">
         <div className="ld-chat-input">
           {inputText ? <span>{inputText}</span> : null}
-          {!inputText && phase === "compose" ? <em className="ld-chat-ph">Написать…</em> : null}
-          {!inputText && phase !== "compose" ? <em className="ld-chat-ph">Сообщение в Relay…</em> : null}
+          {!inputText && phase === "compose" ? <em className="ld-chat-ph">{t("chatPhWrite")}</em> : null}
+          {!inputText && phase !== "compose" ? <em className="ld-chat-ph">{t("chatPhMessage")}</em> : null}
           {phase === "compose" ? <i className="ld-chat-caret" /> : null}
         </div>
         <span className={`ld-chat-send${phase === "compose" && inputText ? " is-on" : ""}`} aria-hidden>
@@ -667,12 +643,13 @@ function AiChatReel({ active }: { active: boolean }) {
 }
 
 function SyncCards() {
+  const t = useTranslations("landing.demo");
   return (
     <div className="ld-sync">
       <div className="ld-sync-card ld-sync-local">
-        <span>Гость</span>
-        <strong>Локально</strong>
-        <p>Файл на этом ПК</p>
+        <span>{t("guest")}</span>
+        <strong>{t("local")}</strong>
+        <p>{t("localFile")}</p>
       </div>
       <div className="ld-sync-beam" aria-hidden>
         <i />
@@ -682,15 +659,16 @@ function SyncCards() {
         <i />
       </div>
       <div className="ld-sync-card ld-sync-cloud">
-        <span>Облако</span>
-        <strong>Команда</strong>
-        <p className="ld-sync-ok">в sync</p>
+        <span>{t("cloud")}</span>
+        <strong>{t("team")}</strong>
+        <p className="ld-sync-ok">{t("inSync")}</p>
       </div>
     </div>
   );
 }
 
 export function LandingInteractive() {
+  const t = useTranslations("landing");
   const ai = useInView(400);
   const canvasSec = useInView(4200);
   const heroSec = useInView(3600);
@@ -723,12 +701,13 @@ export function LandingInteractive() {
       <nav className="ld-nav">
         <BrandLockup size={28} />
         <div className="ld-nav-actions">
+          <LanguageToggle variant="landing" />
           <ThemeToggle variant="landing" />
           <Link href="/login" className="ld-nav-login">
-            Войти
+            {t("navLogin")}
           </Link>
           <Link href="/register" className="ld-nav-cta">
-            Начать
+            {t("navStart")}
           </Link>
         </div>
       </nav>
@@ -746,20 +725,18 @@ export function LandingInteractive() {
             <div className="ld-copy ld-copy-on-field">
               <p className="ld-kicker">Relay</p>
               <h1>
-                <span className="ld-h1-line">Думай руками.</span>
+                <span className="ld-h1-line">{t("heroLine1")}</span>
                 <span className="ld-h1-line">
-                  <em>Без краёв.</em>
+                  <em>{t("heroLine2")}</em>
                 </span>
               </h1>
-              <p className="ld-lede">
-                Холст, заметки и AI в одном пространстве — от первой идеи до схемы команды
-              </p>
+              <p className="ld-lede">{t("heroLede")}</p>
               <div className="ld-cta">
                 <Link href="/register" className="ld-btn">
-                  Создать пространство
+                  {t("ctaCreate")}
                 </Link>
                 <a href="#canvas" className="ld-btn-soft">
-                  Как это выглядит
+                  {t("ctaSee")}
                 </a>
               </div>
             </div>
@@ -775,9 +752,9 @@ export function LandingInteractive() {
         >
           <div className="ld-shell ld-shell-field">
             <div className="ld-copy ld-copy-on-field">
-              <p className="ld-eyebrow">Холст</p>
-              <h2>Поле растёт вместе с мыслью</h2>
-              <p>Рисуй фигуры и связи прямо в пространстве — без края слайда.</p>
+              <p className="ld-eyebrow">{t("canvasEyebrow")}</p>
+              <h2>{t("canvasTitle")}</h2>
+              <p>{t("canvasBody")}</p>
             </div>
             <MobileCanvasVisual armed={canvasSec.play} />
           </div>
@@ -793,9 +770,9 @@ export function LandingInteractive() {
       >
         <div className="ld-shell">
           <div className="ld-copy">
-            <p className="ld-eyebrow">Текст</p>
-            <h2>Страница, которая живёт рядом с мыслью</h2>
-            <p>Пишешь бриф, вставляешь блоки через /, собираешь callout и чеклист — всё рядом с холстом.</p>
+            <p className="ld-eyebrow">{t("textEyebrow")}</p>
+            <h2>{t("textTitle")}</h2>
+            <p>{t("textBody")}</p>
           </div>
           <Panel soft={false} className="ld-panel-doc">
             <EditorDoc active={textSec.play} />
@@ -812,10 +789,10 @@ export function LandingInteractive() {
       >
         <div className="ld-shell">
           <div className="ld-copy">
-            <p className="ld-eyebrow">Relay AI</p>
-            <h2>Чат, который рисует и пишет с тобой</h2>
-            <p>Схема из брифа, чеклист в заметке, уточнение узлов — один диалог в контексте.</p>
-            <p className="ld-soon">Скоро в продукте</p>
+            <p className="ld-eyebrow">{t("aiEyebrow")}</p>
+            <h2>{t("aiTitle")}</h2>
+            <p>{t("aiBody")}</p>
+            <p className="ld-soon">{t("aiSoon")}</p>
           </div>
           <Panel soft={false} className="ld-panel-chat">
             <AiChatReel active={ai.play} />
@@ -826,29 +803,27 @@ export function LandingInteractive() {
       <Stage className="ld-row ld-row-center" id="start" idleAfterMs={1500}>
         <div className="ld-shell ld-shell-stack">
           <div className="ld-copy ld-copy-center">
-            <p className="ld-eyebrow">Старт</p>
-            <h2>Сначала на ПК — потом в облако</h2>
+            <p className="ld-eyebrow">{t("startEyebrow")}</p>
+            <h2>{t("startTitle")}</h2>
           </div>
           <Panel soft={false} className="ld-panel-narrow">
             <SyncCards />
           </Panel>
-          <p className="ld-sync-lede">
-            Гостевой режим без аккаунта. Когда готов — тот же холст уезжает в sync.
-          </p>
+          <p className="ld-sync-lede">{t("startLede")}</p>
         </div>
       </Stage>
 
       <Stage className="ld-close" id="try" idleAfterMs={600}>
         <div className="ld-close-box">
           <p className="ld-close-brand">Relay</p>
-          <h2>Открой поле и начни.</h2>
-          <p>Пространство за минуту. Без кредитки.</p>
+          <h2>{t("closeTitle")}</h2>
+          <p>{t("closeBody")}</p>
           <div className="ld-close-actions">
             <Link href="/register" className="ld-btn-mega">
-              Начать бесплатно
+              {t("closeCta")}
             </Link>
             <Link href="/login" className="ld-btn-mega-ghost">
-              Войти
+              {t("closeLogin")}
             </Link>
           </div>
         </div>

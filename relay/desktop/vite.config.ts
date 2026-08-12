@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@relay-messages": path.resolve(__dirname, "../messages"),
+      "@relay-i18n": path.resolve(__dirname, "../src/i18n"),
     },
   },
   clearScreen: false,

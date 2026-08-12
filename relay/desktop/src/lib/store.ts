@@ -95,16 +95,20 @@ export function saveWorkspace(data: WorkspaceData) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-export function formatRelative(iso: string) {
+export function formatRelative(
+  iso: string,
+  t: (key: string, values?: Record<string, string | number | Date>) => string,
+  locale: string,
+) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return "только что";
-  if (m < 60) return `${m} мин назад`;
+  if (m < 1) return t("relativeJustNow");
+  if (m < 60) return t("relativeMinutes", { count: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ч назад`;
+  if (h < 24) return t("relativeHours", { count: h });
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d} дн назад`;
-  return new Date(iso).toLocaleDateString("ru-RU");
+  if (d < 7) return t("relativeDays", { count: d });
+  return new Date(iso).toLocaleDateString(locale === "en" ? "en-US" : "ru-RU");
 }
 
 export type { BoardSnapshot, PageRecord, WorkspaceData };
