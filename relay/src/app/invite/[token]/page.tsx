@@ -1,14 +1,46 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { BrandLockup } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
+
+type Me = { id: string; email: string; name: string } | null;
 
 export default function InviteAcceptPage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
+  const t = useTranslations("invite");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const [me, setMe] = useState<Me | undefined>(undefined);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const loginHref = `/login?next=${encodeURIComponent(`/invite/${token}`)}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/auth/me", { credentials: "include" });
+        if (!res.ok) {
+          if (!cancelled) setMe(null);
+          return;
+        }
+        const data = (await res.json()) as { user?: Me };
+        if (!cancelled) setMe(data.user ?? null);
+      } catch {
+        if (!cancelled) setMe(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function accept() {
     setBusy(true);
@@ -16,66 +48,97 @@ export default function InviteAcceptPage() {
     try {
       const res = await fetch("/api/v1/invites/accept", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        message?: string;
+        code?: string;
+        workspaceId?: string;
+      };
       if (!res.ok) {
         if (res.status === 401) {
-          setMsg("Сначала войди в аккаунт с email из приглашения.");
+          router.push(loginHref);
           return;
         }
-        setMsg(data.message || "Не удалось принять приглашение");
+        if (data.code === "email_mismatch") {
+          setMsg(t("emailMismatch"));
+          return;
+        }
+        if (data.code === "expired") {
+          setMsg(t("expired"));
+          return;
+        }
+        if (data.code === "not_found") {
+          setMsg(t("notFound"));
+          return;
+        }
+        setMsg(data.message || t("acceptFailed"));
         return;
       }
-      router.push(`/w/${data.workspaceId}/board`);
+      if (data.workspaceId) {
+        router.push(`/w/${data.workspaceId}/board`);
+        return;
+      }
+      router.push("/app");
     } catch {
-      setMsg("Сеть недоступна");
+      setMsg(t("networkError"));
     } finally {
       setBusy(false);
     }
   }
 
+  const signedIn = Boolean(me);
+  const checking = me === undefined;
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "2rem",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <div style={{ maxWidth: 420, width: "100%" }}>
-        <h1 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>Приглашение в Relay</h1>
-        <p style={{ color: "#64748b", marginBottom: "1.25rem" }}>
-          Тебя пригласили в командное пространство. Войди в аккаунт с нужным email и подтверди.
-        </p>
-        {msg && (
-          <p style={{ color: "#b91c1c", marginBottom: "1rem" }}>
-            {msg}{" "}
-            <Link href="/login" style={{ color: "#2563eb" }}>
-              Войти
-            </Link>
-          </p>
-        )}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void accept()}
-          style={{
-            border: "none",
-            background: "#2563eb",
-            color: "white",
-            padding: "0.7rem 1.1rem",
-            borderRadius: 999,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          {busy ? "Принимаем…" : "Принять приглашение"}
-        </button>
+    <div className="relay-auth" lang={locale}>
+      <div className="relay-auth-floating-actions">
+        <LanguageToggle variant="floating" />
+        <ThemeToggle variant="floating" />
       </div>
-    </main>
+      <div className="relay-auth-card invite-card">
+        <BrandLockup href="/" />
+        <h1>{t("title")}</h1>
+        <p className="lede">{t("lede")}</p>
+
+        {checking ? (
+          <p className="muted">{t("checking")}</p>
+        ) : signedIn ? (
+          <div className="invite-signed">
+            <p className="invite-as">
+              {t("signedInAs", { email: me!.email })}
+            </p>
+            <p className="muted invite-note">{t("mustMatch")}</p>
+          </div>
+        ) : (
+          <p className="muted invite-note">{t("needLogin")}</p>
+        )}
+
+        {msg && <p className="relay-error">{msg}</p>}
+
+        {signedIn ? (
+          <button
+            type="button"
+            className="relay-btn relay-btn-accent"
+            style={{ width: "100%" }}
+            disabled={busy}
+            onClick={() => void accept()}
+          >
+            {busy ? t("accepting") : t("accept")}
+          </button>
+        ) : (
+          <Link className="relay-btn relay-btn-accent" style={{ width: "100%", textAlign: "center" }} href={loginHref}>
+            {t("signInToAccept")}
+          </Link>
+        )}
+
+        <p className="invite-footer muted">
+          {tc("or")}{" "}
+          <Link href="/">{t("backHome")}</Link>
+        </p>
+      </div>
+    </div>
   );
 }

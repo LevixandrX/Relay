@@ -38,8 +38,9 @@ JWT is never placed in URLs or deep links.
 
 | Method | Path |
 |---|---|
-| GET | `/workspaces` |
+| GET | `/workspaces` | includes `memberCount`, `ownerName` |
 | POST | `/workspaces` `{ name }` | gated by plan |
+| PATCH | `/workspaces/:wid` `{ name }` | owner; rename |
 | GET | `/workspaces/:wid/members` |
 | POST | `/workspaces/:wid/invites` `{ email, role }` | owner; gated by member limit |
 | GET/PUT | `/workspaces/:wid/board` | workspace canvas |

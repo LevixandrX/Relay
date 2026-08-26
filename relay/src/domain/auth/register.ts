@@ -10,6 +10,7 @@ import {
 } from "@/domain/onboarding/templates";
 import { writeAudit } from "@/domain/audit";
 import { createTrialSubscription } from "@/domain/billing/entitlements";
+import { personalWorkspaceName } from "@/domain/workspaces/naming";
 
 export async function registerUser(input: {
   email: string;
@@ -49,7 +50,7 @@ export async function registerUser(input: {
   await createTrialSubscription(userId);
 
   const wsId = id.workspace();
-  const wsName = "Моё пространство";
+  const wsName = personalWorkspaceName(input.name.trim() || email.split("@")[0]);
   await db.insert(workspaces).values({
     id: wsId,
     name: wsName,

@@ -7,22 +7,13 @@ import { id, now, slugify } from "@/lib/ids";
 import { writeAudit } from "@/domain/audit";
 import { createPage } from "@/domain/pages/repo";
 import { emptyDoc } from "@/domain/blocks/schema";
-import { and, eq, isNull } from "drizzle-orm";
 import { assertEntitlement } from "@/domain/billing/entitlements";
+import { listWorkspacesForUser } from "@/domain/workspaces/list";
 
 export async function GET() {
   try {
     const user = await requireSession();
-    const rows = await db
-      .select({
-        id: workspaces.id,
-        name: workspaces.name,
-        slug: workspaces.slug,
-        role: memberships.role,
-      })
-      .from(memberships)
-      .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
-      .where(and(eq(memberships.userId, user.id), isNull(workspaces.deletedAt)));
+    const rows = await listWorkspacesForUser(user.id);
     return json({ workspaces: rows });
   } catch (err) {
     return handleRouteError(err);

@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { GithubMark, GoogleMark, YandexMark } from "@/components/ProviderMarks";
 
@@ -10,7 +12,15 @@ const PROVIDERS = [
   { id: "yandex", label: "Яндекс", mark: YandexMark },
 ] as const;
 
-export function OAuthButtons() {
+function oauthHref(provider: string, next: string | null) {
+  const q = new URLSearchParams({ client: "web" });
+  if (next && next.startsWith("/") && !next.startsWith("//")) {
+    q.set("next", next);
+  }
+  return `/api/v1/auth/oauth/${provider}?${q.toString()}`;
+}
+
+function OAuthRow({ next }: { next: string | null }) {
   const t = useTranslations("auth");
   return (
     <>
@@ -22,7 +32,7 @@ export function OAuthButtons() {
           <a
             key={id}
             className="relay-oauth-btn"
-            href={`/api/v1/auth/oauth/${id}?client=web`}
+            href={oauthHref(id, next)}
             aria-label={t("continueWith", { provider: label })}
           >
             <Mark size={20} />
@@ -31,6 +41,19 @@ export function OAuthButtons() {
         ))}
       </div>
     </>
+  );
+}
+
+function OAuthButtonsWithNext() {
+  const search = useSearchParams();
+  return <OAuthRow next={search.get("next")} />;
+}
+
+export function OAuthButtons() {
+  return (
+    <Suspense fallback={<OAuthRow next={null} />}>
+      <OAuthButtonsWithNext />
+    </Suspense>
   );
 }
 

@@ -14,6 +14,7 @@ import { id, now, slugify } from "@/lib/ids";
 import { writeAudit } from "@/domain/audit";
 import { createPage } from "@/domain/pages/repo";
 import { paragraphs } from "@/domain/blocks/schema";
+import { personalWorkspaceName } from "@/domain/workspaces/naming";
 
 export const OAUTH_PROVIDERS = ["google", "github", "yandex", "vk"] as const;
 export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
@@ -29,6 +30,8 @@ type OAuthState = {
   nonce: string;
   /** Desktop handshake code — token is handed over through the pairing table. */
   pair?: string;
+  /** Relative path to return to after web OAuth (e.g. /invite/…). */
+  next?: string;
 };
 
 type OAuthProfile = {
@@ -45,10 +48,13 @@ function secret() {
 }
 
 export function appUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL || "http://localhost:3000").replace(
-    /\/$/,
-    "",
-  );
+  const raw = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.AUTH_URL ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+  // Prefer localhost so session cookies match invite/login links (127.0.0.1 ≠ localhost).
+  return raw.replace(/^http:\/\/127\.0\.0\.1(?=[:/]|$)/, "http://localhost");
 }
 
 export async function signOAuthState(state: OAuthState) {
@@ -70,6 +76,7 @@ export async function verifyOAuthState(token: string): Promise<OAuthState | null
       client,
       nonce: String(payload.nonce ?? ""),
       pair: typeof payload.pair === "string" ? payload.pair : undefined,
+      next: typeof payload.next === "string" ? payload.next : undefined,
     };
   } catch {
     return null;
@@ -353,10 +360,6 @@ export async function exchangeOAuthCode(provider: OAuthProvider, code: string) {
   }
 }
 
-function hasPassword(hash: string | null | undefined) {
-  return !!hash && hash.length >= 20;
-}
-
 async function createUserFromOAuth(input: {
   email: string;
   name: string;
@@ -386,10 +389,11 @@ async function createUserFromOAuth(input: {
   await createTrialSubscription(userId);
 
   const wsId = id.workspace();
+  const wsName = personalWorkspaceName(input.name);
   await db.insert(workspaces).values({
     id: wsId,
-    name: "Моё пространство",
-    slug: slugify("Моё пространство"),
+    name: wsName,
+    slug: slugify(wsName),
     createdBy: userId,
     createdAt: ts,
   });
@@ -431,9 +435,11 @@ async function createUserFromOAuth(input: {
 }
 
 /**
- * Link by provider uid, or create a new user.
- * Never silently attach OAuth to an existing password account (pre-account hijack).
- * OAuth-only accounts (empty password) may gain additional providers by email.
+ * Link by provider uid, or by verified email to an existing account, or create.
+ *
+ * Google/GitHub/Yandex paths only yield verified emails (see exchange*).
+ * Auto-linking on verified email is the common SaaS UX (e.g. Supabase); we never
+ * link unverified provider emails because those exchanges already reject them.
  */
 export async function upsertOAuthUser(input: {
   provider: OAuthProvider;
@@ -462,9 +468,6 @@ export async function upsertOAuthUser(input: {
     .limit(1);
 
   if (byEmail[0]) {
-    if (hasPassword(byEmail[0].passwordHash)) {
-      throw new Error("EMAIL_CONFLICT");
-    }
     await db.insert(oauthAccounts).values({
       id: `oa_${id.token().slice(0, 16)}`,
       userId: byEmail[0].id,
@@ -494,6 +497,7 @@ export function finishRedirect(opts: {
   provider: OAuthProvider;
   pairRequested: boolean;
   paired: boolean;
+  next?: string;
 }) {
   if (opts.client === "desktop") {
     if (opts.pairRequested) {
@@ -502,7 +506,15 @@ export function finishRedirect(opts: {
     // Never put JWT in a URL / deep link — pairing is required for desktop.
     return desktopDoneUrl(opts.provider, "nopair");
   }
-  return `${appUrl()}/app`;
+  return `${appUrl()}${sanitizeNextPath(opts.next)}`;
+}
+
+/** Only same-origin relative paths — blocks open redirects. */
+export function sanitizeNextPath(next?: string | null) {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) {
+    return "/app";
+  }
+  return next;
 }
 
 export function hashClaimSecret(secretPlain: string) {

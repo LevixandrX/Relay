@@ -7,16 +7,23 @@ import {
   upsertOAuthUser,
   verifyOAuthState,
   appUrl,
+  sanitizeNextPath,
   type OAuthProvider,
 } from "@/domain/auth/oauth";
 import { completePairing, failPairing } from "@/domain/auth/pairing";
 
-function errorRedirect(message: string) {
-  return NextResponse.redirect(`${appUrl()}/login?error=${encodeURIComponent(message)}`);
+function errorRedirect(message: string, next?: string) {
+  const u = new URL(`${appUrl()}/login`);
+  u.searchParams.set("error", message);
+  if (next && sanitizeNextPath(next) !== "/app") {
+    u.searchParams.set("next", next);
+  }
+  return NextResponse.redirect(u.toString());
 }
 
 export async function handleOAuthCallback(provider: OAuthProvider, req: Request) {
   let pair: string | undefined;
+  let next: string | undefined;
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
@@ -25,10 +32,11 @@ export async function handleOAuthCallback(provider: OAuthProvider, req: Request)
 
     const parsed = state ? await verifyOAuthState(state) : null;
     pair = parsed?.pair;
+    next = parsed?.next;
 
     if (err) {
       if (pair) await failPairing(pair, err);
-      return errorRedirect(err);
+      return errorRedirect(err, next);
     }
     if (!code || !state) {
       throw new ApiError(400, "validation_error", "Missing code/state");
@@ -54,13 +62,14 @@ export async function handleOAuthCallback(provider: OAuthProvider, req: Request)
         provider,
         pairRequested: !!pair,
         paired,
+        next,
       }),
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "oauth_failed";
     if (pair) await failPairing(pair, message).catch(() => {});
     if (/EMAIL_REQUIRED|TOKEN_FAILED|PROFILE_FAILED|EMAIL_CONFLICT/.test(message)) {
-      return errorRedirect(message);
+      return errorRedirect(message, next);
     }
     return handleRouteError(err);
   }

@@ -1,23 +1,15 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { memberships, userChecklist, workspaces } from "@/db/schema";
+import { userChecklist } from "@/db/schema";
 import { handleRouteError, json } from "@/lib/errors";
 import { requireSession } from "@/lib/session";
 import { getEffectivePlan } from "@/domain/billing/entitlements";
+import { listWorkspacesForUser } from "@/domain/workspaces/list";
 
 export async function GET() {
   try {
     const user = await requireSession();
-    const ws = await db
-      .select({
-        id: workspaces.id,
-        name: workspaces.name,
-        slug: workspaces.slug,
-        role: memberships.role,
-      })
-      .from(memberships)
-      .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
-      .where(eq(memberships.userId, user.id));
+    const ws = await listWorkspacesForUser(user.id);
 
     const checklistRows = await db
       .select()

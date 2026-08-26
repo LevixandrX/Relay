@@ -27,12 +27,14 @@ export async function buildAuthorizeUrl(input: {
   provider: OAuthProvider;
   client: OAuthClient;
   pair?: string;
+  next?: string;
 }) {
   const state = await signOAuthState({
     provider: input.provider,
     client: input.client,
     nonce: id.token(),
     pair: input.pair,
+    next: input.next,
   });
   return authorizeUrl(input.provider, state);
 }
@@ -43,7 +45,12 @@ export async function startOAuth(provider: OAuthProvider, req: Request) {
     const client = parseClient(url);
     // Pairing codes are only valid for the desktop handshake — ignore on web.
     const pair = client === "desktop" ? (url.searchParams.get("pair") ?? undefined) : undefined;
-    const dest = await buildAuthorizeUrl({ provider, client, pair });
+    const rawNext = client === "web" ? url.searchParams.get("next") : null;
+    const next =
+      rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")
+        ? rawNext
+        : undefined;
+    const dest = await buildAuthorizeUrl({ provider, client, pair, next });
     return NextResponse.redirect(dest);
   } catch (err) {
     if (err instanceof Error && err.message.includes("not set")) {
