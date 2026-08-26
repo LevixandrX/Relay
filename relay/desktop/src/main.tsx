@@ -5,6 +5,7 @@ import { ThemeProvider } from "./theme/ThemeProvider";
 import { LocaleProvider } from "./i18n/LocaleProvider";
 import { AuthProvider } from "./lib/auth";
 import { WorkspaceProvider } from "./lib/workspace";
+import { DialogProvider } from "./components/DialogHost";
 import "./styles/global.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")!).render(
       <ThemeProvider>
         <AuthProvider>
           <WorkspaceProvider>
-            <App />
+            <DialogProvider>
+              <App />
+            </DialogProvider>
           </WorkspaceProvider>
         </AuthProvider>
       </ThemeProvider>
