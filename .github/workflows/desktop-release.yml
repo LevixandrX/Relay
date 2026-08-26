@@ -1,0 +1,61 @@
+# Optional: build Windows desktop installer on release tags.
+# Primary path for contributors is still: clone + setup-windows-dev.ps1 + Relay.lnk
+name: Desktop release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: relay/package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install web deps
+        working-directory: relay
+        run: npm ci
+
+      - name: Install desktop deps
+        working-directory: relay/desktop
+        run: npm ci
+
+      - name: Build desktop (release)
+        working-directory: relay/desktop
+        run: npm run tauri:build
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-desktop-windows
+          path: |
+            relay/desktop/src-tauri/target/release/bundle/**/*.exe
+            relay/desktop/src-tauri/target/release/bundle/**/*.msi
+            relay/desktop/src-tauri/target/release/*.exe
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            relay/desktop/src-tauri/target/release/bundle/**/*.exe
+            relay/desktop/src-tauri/target/release/bundle/**/*.msi
+            relay/desktop/src-tauri/target/release/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
