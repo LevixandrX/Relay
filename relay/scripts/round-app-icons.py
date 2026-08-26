@@ -8,9 +8,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-ROOT = Path(r"G:\Notion 2\relay\desktop")
+# Resolve from this script: relay/scripts/round-app-icons.py → relay/
+RELAY = Path(__file__).resolve().parent.parent
+ROOT = RELAY / "desktop"
 ICONS = ROOT / "src-tauri" / "icons"
-WEB_PUBLIC = Path(r"G:\Notion 2\relay\public")
+WEB_PUBLIC = RELAY / "public"
 
 BLUE = (29, 78, 216, 255)
 WHITE = (255, 255, 255, 255)
