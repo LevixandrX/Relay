@@ -44,7 +44,12 @@ export default function LoginPage() {
       setError(data.message ?? t("loginFailed"));
       return;
     }
-    router.push("/app");
+    const next = new URLSearchParams(window.location.search).get("next");
+    const safeNext =
+      next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+        ? next
+        : "/app";
+    router.push(safeNext);
   }
 
   return (

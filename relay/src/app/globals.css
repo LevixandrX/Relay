@@ -23,7 +23,7 @@
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --font-ui: var(--font-manrope), system-ui, sans-serif;
   --font-display: var(--font-unbounded), var(--font-manrope), sans-serif;
-  --sidebar-w: 248px;
+  --sidebar-w: 260px;
   --hover: rgba(11, 18, 32, 0.05);
   --overlay: rgba(11, 18, 32, 0.5);
   --placeholder: rgba(11, 18, 32, 0.25);
@@ -143,6 +143,16 @@ kbd {
   border-color: color-mix(in oklab, var(--accent) 88%, black);
 }
 
+.relay-btn-danger {
+  background: color-mix(in oklab, var(--danger) 12%, var(--surface));
+  border-color: color-mix(in oklab, var(--danger) 35%, var(--line));
+  color: var(--danger);
+}
+
+.relay-btn-danger:hover {
+  background: color-mix(in oklab, var(--danger) 18%, var(--surface));
+}
+
 .relay-btn-ghost {
   background: transparent;
   border-color: transparent;
@@ -251,6 +261,39 @@ kbd {
   padding: 1.75rem;
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(12px);
+}
+
+.invite-card .invite-signed {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+}
+
+.invite-card .invite-as {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.invite-card .invite-note {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.invite-card .invite-footer {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.invite-card a.relay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .relay-auth-card h1 {
@@ -509,9 +552,7 @@ kbd {
   grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100%;
   height: 100vh;
-  background:
-    radial-gradient(900px 420px at 100% 0%, rgba(14, 165, 164, 0.1), transparent 55%),
-    var(--bg);
+  background: var(--bg);
 }
 
 @media (max-width: 860px) {
@@ -524,29 +565,206 @@ kbd {
 }
 
 .relay-sidebar {
-  margin: 0.75rem 0 0.75rem 0.75rem;
-  border-radius: 22px;
-  background: rgba(11, 18, 32, 0.94);
-  color: #eef2ff;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.8rem 0.7rem;
-  overflow: hidden;
+  gap: 0.55rem;
+  padding: 0.85rem 0.7rem 0.75rem;
+  overflow: visible;
+  min-height: 0;
+  background: color-mix(in oklab, var(--surface) 92%, var(--bg));
+  border-right: 1px solid var(--line);
+  color: var(--ink);
 }
 
-.relay-sidebar-top {
+.relay-sidebar-brand {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
+  padding: 0.1rem 0.1rem 0.15rem;
 }
 
-.relay-sidebar-actions {
+.relay-sidebar-foot {
+  margin-top: auto;
+  display: grid;
+  gap: 0.55rem;
+  min-height: 0;
+}
+
+.relay-ws-switch {
+  position: relative;
+  min-width: 0;
+  z-index: 8;
+}
+
+.relay-ws-trigger {
   display: flex;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.4rem 0.45rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.relay-ws-trigger:hover,
+.relay-ws-trigger[aria-expanded="true"] {
+  border-color: color-mix(in oklab, var(--accent) 35%, var(--line));
+}
+
+.relay-ws-mark {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #f8fafc;
+  background: var(--accent);
+}
+
+.relay-ws-copy {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.relay-ws-name {
+  font-size: 0.84rem;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.relay-ws-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.relay-ws-chevron {
+  color: var(--muted);
+  flex: none;
+  margin-right: 0.15rem;
+  display: grid;
+  place-items: center;
+  transition: transform 0.2s var(--ease);
+}
+
+.relay-ws-chevron[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+.relay-ws-mark-btn {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 0.2rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.relay-ws-mark-btn:hover {
+  border-color: color-mix(in oklab, var(--accent) 35%, var(--line));
+}
+
+.relay-ws-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 40;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.4rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: relay-menu-in 0.18s var(--ease) both;
+  transform-origin: top center;
+}
+
+@keyframes relay-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.relay-ws-menu-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.3rem 0.45rem 0.2rem;
+}
+
+.relay-ws-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0.45rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.relay-ws-menu-item:hover {
+  background: var(--hover);
+}
+
+.relay-ws-menu-item[data-active="true"] {
+  background: var(--accent-soft);
+  border-color: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.relay-ws-hint {
+  margin: 0.15rem 0.45rem 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.relay-ws-action {
+  width: 100%;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  font-weight: 650;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.relay-ws-action:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.relay-ws-action:disabled {
+  opacity: 0.55;
 }
 
 .relay-icon-btn {
@@ -561,6 +779,18 @@ kbd {
   display: inline-grid;
   place-items: center;
   padding: 0;
+  flex: none;
+}
+
+.relay-icon-btn-surface {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.relay-icon-btn-surface:hover {
+  background: var(--hover);
+  color: var(--ink);
 }
 
 .relay-icon-btn:hover {
@@ -632,12 +862,6 @@ kbd {
   opacity: 0.9;
 }
 
-.relay-ws-name {
-  font-size: 0.75rem;
-  color: rgba(238, 242, 255, 0.5);
-  margin-top: 0.1rem;
-}
-
 .relay-nav-row {
   display: flex;
   align-items: center;
@@ -650,7 +874,7 @@ kbd {
   font-size: 0.64rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(238, 242, 255, 0.38);
+  color: var(--muted);
   padding: 0.35rem 0.35rem 0.1rem;
   font-weight: 800;
 }
@@ -658,16 +882,17 @@ kbd {
 .relay-link-btn {
   border: none;
   background: transparent;
-  color: rgba(94, 234, 212, 0.9);
-  font-size: 0.72rem;
+  color: var(--accent);
+  font-size: 0.85rem;
   font-weight: 800;
   cursor: pointer;
-  padding: 0.15rem 0.25rem;
+  padding: 0.15rem 0.35rem;
   white-space: nowrap;
+  border-radius: 8px;
 }
 
 .relay-link-btn:hover {
-  color: white;
+  background: var(--hover);
 }
 
 .relay-page-list {
@@ -676,6 +901,7 @@ kbd {
   overflow: auto;
   flex: 1;
   min-height: 64px;
+  align-content: start;
 }
 
 .relay-page-link {
@@ -686,20 +912,22 @@ kbd {
   border: none;
   background: transparent;
   border-radius: 10px;
-  padding: 0.38rem 0.45rem;
+  padding: 0.4rem 0.5rem;
   cursor: pointer;
   color: inherit;
   text-align: left;
   font-size: 0.86rem;
+  text-decoration: none;
   transition: background 0.15s var(--ease);
 }
 
 .relay-page-link:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--hover);
 }
 
 .relay-page-link[data-active="true"] {
-  background: rgba(29, 78, 216, 0.35);
+  background: var(--accent-soft);
+  color: var(--ink);
 }
 
 .relay-page-link .icon {
@@ -711,20 +939,19 @@ kbd {
 }
 
 .relay-board-nav {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(94, 234, 212, 0.18);
-  margin-bottom: 0.15rem;
+  background: color-mix(in oklab, var(--accent-2) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent-2) 22%, transparent);
 }
 
 .relay-empty-side {
   padding: 0.45rem;
-  color: rgba(238, 242, 255, 0.4);
+  color: var(--muted);
   font-size: 0.78rem;
 }
 
 .relay-checklist {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  background: var(--surface);
   border-radius: 14px;
   padding: 0.65rem;
 }
@@ -746,7 +973,7 @@ kbd {
   gap: 0.45rem;
   align-items: flex-start;
   font-size: 0.76rem;
-  color: rgba(238, 242, 255, 0.7);
+  color: var(--ink-soft);
   margin-bottom: 0.25rem;
 }
 
@@ -756,7 +983,7 @@ kbd {
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: rgba(29, 78, 216, 0.35);
+  background: var(--accent-soft);
   font-size: 0.62rem;
   flex-shrink: 0;
 }
@@ -767,13 +994,13 @@ kbd {
 }
 
 .relay-pulse {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--line);
   padding-top: 0.35rem;
 }
 
 .relay-pulse-item {
   font-size: 0.7rem;
-  color: rgba(238, 242, 255, 0.42);
+  color: var(--muted);
   padding: 0.18rem 0.35rem;
   line-height: 1.35;
 }
@@ -783,68 +1010,257 @@ kbd {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  margin: 0.75rem 0.75rem 0.75rem 0.55rem;
-  border-radius: 22px;
   overflow: hidden;
   background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
   color: var(--ink);
 }
 
 .relay-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.7rem 1rem;
+  gap: 0.65rem;
+  padding: 0.55rem 0.85rem;
   border-bottom: 1px solid var(--line);
   background: var(--topbar);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
   z-index: 10;
+  min-height: 3rem;
 }
 
-.relay-topbar-left,
+.relay-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  justify-self: start;
+}
+
+.relay-topbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: min(440px, 42vw);
+  width: 100%;
+  justify-self: center;
+}
+
 .relay-topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
+  gap: 0.45rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  justify-self: end;
+}
+
+.relay-topbar-title {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  outline: none;
+  padding: 0.3rem 0.55rem;
+  border-radius: 9px;
+  min-width: 0;
+}
+
+.relay-topbar-title::placeholder {
+  color: var(--placeholder);
+}
+
+.relay-topbar-title:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.relay-topbar-title:focus {
+  background: var(--hover);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.relay-topbar-title-static {
+  font-weight: 750;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--ink);
+}
+
+.relay-topbar-title-static span {
+  color: var(--muted);
+  font-weight: 550;
+}
+
+.relay-page-menu {
+  position: relative;
+}
+
+.relay-page-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.relay-page-row .relay-page-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.relay-page-delete {
+  width: 1.65rem;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.relay-page-row:hover .relay-page-delete,
+.relay-page-row:focus-within .relay-page-delete {
+  opacity: 1;
+}
+
+.relay-page-delete:hover {
+  background: color-mix(in oklab, #dc2626 12%, var(--hover));
+  color: #dc2626;
+  border-color: color-mix(in oklab, #dc2626 25%, var(--line));
+}
+
+.relay-page-menu-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 40;
+  min-width: 10.5rem;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: relay-menu-in 0.18s var(--ease) both;
+}
+
+.relay-page-menu-item {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.relay-page-menu-item:hover {
+  background: var(--hover);
+}
+
+.relay-page-menu-item[data-danger="true"] {
+  color: #dc2626;
+}
+
+.relay-page-menu-item[data-danger="true"]:hover {
+  background: color-mix(in oklab, #dc2626 10%, var(--hover));
+}
+
+@media (max-width: 720px) {
+  .relay-topbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-areas:
+      "left actions"
+      "center center";
+    row-gap: 0.35rem;
+  }
+
+  .relay-topbar-left {
+    grid-area: left;
+  }
+
+  .relay-topbar-center {
+    grid-area: center;
+    max-width: none;
+  }
+
+  .relay-topbar-actions {
+    grid-area: actions;
+  }
+}
+
+.relay-btn-compact {
+  padding: 0 0.85rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  min-height: 2.35rem;
+  height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .relay-context-title {
   font-weight: 800;
   font-size: 0.92rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .relay-context-title span {
   color: var(--muted);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .relay-save {
   font-size: 0.78rem;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .relay-mode-switch {
   display: inline-flex;
-  padding: 3px;
+  padding: 2px;
   border-radius: 10px;
   background: var(--hover);
   gap: 2px;
+  flex: none;
 }
 
 .relay-mode-switch button {
   border: none;
   background: transparent;
   border-radius: 8px;
-  padding: 0.4rem 0.85rem;
+  padding: 0.32rem 0.7rem;
   cursor: pointer;
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--ink-soft);
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
@@ -877,7 +1293,7 @@ kbd {
 .relay-page {
   width: min(760px, 100%);
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 5rem;
+  padding: 2rem 1.5rem 5rem;
   overflow: auto;
 }
 
@@ -902,11 +1318,29 @@ kbd {
   flex: 1;
   min-height: 0;
   position: relative;
+  isolation: isolate;
+  z-index: 0;
+  overflow: hidden;
+  transform: translateZ(0);
 }
 
 .relay-board {
   position: absolute;
   inset: 0;
+}
+
+/* Keep tldraw chrome inside the canvas so it can't cover Relay UI / dialogs. */
+.relay-board .tl-theme__dark,
+.relay-board .tl-theme__light,
+.relay-board .tl-container {
+  position: absolute !important;
+  inset: 0;
+}
+
+.relay-board a[href*="tldraw"],
+.relay-board [class*="watermark"],
+.relay-board .tl-watermark_SEE-LICENSE {
+  display: none !important;
 }
 
 .relay-editor .tiptap {
@@ -1078,9 +1512,9 @@ kbd {
   background: var(--overlay);
   display: grid;
   place-items: center;
-  z-index: 50;
+  z-index: 10000;
   padding: 1rem;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
 .relay-modal {
@@ -1092,6 +1526,384 @@ kbd {
   box-shadow: var(--shadow-lg);
   padding: 1.35rem;
   animation: relay-rise 0.35s var(--ease) both;
+  max-height: min(86vh, 720px);
+  overflow: auto;
+}
+
+.relay-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
+
+.relay-share-modal {
+  width: min(440px, 100%);
+  padding: 1.25rem 1.35rem 1.15rem;
+}
+
+.relay-share-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.relay-share-head h2 {
+  margin: 0;
+}
+
+.relay-share-head .relay-modal-lede {
+  margin: 0.35rem 0 0;
+}
+
+.relay-share-block {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.relay-share-block-head h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.relay-share-block-head p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.relay-share-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.relay-share-members li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+  background: var(--hover);
+}
+
+.relay-share-avatar {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.relay-share-member-copy {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.relay-share-member-copy strong {
+  font-size: 0.84rem;
+}
+
+.relay-share-member-copy span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relay-input-compact {
+  min-height: 2.35rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+}
+
+.relay-share-invite,
+.relay-share-link-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.relay-share-invite .relay-btn,
+.relay-share-link-row .relay-btn {
+  height: 2.35rem;
+}
+
+@media (max-width: 560px) {
+  .relay-share-invite,
+  .relay-share-link-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.relay-share-ready {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.relay-add-page {
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.relay-add-page:hover {
+  background: var(--accent-soft);
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--line));
+  color: var(--accent);
+}
+
+.relay-sidebar-collapse {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.4rem 0.35rem;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.relay-sidebar-collapse:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.relay-shell[data-chrome="rail"] {
+  --sidebar-w: 68px;
+}
+
+.relay-shell[data-chrome="rail"] .relay-ellipsis,
+.relay-shell[data-chrome="rail"] .relay-nav-label,
+.relay-shell[data-chrome="rail"] .relay-account-copy,
+.relay-shell[data-chrome="rail"] .relay-sidebar-collapse span,
+.relay-shell[data-chrome="rail"] .relay-chrome-btn,
+.relay-shell[data-chrome="rail"] .relay-checklist,
+.relay-shell[data-chrome="rail"] .relay-pulse {
+  display: none;
+}
+
+.relay-shell[data-chrome="rail"] .relay-page-link {
+  justify-content: center;
+  padding-inline: 0.35rem;
+}
+
+.relay-shell[data-chrome="rail"] .relay-nav-row {
+  justify-content: center;
+  padding-right: 0;
+}
+
+.relay-shell[data-chrome="rail"] .relay-account,
+.relay-shell[data-chrome="rail"] .relay-sidebar-collapse {
+  justify-content: center;
+}
+
+.relay-shell[data-chrome="focus"] {
+  display: block;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.relay-shell[data-chrome="focus"] .relay-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(260px, 86vw);
+  z-index: 40;
+  transform: translate3d(-100%, 0, 0);
+  opacity: 0;
+  transition:
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.28s ease;
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border-right: 1px solid color-mix(in oklab, var(--line) 55%, transparent);
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+}
+
+.relay-shell[data-chrome="focus"][data-peek="true"] .relay-sidebar {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.relay-shell[data-chrome="focus"] .relay-main {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.relay-shell[data-chrome="focus"] .relay-topbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 30;
+  transform: translate3d(0, -100%, 0);
+  opacity: 0;
+  transition:
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.26s ease;
+  background: color-mix(in oklab, var(--surface) 84%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 50%, transparent);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+
+.relay-shell[data-chrome="focus"][data-peek-top="true"] .relay-topbar {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.relay-shell[data-chrome="focus"] .relay-board-wrap,
+.relay-shell[data-chrome="focus"] .relay-page {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  min-height: 0;
+  z-index: 1;
+}
+
+.relay-shell[data-chrome="focus"] .relay-page {
+  overflow: auto;
+  padding: 3.75rem 1.35rem 2.5rem;
+}
+
+.relay-focus-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.35rem;
+  transform: translateX(-50%);
+  z-index: 45;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  text-align: center;
+  background: color-mix(in oklab, var(--surface) 90%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  opacity: 1;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+.relay-focus-toast[data-hide="true"] {
+  opacity: 0;
+}
+
+.relay-icon-btn[data-active="true"],
+.relay-chrome-btn[data-active="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 28%, var(--line));
+}
+
+.relay-edge-peek {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  z-index: 31;
+}
+
+.relay-edge-peek-top {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 10px;
+  z-index: 29;
+}
+
+.relay-account {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.35rem 0.15rem;
+  border-top: 1px solid var(--line);
+  margin-top: 0.35rem;
+}
+
+.relay-account-avatar {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.relay-account-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.relay-account-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.relay-account-email {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .relay-modal h2 {
@@ -1132,8 +1944,12 @@ kbd {
 .relay-theme-toolbar-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  padding-inline: 0.65rem;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 10px;
 }
 
 .relay-theme-btn-label {
@@ -1194,12 +2010,6 @@ kbd {
 
 @media (max-width: 860px) {
   .relay-theme-sidebar-only {
-    display: none;
-  }
-}
-
-@media (min-width: 861px) {
-  .relay-theme-toolbar-only {
     display: none;
   }
 }

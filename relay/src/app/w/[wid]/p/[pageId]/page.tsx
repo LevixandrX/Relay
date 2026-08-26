@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { memberships, pages, userChecklist, workspaces } from "@/db/schema";
+import { memberships, pages, userChecklist, users, workspaces } from "@/db/schema";
 import { requireSession } from "@/lib/session";
 import { listPagesForWorkspace, serializePage } from "@/domain/pages/repo";
 import { WorkspaceApp } from "@/components/WorkspaceApp";
@@ -25,9 +25,11 @@ export default async function WorkspacePageView({ params, searchParams }: Props)
       role: memberships.role,
       name: workspaces.name,
       board: workspaces.board,
+      ownerName: users.name,
     })
     .from(memberships)
     .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
+    .innerJoin(users, eq(users.id, workspaces.createdBy))
     .where(and(eq(memberships.workspaceId, wid), eq(memberships.userId, user.id)))
     .limit(1);
 
@@ -68,6 +70,7 @@ export default async function WorkspacePageView({ params, searchParams }: Props)
         publicId: serialized.publicId,
       }}
       checklist={checklistRows[0] ?? null}
+      ownerName={mem[0].ownerName}
       defaultMode={sp.mode === "text" ? "text" : "board"}
     />
   );

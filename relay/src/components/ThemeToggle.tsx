@@ -81,8 +81,8 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
       title={nextLabel}
       onClick={toggleTheme}
     >
-      <Icon size={variant === "sidebar" ? 16 : 18} strokeWidth={2} aria-hidden />
-      {(variant === "toolbar" || variant === "inline") && (
+      <Icon size={16} strokeWidth="2" aria-hidden />
+      {variant === "inline" && (
         <span className="relay-theme-btn-label">{tc("theme")}</span>
       )}
     </button>

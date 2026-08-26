@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { memberships, userChecklist, workspaces } from "@/db/schema";
+import { memberships, userChecklist, users, workspaces } from "@/db/schema";
 import { requireSession } from "@/lib/session";
 import { listPagesForWorkspace } from "@/domain/pages/repo";
 import { WorkspaceApp } from "@/components/WorkspaceApp";
@@ -19,9 +19,11 @@ export default async function WorkspaceBoardPage({ params }: Props) {
       role: memberships.role,
       name: workspaces.name,
       board: workspaces.board,
+      ownerName: users.name,
     })
     .from(memberships)
     .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
+    .innerJoin(users, eq(users.id, workspaces.createdBy))
     .where(and(eq(memberships.workspaceId, wid), eq(memberships.userId, user.id)))
     .limit(1);
   if (!mem[0]) notFound();
@@ -42,6 +44,7 @@ export default async function WorkspaceBoardPage({ params }: Props) {
       initialPages={pageList}
       initialPage={null}
       workspaceBoard={mem[0].board ? (JSON.parse(mem[0].board) as BoardSnapshot) : null}
+      ownerName={mem[0].ownerName}
       checklist={checklistRows[0] ?? null}
       defaultMode="board"
     />

@@ -56,6 +56,18 @@ export default function InfiniteBoardInner({
     editorRef.current.updateInstanceState({ isReadonly: !editable });
   }, [editable, ready]);
 
+  useEffect(() => {
+    if (!ready || !editorRef.current) return;
+    const el = editorRef.current.getContainer();
+    const bump = () => {
+      window.dispatchEvent(new Event("resize"));
+    };
+    bump();
+    const ro = new ResizeObserver(bump);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ready]);
+
   return (
     <div className="relay-board">
       <Tldraw
