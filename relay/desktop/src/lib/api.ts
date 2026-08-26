@@ -1,5 +1,5 @@
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  "http://127.0.0.1:3000";
+  "http://localhost:3000";
 
 export class ApiClientError extends Error {
   constructor(

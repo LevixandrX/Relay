@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "use-intl";
 import { useWorkspace } from "../lib/workspace";
-import { formatRelative } from "../lib/store";
-import { useAppLocale } from "../i18n/LocaleProvider";
+import { PageList } from "./PageList";
 
 export function PagesView({
   onOpenPage,
@@ -16,11 +15,27 @@ export function PagesView({
   const t = useTranslations("desktop");
   const tc = useTranslations("common");
   const ta = useTranslations("app");
-  const { locale } = useAppLocale();
   const { pages, deletePage, mode, guestLimit } = useWorkspace();
+  const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const sorted = [...pages].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const atLimit = mode === "guest" && pages.length >= guestLimit;
+
+  const sorted = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return [...pages]
+      .filter((p) => !q || (p.title || "").toLowerCase().includes(q))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }, [pages, query]);
+
+  function create() {
+    setError(null);
+    if (atLimit) {
+      setError(t("guestLimitError"));
+      onNeedAuth();
+      return;
+    }
+    onCreate();
+  }
 
   return (
     <>
@@ -33,67 +48,57 @@ export function PagesView({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="btn btn-accent"
-          onClick={() => {
-            setError(null);
-            if (atLimit) {
-              setError(t("guestLimitError"));
-              onNeedAuth();
-              return;
-            }
-            onCreate();
-          }}
-        >
+        <button type="button" className="btn btn-accent" onClick={create}>
           {t("newPageBtn")}
         </button>
       </div>
+
+      {pages.length > 0 && (
+        <label className="search-field">
+          <span className="sr-only">{t("pagesSearchAria")}</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("pagesSearch")}
+          />
+        </label>
+      )}
+
       {error && (
-        <section className="card">
+        <section className="card surface-card">
           <p className="muted" style={{ margin: 0 }}>
             {error}{" "}
-            <button type="button" className="btn" onClick={onNeedAuth}>
+            <button type="button" className="linkish" onClick={onNeedAuth}>
               {tc("login")}
             </button>
           </p>
         </section>
       )}
-      <section className="card">
-        <div className="page-list">
-          {sorted.length === 0 && (
-            <p className="muted" style={{ margin: 0 }}>
-              {t("pagesEmpty")}
-            </p>
-          )}
-          {sorted.map((p) => (
-            <div key={p.id} className="page-row">
-              <div>
-                <strong>{p.title || tc("untitled")}</strong>
-                <div className="muted">
-                  {p.board ? `${t("typeBoard")} · ` : `${t("typeText")} · `}
-                  {formatRelative(p.updatedAt, t, locale)}
+
+      <section className="card surface-card">
+        <PageList
+          pages={sorted}
+          onOpen={onOpenPage}
+          onDelete={(id) => void deletePage(id)}
+          empty={
+            <div className="empty-state">
+              <p className="empty-state-title">
+                {query ? t("pagesSearchEmpty") : t("pagesEmptyTitle")}
+              </p>
+              <p className="muted empty-state-hint">
+                {query ? t("pagesSearchEmptyHint") : t("pagesEmpty")}
+              </p>
+              {!query && (
+                <div className="empty-state-actions">
+                  <button type="button" className="btn btn-accent" onClick={create}>
+                    {t("newPage")}
+                  </button>
                 </div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="btn" onClick={() => onOpenPage(p.id)}>
-                  {tc("open")}
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => {
-                    if (confirm(t("deleteConfirm", { title: p.title || tc("untitled") }))) {
-                      void deletePage(p.id);
-                    }
-                  }}
-                >
-                  {tc("delete")}
-                </button>
-              </div>
+              )}
             </div>
-          ))}
-        </div>
+          }
+        />
       </section>
     </>
   );

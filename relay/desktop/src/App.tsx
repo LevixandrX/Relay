@@ -11,6 +11,7 @@ import { AuthView } from "./components/AuthView";
 import { TeamView } from "./components/TeamView";
 import { useWorkspace } from "./lib/workspace";
 import { useAuth } from "./lib/auth";
+import { useDialog } from "./components/DialogHost";
 
 export type ViewId = "home" | "board" | "pages" | "theme" | "auth" | "team";
 
@@ -27,6 +28,7 @@ export function App() {
   const [route, setRoute] = useState<Route>({ kind: "home" });
   const { createPage } = useWorkspace();
   const auth = useAuth();
+  const dialog = useDialog();
   const t = useTranslations("desktop");
   const ta = useTranslations("app");
 
@@ -44,7 +46,10 @@ export function App() {
       const page = await createPage(ta("newPageTitle"));
       openPage(page.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : t("createFailed"));
+      await dialog.alert({
+        title: t("createFailed"),
+        body: err instanceof Error ? err.message : undefined,
+      });
       setRoute({ kind: "auth" });
     }
   }
@@ -94,7 +99,9 @@ export function App() {
           {!auth.loading && route.kind === "auth" && (
             <AuthView onDone={() => setRoute({ kind: "home" })} />
           )}
-          {!auth.loading && route.kind === "team" && <TeamView />}
+          {!auth.loading && route.kind === "team" && (
+            <TeamView onNeedAuth={() => setRoute({ kind: "auth" })} />
+          )}
         </main>
       </div>
     </div>

@@ -1,8 +1,8 @@
 import { useTranslations } from "use-intl";
 import { useWorkspace } from "../lib/workspace";
 import { useAuth } from "../lib/auth";
-import { formatRelative } from "../lib/store";
-import { useAppLocale } from "../i18n/LocaleProvider";
+import { PageList } from "./PageList";
+import { labelPulseAction, useWorkspacePulse } from "../lib/useWorkspacePulse";
 
 export function HomeView({
   onOpenBoard,
@@ -18,112 +18,139 @@ export function HomeView({
   onCreatePage: () => void;
 }) {
   const t = useTranslations("desktop");
+  const ta = useTranslations("app");
   const tc = useTranslations("common");
-  const { locale } = useAppLocale();
   const { pages, mode, guestLimit, offline } = useWorkspace();
   const auth = useAuth();
+  const { pulse, isCloud } = useWorkspacePulse();
   const recent = [...pages]
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 5);
+    .slice(0, 6);
   const empty = pages.length === 0;
 
-  function planLabel() {
-    if (!auth.subscription) return null;
-    if (auth.subscription.isPro) {
-      return auth.subscription.status === "trialing" ? t("planProTrial") : t("planPro");
-    }
-    return t("planFree");
-  }
-
   return (
-    <>
-      <div className="toprow">
-        <div className="page-title">
-          <h1>{t("homeTitle")}</h1>
-          <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-            {mode === "cloud"
-              ? t("homeCloudMode")
-              : t("homeGuestMode", { limit: guestLimit })}
-            {offline ? t("homeOffline") : ""}
-          </p>
-        </div>
-        {!auth.user && (
-          <button type="button" className="btn btn-accent" onClick={onNeedAuth}>
-            {t("loginCloud")}
-          </button>
-        )}
-      </div>
-
-      <section className="start-grid">
-        <button type="button" className="start-tile" onClick={onOpenBoard}>
-          <span className="start-kicker">{t("kickMain")}</span>
-          <strong>{t("openBoard")}</strong>
-          <span className="muted">{t("openBoardDesc")}</span>
-        </button>
-        <button type="button" className="start-tile" onClick={onCreatePage}>
-          <span className="start-kicker">{t("kickText")}</span>
-          <strong>{t("newPage")}</strong>
-          <span className="muted">{t("newPageDesc")}</span>
-        </button>
-        <button type="button" className="start-tile" onClick={onOpenPages}>
-          <span className="start-kicker">{t("kickList")}</span>
-          <strong>{t("allPages")}</strong>
-          <span className="muted">
-            {pages.length
-              ? t("pagesCount", { count: pages.length })
-              : t("pagesEmptyHint")}
-          </span>
-        </button>
-        {!auth.user ? (
-          <button type="button" className="start-tile" onClick={onNeedAuth}>
-            <span className="start-kicker">{t("kickCloud")}</span>
-            <strong>{t("authCta")}</strong>
-            <span className="muted">{t("authCtaDesc")}</span>
-          </button>
-        ) : (
-          <div className="start-tile start-tile-static">
-            <span className="start-kicker">{t("kickAccount")}</span>
-            <strong>{auth.user.name}</strong>
-            <span className="muted">
-              {planLabel()}
-              {" · "}
-              {auth.user.email}
-            </span>
+    <div className="home-stack">
+      <div className="home-stack-main">
+        <div className="toprow">
+          <div className="page-title">
+            <h1>{t("homeTitle")}</h1>
+            <p className="muted" style={{ margin: "0.25rem 0 0" }}>
+              {mode === "cloud"
+                ? t("homeCloudMode")
+                : t("homeGuestMode", { limit: guestLimit })}
+              {offline ? t("homeOffline") : ""}
+            </p>
           </div>
-        )}
-      </section>
-
-      <section className="card">
-        <div className="card-head">
-          <h2 style={{ margin: 0 }}>{empty ? t("nextTitle") : t("recentTitle")}</h2>
-          {!empty && (
-            <button type="button" className="btn" onClick={onOpenPages}>
-              {tc("all")}
+          {!auth.user && (
+            <button type="button" className="btn btn-accent" onClick={onNeedAuth}>
+              {t("loginCloud")}
             </button>
           )}
         </div>
-        {empty ? (
-          <ol className="howto">
-            <li>{t("howto1")}</li>
-            <li>{t("howto2")}</li>
-            <li>{t("howto3")}</li>
-          </ol>
-        ) : (
-          <div className="page-list">
-            {recent.map((p) => (
-              <div key={p.id} className="page-row">
-                <div>
-                  <strong>{p.title || tc("untitled")}</strong>
-                  <div className="muted">{formatRelative(p.updatedAt, t, locale)}</div>
-                </div>
-                <button type="button" className="btn" onClick={() => onOpenPage(p.id)}>
-                  {tc("open")}
+
+        <section className="launch-grid" aria-label={t("homeTitle")}>
+          <button type="button" className="launch-card launch-card-primary" onClick={onOpenBoard}>
+            <span className="launch-ico" aria-hidden>
+              <BoardIcon />
+            </span>
+            <span className="launch-copy">
+              <strong>{t("openBoard")}</strong>
+              <span className="muted">{t("openBoardDesc")}</span>
+            </span>
+            <span className="launch-go" aria-hidden>
+              →
+            </span>
+          </button>
+          <button type="button" className="launch-card" onClick={onCreatePage}>
+            <span className="launch-ico" aria-hidden>
+              <PageIcon />
+            </span>
+            <span className="launch-copy">
+              <strong>{t("newPage")}</strong>
+              <span className="muted">{t("newPageDesc")}</span>
+            </span>
+            <span className="launch-go" aria-hidden>
+              →
+            </span>
+          </button>
+        </section>
+
+        <section className="card surface-card">
+          <div className="card-head">
+            <h2 style={{ margin: 0 }}>{empty ? t("homeEmptyTitle") : t("recentTitle")}</h2>
+            {!empty && (
+              <button type="button" className="btn" onClick={onOpenPages}>
+                {tc("all")}
+              </button>
+            )}
+          </div>
+
+          {empty ? (
+            <div className="empty-state">
+              <p className="empty-state-title">{t("homeEmptyBody")}</p>
+              <p className="muted empty-state-hint">{t("homeEmptyHint")}</p>
+              <div className="empty-state-actions">
+                <button type="button" className="btn btn-accent" onClick={onCreatePage}>
+                  {t("newPage")}
+                </button>
+                <button type="button" className="btn" onClick={onOpenBoard}>
+                  {t("openBoard")}
                 </button>
               </div>
-            ))}
+            </div>
+          ) : (
+            <PageList pages={recent} onOpen={onOpenPage} />
+          )}
+        </section>
+      </div>
+
+      {isCloud && (
+        <section className="card surface-card home-pulse-footer" aria-label={t("pulse")}>
+          <div className="card-head">
+            <div>
+              <h2 style={{ margin: 0, fontSize: "0.92rem" }}>{t("pulse")}</h2>
+              <p className="muted" style={{ margin: "0.15rem 0 0", fontSize: "0.74rem" }}>
+                {t("pulseHint")}
+              </p>
+            </div>
           </div>
-        )}
-      </section>
-    </>
+          {pulse.length === 0 ? (
+            <p className="muted home-pulse-empty">{t("pulseEmpty")}</p>
+          ) : (
+            <ul className="pulse-list">
+              {pulse.slice(0, 5).map((ev) => (
+                <li key={ev.id} className="pulse-item">
+                  <strong>{ev.actorName ?? tc("someone")}</strong> {labelPulseAction(ev.action, ta)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function BoardIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
+function PageIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 3.5h7.2L19.5 9v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path d="M14 3.5V9h5.5M9 13h6M9 16.5h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
   );
 }

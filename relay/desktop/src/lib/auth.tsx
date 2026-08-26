@@ -25,6 +25,9 @@ export type CloudWorkspace = {
   name: string;
   slug: string;
   role: string;
+  memberCount?: number;
+  createdBy?: string | null;
+  ownerName?: string | null;
 };
 
 export type CloudSubscription = {

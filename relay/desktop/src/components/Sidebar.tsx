@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { ViewId } from "../App";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
-import { ApiClientError } from "../lib/api";
+import { ChevronIcon, NavIcon } from "./NavIcons";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { PulseStrip } from "./PulseStrip";
+import { useDialog } from "./DialogHost";
+
+const COLLAPSE_KEY = "relay.desktop.sidebarCollapsed";
 
 export function Sidebar({
   view,
@@ -14,11 +19,27 @@ export function Sidebar({
 }) {
   const t = useTranslations("desktop");
   const tc = useTranslations("common");
-  const ta = useTranslations("app");
   const auth = useAuth();
   const ws = useWorkspace();
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const dialog = useDialog();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function setCollapsedPersist(next: boolean) {
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
 
   const items: { id: ViewId; label: string; hint: string }[] = [
     { id: "home", label: t("navHome"), hint: t("navHomeHint") },
@@ -37,109 +58,150 @@ export function Sidebar({
     return t("planFreeShort");
   }
 
+  const initials = (auth.user?.name || "?").slice(0, 1).toUpperCase();
+  const plan = planLabel();
+
   return (
-    <aside className="sidebar">
-      <div className="nav-label">{tc("menu")}</div>
-      {ws.mode === "cloud" && auth.workspaces.length > 0 && (
-        <select
-          className="ws-select"
-          value={ws.activeWorkspaceId ?? ""}
-          onChange={(e) => ws.setActiveWorkspace(e.target.value)}
-          aria-label={t("workspaceAria")}
-        >
-          {auth.workspaces.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name} · {w.role}
-            </option>
-          ))}
-        </select>
-      )}
-      {items.map((item) => (
+    <aside className="sidebar" data-collapsed={collapsed ? "true" : "false"}>
+      <div className="sidebar-brand">
+        <WorkspaceSwitcher
+          collapsed={collapsed}
+          onExpand={() => setCollapsedPersist(false)}
+          onInvite={() => onNavigate("team")}
+        />
+      </div>
+
+      {!collapsed && <div className="nav-label">{tc("menu")}</div>}
+
+      <nav id="relay-sidebar-nav" className="sidebar-nav" aria-label={tc("menu")}>
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="nav-item"
+            data-active={view === item.id}
+            title={collapsed ? `${item.label} — ${item.hint}` : item.hint}
+            aria-current={view === item.id ? "page" : undefined}
+            aria-label={item.label}
+            onClick={() => onNavigate(item.id)}
+          >
+            <span className="nav-ico">
+              <NavIcon id={item.id} />
+            </span>
+            <span className="nav-copy">
+              <span className="nav-title">{item.label}</span>
+              <span className="nav-hint">{item.hint}</span>
+            </span>
+          </button>
+        ))}
+      </nav>
+
+      <PulseStrip collapsed={collapsed} onExpand={() => setCollapsedPersist(false)} />
+
+      <div className="sidebar-spacer" />
+
+      <div className="sidebar-tools">
         <button
-          key={item.id}
           type="button"
-          className="nav-item"
-          data-active={view === item.id}
-          title={item.hint}
-          onClick={() => onNavigate(item.id)}
+          className="sidebar-toggle"
+          onClick={() => setCollapsedPersist(!collapsed)}
+          aria-expanded={!collapsed}
+          aria-controls="relay-sidebar-nav"
+          title={collapsed ? t("sidebarExpand") : t("sidebarCollapse")}
+          aria-label={collapsed ? t("sidebarExpand") : t("sidebarCollapse")}
         >
-          <span className="nav-copy">
-            <span className="nav-title">{item.label}</span>
-            <span className="nav-hint">{item.hint}</span>
-          </span>
+          <ChevronIcon collapsed={collapsed} />
+          {!collapsed && <span>{t("sidebarCollapse")}</span>}
         </button>
-      ))}
+      </div>
 
-      <div style={{ flex: 1 }} />
-
-      {auth.user ? (
-        <div className="account-card">
-          <strong>{auth.user.name}</strong>
-          <div className="muted" style={{ fontSize: "0.75rem" }}>
-            {auth.user.email}
-          </div>
-          {auth.subscription && (
-            <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
-              {planLabel()}
-            </div>
-          )}
-          <button type="button" className="btn" style={{ marginTop: 8, width: "100%" }} onClick={() => void auth.logout()}>
-            {tc("logout")}
-          </button>
-        </div>
-      ) : (
-        <p className="footer-note">
-          {t("guestFooter", { limit: ws.guestLimit })}{" "}
-          <button type="button" className="linkish" onClick={() => onNavigate("auth")}>
-            {tc("login")}
-          </button>
-        </p>
-      )}
-
-      {view === "team" && ws.mode === "cloud" && (
-        <div className="team-mini">
-          <div className="nav-label">{t("members")}</div>
-          {ws.members.map((m) => (
-            <div key={m.id} className="muted" style={{ fontSize: "0.78rem", padding: "0.2rem 0.45rem" }}>
-              {m.name} · {m.role}
-            </div>
-          ))}
-          {ws.activeRole === "owner" && (
-            <form
-              style={{ padding: "0.45rem", display: "grid", gap: 6 }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                setInviteMsg(null);
-                void ws
-                  .inviteMember(inviteEmail, "editor")
-                  .then((r) => {
-                    setInviteMsg(
-                      r.acceptToken ? t("inviteToken", { token: r.acceptToken }) : t("inviteSent"),
-                    );
-                    setInviteEmail("");
-                    void ws.refreshMembers();
-                  })
-                  .catch((err) => {
-                    setInviteMsg(err instanceof ApiClientError ? err.message : tc("error"));
-                  });
-              }}
+      <div className="sidebar-foot">
+        {auth.user ? (
+          <div
+            className="account-chip"
+            title={collapsed ? `${auth.user.name} · ${auth.user.email}` : undefined}
+          >
+            <button
+              type="button"
+              className="account-chip-main"
+              onClick={() => onNavigate("auth")}
+              aria-label={auth.user.name}
             >
-              <input
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="email@"
-                type="email"
-                required
-                style={{ width: "100%" }}
-              />
-              <button type="submit" className="btn btn-accent">
-                {ta("invite")}
+              <span className="account-avatar" aria-hidden>
+                {initials}
+              </span>
+              {!collapsed && (
+                <span className="account-meta">
+                  <span className="account-name">{auth.user.name}</span>
+                  <span className="account-sub">
+                    {plan ? <span className="account-plan">{plan}</span> : null}
+                    <span className="account-email">{auth.user.email}</span>
+                  </span>
+                </span>
+              )}
+            </button>
+            {!collapsed && (
+              <button
+                type="button"
+                className="account-logout"
+                onClick={() => {
+                  void (async () => {
+                    const ok = await dialog.confirm({
+                      title: tc("logoutConfirm"),
+                      confirmLabel: tc("logout"),
+                    });
+                    if (ok) await auth.logout();
+                  })();
+                }}
+                title={tc("logout")}
+                aria-label={tc("logout")}
+              >
+                <LogoutIcon />
               </button>
-              {inviteMsg && <p className="muted" style={{ fontSize: "0.72rem", margin: 0 }}>{inviteMsg}</p>}
-            </form>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        ) : collapsed ? (
+          <button
+            type="button"
+            className="account-avatar account-avatar-guest"
+            onClick={() => onNavigate("auth")}
+            title={tc("login")}
+            aria-label={tc("login")}
+          >
+            ?
+          </button>
+        ) : (
+          <div className="guest-chip">
+            <div className="guest-chip-copy">
+              <strong>{t("guestChipTitle")}</strong>
+              <span className="muted">{t("guestFooter", { limit: ws.guestLimit })}</span>
+            </div>
+            <button type="button" className="btn btn-accent guest-chip-cta" onClick={() => onNavigate("auth")}>
+              {tc("login")}
+            </button>
+          </div>
+        )}
+      </div>
     </aside>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+      <path
+        d="M10 4.5H6.5A2 2 0 0 0 4.5 6.5v11A2 2 0 0 0 6.5 19.5H10"
+        stroke="currentColor"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10.5 12H19.5M16.5 8.5 20 12l-3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

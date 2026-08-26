@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { ApiClientError, type OAuthProvider } from "../lib/api";
 import { GithubMark, GoogleMark, Spinner, YandexMark } from "./ProviderMarks";
 import { openExternal } from "../lib/open-external";
+import { useDialog } from "./DialogHost";
 
 /** VK ID requires business/INN verification — kept out of UI until that exists. */
 const PROVIDERS: {
@@ -21,6 +22,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
   const tc = useTranslations("common");
   const ta = useTranslations("auth");
   const auth = useAuth();
+  const dialog = useDialog();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,7 +81,19 @@ export function AuthView({ onDone }: { onDone: () => void }) {
             <strong>{auth.user!.name}</strong>
             <span className="muted">{auth.user!.email}</span>
             {auth.subscription && <span className="auth-plan">{planLabel()}</span>}
-            <button type="button" className="btn btn-accent" onClick={() => void auth.logout()}>
+            <button
+              type="button"
+              className="btn btn-accent"
+              onClick={() => {
+                void (async () => {
+                  const ok = await dialog.confirm({
+                    title: tc("logoutConfirm"),
+                    confirmLabel: tc("logout"),
+                  });
+                  if (ok) await auth.logout();
+                })();
+              }}
+            >
               {tc("logout")}
             </button>
           </div>

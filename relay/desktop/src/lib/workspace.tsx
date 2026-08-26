@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -83,6 +84,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [offline, setOffline] = useState(false);
   const [pageCache, setPageCache] = useState<Record<string, PageRecord>>({});
+  const pageCacheRef = useRef(pageCache);
+  pageCacheRef.current = pageCache;
 
   const activeWs =
     mode === "cloud"
@@ -331,10 +334,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return page;
       } catch {
         setOffline(true);
-        return pageCache[id] ?? null;
+        return pageCacheRef.current[id] ?? null;
       }
     },
-    [mode, local.pages, auth.token, pageCache],
+    [mode, local.pages, auth.token],
   );
 
   const setActiveWorkspace = useCallback((id: string) => {
