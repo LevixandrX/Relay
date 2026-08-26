@@ -489,7 +489,7 @@ function EditorDoc({ active }: { active: boolean }) {
         <blockquote>{t("quoteBody")}</blockquote>
       </div>
 
-      <div className="ld-doc-compose">
+      <div className={`ld-doc-compose${menu ? " is-menu-open" : ""}`}>
         <p className="ld-doc-line">
           {slash ? (
             <>

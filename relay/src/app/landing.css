@@ -984,26 +984,39 @@
   }
 }
 
-/* ========== Editor doc (fixed box, opacity-only) ========== */
+/* ========== Editor doc (content-sized card, no spill) ========== */
 .ld-panel-doc {
-  min-height: min(62vh, 560px);
+  min-height: 0;
   width: min(100%, 520px);
+  height: auto;
 }
 
 .ld-panel-doc .ld-panel-inner {
+  position: relative;
+  inset: auto;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-width: 100%;
+  overflow: visible;
   background: var(--ld-surface);
   border: 1px solid var(--ld-line);
   border-radius: 18px;
   box-shadow: var(--ld-shadow);
   padding: 1.15rem 1.25rem;
+  box-sizing: border-box;
 }
 
 .ld-doc {
   width: 100%;
-  max-width: 440px;
-  min-height: 480px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
   padding: 0.15rem 0.1rem;
   box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .ld-doc-meta {
@@ -1048,6 +1061,9 @@
   line-height: 1.45;
   opacity: 0;
   min-height: 1.45em;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .ld-doc-callout {
@@ -1081,6 +1097,9 @@
   font-size: 0.92rem;
   line-height: 1.4;
   font-weight: 600;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .ld-doc-list {
@@ -1094,11 +1113,15 @@
 
 .ld-doc-list li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   font-weight: 650;
   font-size: 0.98rem;
   opacity: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .ld-doc-list i {
@@ -1114,6 +1137,13 @@
   position: relative;
   margin-top: 1.1rem;
   min-height: 8.5rem;
+  overflow: visible;
+  z-index: 2;
+}
+
+.ld-doc-compose.is-menu-open {
+  min-height: 15rem;
+  padding-bottom: 0.5rem;
 }
 
 .ld-doc-line {
@@ -1165,12 +1195,15 @@
   opacity: 0;
   transform: translateY(8px);
   max-height: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
   overflow: hidden;
   pointer-events: none;
   transition:
     opacity 0.35s var(--ld-ease),
     transform 0.4s var(--ld-ease),
-    max-height 0.4s var(--ld-ease),
+    max-height 0.45s var(--ld-ease),
     margin 0.3s var(--ld-ease),
     padding 0.3s var(--ld-ease);
 }
@@ -1178,7 +1211,7 @@
 .ld-doc-insert.is-on {
   opacity: 1;
   transform: none;
-  max-height: 12rem;
+  max-height: 20rem;
   pointer-events: auto;
 }
 
@@ -1199,6 +1232,12 @@
   font-size: 0.95rem;
   line-height: 1.45;
   font-weight: 600;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  box-sizing: border-box;
 }
 
 .ld-doc-insert ul {
@@ -1247,7 +1286,7 @@
   opacity: 0;
   transform: translateY(6px) scale(0.98);
   pointer-events: none;
-  z-index: 3;
+  z-index: 8;
   transition:
     opacity 0.22s var(--ld-ease),
     transform 0.22s var(--ld-ease);
@@ -1389,6 +1428,9 @@
   line-height: 1.45;
   box-shadow: var(--ld-shadow-sm);
   animation: ld-msg-in 0.28s var(--ld-ease) both;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .ld-msg-u {
@@ -2219,19 +2261,28 @@
   #text .ld-panel-doc {
     min-height: 0;
     width: 100%;
+    max-width: 100%;
   }
 
   #text .ld-panel-doc .ld-panel-inner {
+    position: relative;
+    inset: auto;
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
     background: var(--ld-surface);
     border: 1px solid var(--ld-line);
     border-radius: 16px;
     box-shadow: var(--ld-shadow);
     padding: 1rem 0.95rem;
+    box-sizing: border-box;
   }
 
   #text .ld-doc {
     min-height: 0;
-    max-width: none;
+    max-width: 100%;
+    width: 100%;
   }
 
   #text .ld-doc-callout,
@@ -2248,6 +2299,10 @@
   #text .ld-doc-compose {
     min-height: 6.5rem;
     margin-top: 0.75rem;
+  }
+
+  #text .ld-doc-compose.is-menu-open {
+    min-height: 14rem;
   }
 
   #text .ld-slash {
@@ -2398,10 +2453,13 @@
     width: 100%;
     height: auto;
     min-height: 0;
+    max-width: 100%;
     opacity: 1;
     transform: none;
     display: block;
     padding: 0.75rem 0.5rem;
+    overflow: visible;
+    box-sizing: border-box;
     animation: none;
   }
 
@@ -2412,13 +2470,15 @@
   }
 
   .ld-doc {
-    max-width: none;
+    max-width: 100%;
     min-height: 0;
+    overflow-wrap: break-word;
   }
 
   .ld-chat {
-    max-width: none;
+    max-width: 100%;
     margin-inline: auto;
+    min-width: 0;
   }
 
   .ld-shell-stack {
