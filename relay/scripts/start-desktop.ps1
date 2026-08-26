@@ -13,6 +13,38 @@ $ErrorActionPreference = "Stop"
 $relayRoot = Split-Path $PSScriptRoot -Parent
 $desktopRoot = Join-Path $relayRoot "desktop"
 
+# Shortcut launches inherit a thin PATH — make sure cargo/npm/MSVC are visible.
+function Ensure-DevPath {
+  $parts = @(
+    (Join-Path $env:USERPROFILE ".cargo\bin"),
+    "${env:ProgramFiles}\nodejs",
+    "${env:ProgramFiles(x86)}\nodejs"
+  )
+  foreach ($p in $parts) {
+    if ($p -and (Test-Path $p) -and ($env:Path -notlike "*$p*")) {
+      $env:Path = "$p;$env:Path"
+    }
+  }
+  if (-not (Get-Command link.exe -ErrorAction SilentlyContinue)) {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+      $vsDev = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+      if ($vsDev) {
+        $vcvars = Join-Path $vsDev "VC\Auxiliary\Build\vcvars64.bat"
+        if (Test-Path $vcvars) {
+          cmd /c "`"$vcvars`" >nul && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Ensure-DevPath
+
 function Get-NpmCmd {
   $cmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Source }

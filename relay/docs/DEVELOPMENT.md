@@ -2,7 +2,7 @@
 
 ## Repo root
 
-Application lives in this folder (`relay/`). Parent `Notion 2/` may be empty wrapper.
+Application lives in `relay/`. Parent repo may contain wrapper scripts.
 
 ## Before coding
 
@@ -20,30 +20,34 @@ npm run db:migrate
 npm run dev          # сайт http://localhost:3000 (сам освобождает порт)
 ```
 
-**Десктоп — один ярлык**
+### Windows — один ярлык (веб + десктоп)
 
-На рабочем столе должен быть только **Relay.lnk**. Он поднимает API + Vite + **	auri:dev** (окно на :1420, правки UI видны сразу).
+После клона с GitHub:
 
-Заранее собранный 
-elay_desktop.exe (debug/release) **вшивает** UI и **не** подхватывает Vite — поэтому ярлык его больше не открывает.
+```powershell
+# из корня репозитория
+powershell -File scripts/setup-windows-dev.ps1
+```
 
-`ash
-powershell -File scripts/install-desktop-shortcut.ps1
-`
+На рабочем столе появится **Relay.lnk** — API + браузер + окно десктопа (live UI через `tauri:dev`).
 
-Опционально вшить UI в release-exe: powershell -File scripts/start-desktop.ps1 -Rebuild
+Переустановить только ярлык:
 
-Или из терминала:
-
-`ash
+```powershell
 cd relay
-npm run dev                              # сайт
-powershell -File scripts/start-desktop.ps1   # десктоп (live)
-`
+npm run relay:shortcut
+```
 
-Открывай http://localhost:3000
+Запуск вручную:
 
-Если страница «крутится вечно» — почти всегда зависший старый `node` на порту 3000. `npm run dev` теперь убивает его перед стартом. В крайнем случае: `npm run dev:clean`.
+```powershell
+cd relay
+npm run relay:start
+```
+
+Заранее собранный `relay_desktop.exe` **вшивает** UI и **не** подхватывает Vite — для разработки используй ярлык / `relay:start`.
+
+Опционально release-exe: `powershell -File scripts/start-desktop.ps1 -Rebuild`
 
 ## Scripts
 
@@ -53,29 +57,30 @@ powershell -File scripts/start-desktop.ps1   # десктоп (live)
 | `npm run dev:clean` | То же + очистка `.next` |
 | `npm run db:migrate` | Схема SQLite |
 | `npm run build` / `npm start` | Прод-сборка и запуск |
+| `npm run relay:start` | Windows: API + браузер + десктоп |
+| `npm run relay:shortcut` | Ярлык Relay.lnk на Desktop |
 | `npm run desktop:dev` | UI десктопа (Vite, :1420) |
 | `npm run desktop:tauri` | Нативное окно Tauri 2 |
 | `npm run desktop:build` | Сборка десктоп-приложения |
 
-Десктоп: `desktop/` — см. `desktop/README.md`. Стек: Tauri 2 + React + Vite. Темы: светлая / тёмная / системная + свои акценты.
+Десктоп: `desktop/` — см. `desktop/README.md`. Стек: Tauri 2 + React + Vite.
+
+## GitHub Releases (опционально)
+
+Тег `v*` запускает CI и прикрепляет Windows `.exe`/`.msi` к Release — для тестеров без dev-окружения.  
+Основной путь для команды: clone + `setup-windows-dev.ps1` + ярлык.
 
 ## Env
 
-Variables are read from `relay/.env.local` (see `.env.example`) — a copy in the repo root is ignored.
-Minimum: `AUTH_SECRET` (32+ chars). Optional: `OPENAI_API_KEY`, `DATABASE_URL`, `GOOGLE_*` / `GITHUB_*` / `YANDEX_*` / `VK_*` OAuth, `CORS_ORIGINS`, `TRUST_PROXY`.
+Variables are read from `relay/.env.local` (see `.env.example`).
 
-Desktop OAuth needs no OS registration: the app pairs via `/api/v1/auth/desktop/pair`, opens the
-provider in the system browser and polls `/api/v1/auth/desktop/claim` (code + claimSecret). After editing OAuth env vars, restart `npm run dev`.
+Minimum: `AUTH_SECRET` (32+ chars). Optional: OAuth keys, `OPENAI_API_KEY`, `DATABASE_URL`, `CORS_ORIGINS`.
 
-Desktop cloud: start API (`npm run dev`), then `npm run desktop:dev` with `VITE_API_URL=http://127.0.0.1:3000`.
+Desktop cloud: start API (`npm run dev`), then desktop with `VITE_API_URL=http://127.0.0.1:3000`.
 
 ## Conventions
 
 - Server-only DB imports in Route Handlers / Server Components
 - Zod at every API boundary
-- Soft-delete pages (`deleted_at`); never hard-delete in MVP
+- Soft-delete pages (`deleted_at`)
 - UI copy: short, human, no jargon in empty states
-
-## Postgres migration path
-
-Schema is intentionally close to SQL-portable types. To move to Neon: swap `src/db/client.ts` to `drizzle-orm/postgres-js`, adjust JSON columns, add `tsvector` search as in the original design.

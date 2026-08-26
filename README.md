@@ -49,6 +49,34 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Windows — one shortcut (web + desktop)
+
+For collaborators and testers on a fresh PC:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+powershell -File scripts/setup-windows-dev.ps1
+```
+
+This installs Git, Node, Rust (for Tauri), runs `npm install`, migrates the DB, and creates **Relay.lnk** on the Desktop.  
+Double-click it → API on `:3000`, browser opens, desktop app starts with live UI.
+
+Already cloned? From repo root:
+
+```powershell
+powershell -File scripts/setup-windows-dev.ps1
+powershell -File scripts/install-relay-shortcut.ps1   # shortcut only
+```
+
+From `relay/`:
+
+```powershell
+npm run relay:start      # web + browser + desktop
+npm run relay:shortcut   # reinstall Desktop shortcut
+```
+
+**Prebuilt `.exe` from GitHub** — optional, for people without dev tools. We tag releases (`v0.1.0`) and CI attaches Windows builds. The UI is frozen in those builds; day-to-day dev should use **Relay.lnk** (live Vite UI).
+
 From the repository root you can also run:
 
 ```bash
@@ -77,6 +105,8 @@ See [`relay/.env.example`](./relay/.env.example) for the full list and OAuth red
 
 Tauri 2 + React (Vite). Guest mode works offline; cloud needs the web API running.
 
+**Recommended (Windows):** run setup once, then use **Relay.lnk** on the Desktop (`npm run relay:start`).
+
 ```bash
 # terminal 1 — API
 cd relay && npm run dev
@@ -88,6 +118,8 @@ npm install
 npm run dev            # http://127.0.0.1:1420
 # or: npm run tauri:dev
 ```
+
+Or one command (Windows): `npm run relay:start` from `relay/` — API + browser + desktop window.
 
 On Windows, native builds need **Visual Studio Build Tools** (C++ workload) and Rust (`rustup`).
 

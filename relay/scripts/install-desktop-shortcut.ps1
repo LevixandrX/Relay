@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
 $relayRoot = Split-Path $scriptDir -Parent
-$startScript = Join-Path $scriptDir "start-desktop.ps1"
+$startScript = Join-Path $scriptDir "start-relay.ps1"
 $iconsDir = Join-Path $relayRoot "desktop\src-tauri\icons"
 $srcIco = Join-Path $iconsDir "icon.ico"
 $shortcutIco = Join-Path $iconsDir "relay-app.ico"
@@ -31,7 +31,7 @@ $lnk.TargetPath = "powershell.exe"
 $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$startScript`""
 $lnk.WorkingDirectory = $relayRoot
 $lnk.IconLocation = "$shortcutIco,0"
-$lnk.Description = "Relay desktop (API + live UI + window)"
+$lnk.Description = "Relay — web + desktop (API, browser, live UI)"
 $lnk.WindowStyle = 1
 $lnk.Save()
 

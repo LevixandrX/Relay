@@ -7,6 +7,8 @@
     "dev:clean": "npm --prefix relay run dev:clean",
     "build": "npm --prefix relay run build",
     "start": "npm --prefix relay run start",
-    "db:migrate": "npm --prefix relay run db:migrate"
+    "db:migrate": "npm --prefix relay run db:migrate",
+    "relay:start": "npm --prefix relay run relay:start",
+    "setup:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-windows-dev.ps1"
   }
 }

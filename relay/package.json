@@ -13,6 +13,8 @@
     "desktop:tauri": "npm --prefix desktop run tauri:dev",
     "desktop:build": "npm --prefix desktop run tauri:build",
     "desktop:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1",
+    "relay:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-relay.ps1",
+    "relay:shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-desktop-shortcut.ps1",
     "desktop:dev-ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Dev",
     "desktop:rebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Rebuild"
   },
