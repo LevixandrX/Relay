@@ -7,6 +7,7 @@ import { useDialog } from "./DialogHost";
 import {
   workspaceAccent,
   workspaceDisplayName,
+  isWorkspaceRenameUnchanged,
   workspaceMark,
 } from "../lib/workspace-meta";
 
@@ -141,7 +142,7 @@ export function WorkspaceSwitcher({
         confirmLabel: t("renameWorkspace"),
       })
     )?.trim();
-    if (!next || next === active.name) return;
+    if (!next || isWorkspaceRenameUnchanged(next, active.name, label)) return;
     setBusy(true);
     try {
       await api(`/workspaces/${active.id}`, {

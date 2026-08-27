@@ -154,6 +154,7 @@ export function PageView({
           <InfiniteBoard
             key={`page-board-${pageId}`}
             initialSnapshot={board}
+            syncRoomId={!offline ? `pg-${pageId}` : undefined}
             onChange={onBoardChange}
           />
         </div>

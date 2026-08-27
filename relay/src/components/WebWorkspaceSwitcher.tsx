@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   workspaceAccent,
   workspaceDisplayName,
+  isWorkspaceRenameUnchanged,
   workspaceInitialsFromLabel,
 } from "@/domain/workspaces/naming";
 import { useDialog } from "@/components/DialogHost";
@@ -164,7 +165,7 @@ export function WebWorkspaceSwitcher({
         confirmLabel: t("renameWorkspace"),
       })
     )?.trim();
-    if (!next || next === active.name) return;
+    if (!next || isWorkspaceRenameUnchanged(next, active.name, label)) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/v1/workspaces/${active.id}`, {

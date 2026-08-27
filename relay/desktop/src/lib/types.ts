@@ -11,7 +11,7 @@ export type Doc = {
   content?: JSONContent[];
 };
 
-/** Opaque tldraw snapshot */
+/** Opaque Quickdraw snapshot */
 export type BoardSnapshot = Record<string, unknown>;
 
 export type PageRecord = {

@@ -11,7 +11,7 @@
 | Web UI | React 19 + CSS tokens (`globals.css`) + next-intl (ru/en) | |
 | Desktop | Tauri 2 + React/Vite | Тот же API по HTTP + Bearer; те же `messages/*.json` |
 | Editor | TipTap (ProseMirror) | Документ = JSON AST |
-| Canvas | tldraw | Snapshot в JSON (workspace/page `board`) |
+| Canvas | Quickdraw | Snapshot JSON + WS relay for live edits |
 | Auth | `jose` JWT + таблица `sessions` | Cookie (web) или `Authorization: Bearer` (desktop) |
 | Billing | `subscriptions` + entitlements | Free / Pro trial 14d |
 | Validation | Zod | API + document AST |

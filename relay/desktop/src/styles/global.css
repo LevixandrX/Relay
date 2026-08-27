@@ -2424,16 +2424,12 @@ html[data-fluent-icons="1"] .win-glyph-svg {
 .relay-board {
   height: 100%;
   min-height: 420px;
+  position: relative;
 }
 
-.relay-board .tl-container {
-  height: 100%;
-}
-
-.relay-board a[href*="tldraw"],
-.relay-board [class*="watermark"],
-.relay-board .tl-watermark_SEE-LICENSE {
-  display: none !important;
+.relay-board > div {
+  position: absolute;
+  inset: 0;
 }
 
 .relay-editor {

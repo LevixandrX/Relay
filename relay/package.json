@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:clean": "node scripts/dev.mjs --clean",
+    "board:sync": "node scripts/board-sync.mjs",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "eslint",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
     "@libsql/client": "^0.17.4",
+    "@quickdrawjs/react": "^0.2.0",
     "@tiptap/extension-code-block-lowlight": "^3.29.0",
     "@tiptap/extension-link": "^3.29.0",
     "@tiptap/extension-placeholder": "^3.29.0",
@@ -45,7 +47,6 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "rope-sequence": "^1.3.4",
-    "tldraw": "^5.2.5",
     "use-sync-external-store": "^1.6.0",
     "zod": "^4.4.3"
   },
@@ -61,6 +62,7 @@
     "eslint-config-next": "16.2.11",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ws": "^8.21.3"
   }
 }

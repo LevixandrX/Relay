@@ -1329,18 +1329,9 @@ kbd {
   inset: 0;
 }
 
-/* Keep tldraw chrome inside the canvas so it can't cover Relay UI / dialogs. */
-.relay-board .tl-theme__dark,
-.relay-board .tl-theme__light,
-.relay-board .tl-container {
-  position: absolute !important;
+.relay-board > div {
+  position: absolute;
   inset: 0;
-}
-
-.relay-board a[href*="tldraw"],
-.relay-board [class*="watermark"],
-.relay-board .tl-watermark_SEE-LICENSE {
-  display: none !important;
 }
 
 .relay-editor .tiptap {

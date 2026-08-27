@@ -906,6 +906,13 @@ function WorkspaceAppInner({
               key={isWorkspaceBoard ? `ws-${workspaceId}` : `pg-${pageId}-board`}
               editable={canWrite}
               initialSnapshot={isWorkspaceBoard ? wsBoard : pageBoard}
+              syncRoomId={
+                canWrite
+                  ? isWorkspaceBoard
+                    ? `ws-${workspaceId}`
+                    : `pg-${pageId}`
+                  : undefined
+              }
               onChange={
                 isWorkspaceBoard ? saveWorkspaceBoardSnapshot : savePageBoardSnapshot
               }

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useTranslations } from "use-intl";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";

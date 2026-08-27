@@ -48,9 +48,22 @@ function rmrf(target) {
 }
 
 killPort(port);
+killPort(Number(process.env.BOARD_SYNC_PORT || 3001));
 if (clean) {
   rmrf(path.join(root, ".next"));
 }
+
+const syncPort = process.env.BOARD_SYNC_PORT ? Number(process.env.BOARD_SYNC_PORT) : 3001;
+
+const syncChild = spawn(
+  process.execPath,
+  [path.join(__dirname, "board-sync.mjs")],
+  {
+    cwd: root,
+    stdio: "inherit",
+    env: { ...process.env, BOARD_SYNC_PORT: String(syncPort), FORCE_COLOR: "1" },
+  },
+);
 
 const child = spawn(
   process.platform === "win32" ? "npx.cmd" : "npx",
@@ -63,4 +76,13 @@ const child = spawn(
   },
 );
 
-child.on("exit", (code) => process.exit(code ?? 0));
+child.on("exit", (code) => {
+  syncChild.kill();
+  process.exit(code ?? 0);
+});
+syncChild.on("exit", (code) => {
+  if (code && code !== 0) {
+    child.kill();
+    process.exit(code);
+  }
+});

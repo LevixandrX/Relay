@@ -1,6 +1,6 @@
 # Relay — agent entrypoint
 
-**Relay** — Notion-like SaaS: workspaces, pages (TipTap), infinite canvas (tldraw), web + Tauri desktop.
+**Relay** — Notion-like SaaS: workspaces, pages (TipTap), infinite canvas (Quickdraw), web + Tauri desktop.
 
 ## Read first (обязательно)
 

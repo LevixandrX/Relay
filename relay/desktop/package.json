@@ -12,6 +12,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@quickdrawjs/react": "^0.2.0",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-shell": "^2.2.1",
     "@tiptap/extension-link": "^3.29.0",
@@ -25,7 +26,6 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tauri-plugin-snap-layout": "^1.0.9",
-    "tldraw": "^5.2.5",
     "use-intl": "^4.13.6"
   },
   "devDependencies": {

@@ -42,3 +42,17 @@ export function workspaceMark(storedName: string, ownerName: string | null | und
   const source = isGenericWorkspaceName(storedName) ? firstName(ownerName) : storedName;
   return workspaceInitials(source);
 }
+
+/** Skip PATCH when the prompt still matches what the user already sees (incl. legacy generic names). */
+export function isWorkspaceRenameUnchanged(
+  next: string,
+  storedName: string,
+  displayLabel: string,
+) {
+  const n = next.trim();
+  if (!n) return true;
+  if (n === displayLabel.trim()) return true;
+  if (n === storedName.trim()) return true;
+  if (isGenericWorkspaceName(storedName) && isGenericWorkspaceName(n)) return true;
+  return false;
+}

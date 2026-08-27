@@ -39,6 +39,20 @@ export function firstName(userName: string | null | undefined) {
   return first || "Relay";
 }
 
+/** Skip PATCH when the prompt still matches what the user already sees (incl. legacy generic names). */
+export function isWorkspaceRenameUnchanged(
+  next: string,
+  storedName: string,
+  displayLabel: string,
+) {
+  const n = next.trim();
+  if (!n) return true;
+  if (n === displayLabel.trim()) return true;
+  if (n === storedName.trim()) return true;
+  if (isGenericWorkspaceName(storedName) && isGenericWorkspaceName(n)) return true;
+  return false;
+}
+
 /** Stable accent for workspace avatars when names collide. */
 export function workspaceAccent(id: string) {
   let h = 0;

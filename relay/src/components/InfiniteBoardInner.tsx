@@ -1,103 +1,93 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import {
-  Tldraw,
-  getSnapshot,
-  loadSnapshot,
-  type Editor,
-  type TLEditorSnapshot,
-} from "tldraw";
-import "tldraw/tldraw.css";
+  Quickdraw,
+  useQuickdrawStore,
+  type QuickdrawRef,
+  type Snapshot,
+} from "@quickdrawjs/react";
+import "@quickdrawjs/core/quickdraw.css";
+import { useBoardSync } from "@/lib/board/useBoardSync";
 import type { BoardSnapshot } from "./InfiniteBoard";
 
 type Props = {
   editable?: boolean;
   initialSnapshot?: BoardSnapshot | null;
   onChange?: (snapshot: BoardSnapshot) => void;
+  syncRoomId?: string;
 };
 
 export default function InfiniteBoardInner({
   editable = true,
   initialSnapshot,
   onChange,
+  syncRoomId,
 }: Props) {
-  const editorRef = useRef<Editor | null>(null);
-  const [ready, setReady] = useState(false);
-  const loadedRef = useRef(false);
+  const store = useQuickdrawStore(
+    initialSnapshot ? (initialSnapshot as unknown as Snapshot) : undefined,
+  );
+  const ref = useRef<QuickdrawRef>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
 
-  const syncBoardTheme = useCallback((editor: Editor) => {
-    editor.user.updateUserPreferences({
-      colorScheme: resolvedTheme === "dark" ? "dark" : "light",
-    });
-  }, [resolvedTheme]);
-
-  useEffect(() => {
-    if (!ready || !editorRef.current) return;
-    syncBoardTheme(editorRef.current);
-  }, [ready, syncBoardTheme]);
+  useBoardSync(store, syncRoomId, editable && Boolean(syncRoomId));
 
   const persist = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor || !onChangeRef.current) return;
+    if (!onChangeRef.current) return;
     try {
-      onChangeRef.current(getSnapshot(editor.store));
+      onChangeRef.current(store.getSnapshot() as unknown as BoardSnapshot);
     } catch (err) {
       console.error("board persist failed", err);
     }
-  }, []);
+  }, [store]);
 
   useEffect(() => {
-    if (!ready || !editorRef.current) return;
-    editorRef.current.updateInstanceState({ isReadonly: !editable });
-  }, [editable, ready]);
-
-  useEffect(() => {
-    if (!ready || !editorRef.current) return;
-    const el = editorRef.current.getContainer();
-    const bump = () => {
-      window.dispatchEvent(new Event("resize"));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsub = store.listen(
+      () => {
+        clearTimeout(timer);
+        timer = setTimeout(persist, 900);
+      },
+      { source: "user" },
+    );
+    return () => {
+      clearTimeout(timer);
+      unsub();
     };
+  }, [store, persist]);
+
+  useEffect(() => {
+    ref.current?.editor?.setTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const bump = () => window.dispatchEvent(new Event("resize"));
     bump();
     const ro = new ResizeObserver(bump);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ready]);
+  }, []);
 
   return (
-    <div className="relay-board">
-      <Tldraw
+    <div className="relay-board" ref={hostRef}>
+      <Quickdraw
+        ref={ref}
+        store={store}
+        theme={theme}
+        grid="dots"
+        readonly={!editable}
+        watermark={false}
+        themeToggle={false}
+        autoFit
         onMount={(editor) => {
-          editorRef.current = editor;
-          if (initialSnapshot && !loadedRef.current) {
-            try {
-              loadSnapshot(editor.store, initialSnapshot as TLEditorSnapshot);
-            } catch {
-              // пустой холст
-            }
-            loadedRef.current = true;
-          }
-          editor.updateInstanceState({ isReadonly: !editable });
-          syncBoardTheme(editor);
-          setReady(true);
-
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          const unsub = editor.store.listen(
-            () => {
-              clearTimeout(timer);
-              timer = setTimeout(persist, 900);
-            },
-            { source: "user", scope: "document" },
-          );
-          return () => {
-            clearTimeout(timer);
-            unsub();
-            editorRef.current = null;
-          };
+          editor.setTheme(theme);
         }}
       />
     </div>

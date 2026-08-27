@@ -13,9 +13,10 @@ type Props = {
   editable?: boolean;
   initialSnapshot?: BoardSnapshot | null;
   onChange?: (snapshot: BoardSnapshot) => void;
+  syncRoomId?: string;
 };
 
-/** tldraw только на клиенте — без SSR. */
+/** Quickdraw on the client only — no SSR. */
 export function InfiniteBoard(props: Props) {
   return <BoardInner {...props} />;
 }

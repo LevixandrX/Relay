@@ -16,7 +16,7 @@
 | Аккаунт (email / Google / GitHub / Яндекс) | ✅ |
 | Гость в десктопе (локально, лимиты) | ✅ |
 | Workspaces + роли + инвайты | ✅ |
-| Холст пространства (tldraw) | ✅ |
+| Холст пространства (Quickdraw) | ✅ |
 | Страницы + TipTap + холст страницы | ✅ |
 | Публичные ссылки | ✅ |
 | Trial Pro 14 дней / freemium лимиты | ✅ |
@@ -24,7 +24,7 @@
 | VK OAuth | ⏸ нужен бизнес/ИНН |
 | Stripe / оплата | ❌ позже |
 | Email verify | ❌ позже |
-| Realtime collab | ❌ позже |
+| Realtime collab | 🚧 board sync relay (Quickdraw diffs) |
 
 ## Дифференциаторы
 

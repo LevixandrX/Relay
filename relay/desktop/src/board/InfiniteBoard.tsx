@@ -1,75 +1,113 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Tldraw,
-  getSnapshot,
-  loadSnapshot,
-  type Editor,
-  type TLEditorSnapshot,
-} from "tldraw";
-import "tldraw/tldraw.css";
+  Quickdraw,
+  useQuickdrawStore,
+  type QuickdrawRef,
+  type Snapshot,
+} from "@quickdrawjs/react";
+import "@quickdrawjs/core/quickdraw.css";
+import { useBoardSync } from "../lib/useBoardSync";
+import { useTheme } from "../theme/ThemeProvider";
 import type { BoardSnapshot } from "../lib/types";
+
+function useBoardTheme(): "light" | "dark" {
+  const { mode } = useTheme();
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    const read = () => {
+      const effective =
+        mode === "system"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : mode;
+      setTheme(effective);
+    };
+    read();
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
+  }, [mode]);
+
+  return theme;
+}
 
 type Props = {
   editable?: boolean;
   initialSnapshot?: BoardSnapshot | null;
   onChange?: (snapshot: BoardSnapshot) => void;
+  syncRoomId?: string;
 };
 
 export function InfiniteBoard({
   editable = true,
   initialSnapshot,
   onChange,
+  syncRoomId,
 }: Props) {
-  const editorRef = useRef<Editor | null>(null);
-  const [ready, setReady] = useState(false);
-  const loadedRef = useRef(false);
+  const store = useQuickdrawStore(
+    initialSnapshot ? (initialSnapshot as unknown as Snapshot) : undefined,
+  );
+  const ref = useRef<QuickdrawRef>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const theme = useBoardTheme();
+
+  useBoardSync(store, syncRoomId, editable && Boolean(syncRoomId));
 
   const persist = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor || !onChangeRef.current) return;
+    if (!onChangeRef.current) return;
     try {
-      onChangeRef.current(getSnapshot(editor.store) as unknown as BoardSnapshot);
+      onChangeRef.current(store.getSnapshot() as unknown as BoardSnapshot);
     } catch (err) {
       console.error("board persist failed", err);
     }
-  }, []);
+  }, [store]);
 
   useEffect(() => {
-    if (!ready || !editorRef.current) return;
-    editorRef.current.updateInstanceState({ isReadonly: !editable });
-  }, [editable, ready]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsub = store.listen(
+      () => {
+        clearTimeout(timer);
+        timer = setTimeout(persist, 900);
+      },
+      { source: "user" },
+    );
+    return () => {
+      clearTimeout(timer);
+      unsub();
+    };
+  }, [store, persist]);
+
+  useEffect(() => {
+    ref.current?.editor?.setTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const bump = () => window.dispatchEvent(new Event("resize"));
+    bump();
+    const ro = new ResizeObserver(bump);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
-    <div className="relay-board">
-      <Tldraw
+    <div className="relay-board" ref={hostRef}>
+      <Quickdraw
+        ref={ref}
+        store={store}
+        theme={theme}
+        grid="dots"
+        readonly={!editable}
+        watermark={false}
+        themeToggle={false}
+        autoFit
         onMount={(editor) => {
-          editorRef.current = editor;
-          if (initialSnapshot && !loadedRef.current) {
-            try {
-              loadSnapshot(editor.store, initialSnapshot as unknown as TLEditorSnapshot);
-            } catch {
-              // empty canvas
-            }
-            loadedRef.current = true;
-          }
-          editor.updateInstanceState({ isReadonly: !editable });
-          setReady(true);
-
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          const unsub = editor.store.listen(
-            () => {
-              clearTimeout(timer);
-              timer = setTimeout(persist, 900);
-            },
-            { source: "user", scope: "document" },
-          );
-          return () => {
-            clearTimeout(timer);
-            unsub();
-            editorRef.current = null;
-          };
+          editor.setTheme(theme);
         }}
       />
     </div>

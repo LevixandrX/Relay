@@ -7,7 +7,7 @@ import type { BoardSnapshot } from "../lib/types";
 export function BoardView() {
   const t = useTranslations("desktop");
   const ta = useTranslations("app");
-  const { workspaceBoard, setWorkspaceBoard, mode, offline } = useWorkspace();
+  const { workspaceBoard, setWorkspaceBoard, mode, offline, activeWorkspaceId } = useWorkspace();
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
 
   function onChange(board: BoardSnapshot) {
@@ -39,6 +39,7 @@ export function BoardView() {
         <InfiniteBoard
           key={`workspace-board-${mode}`}
           initialSnapshot={workspaceBoard}
+          syncRoomId={mode === "cloud" && activeWorkspaceId ? `ws-${activeWorkspaceId}` : undefined}
           onChange={onChange}
         />
       </div>

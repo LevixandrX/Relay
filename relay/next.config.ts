@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
-  transpilePackages: ["tldraw", "@tldraw/editor", "@tldraw/store", "@tldraw/tlschema"],
+  transpilePackages: ["@quickdrawjs/react", "@quickdrawjs/core"],
 };
 
 export default withNextIntl(nextConfig);
