@@ -6,10 +6,10 @@ import {
   Quickdraw,
   useQuickdrawStore,
   type QuickdrawRef,
-  type Snapshot,
 } from "@quickdrawjs/react";
 import "@quickdrawjs/core/quickdraw.css";
 import { useBoardSync } from "@/lib/board/useBoardSync";
+import { parseQuickdrawSnapshot } from "@/lib/board/snapshot";
 import type { BoardSnapshot } from "./InfiniteBoard";
 
 type Props = {
@@ -25,9 +25,7 @@ export default function InfiniteBoardInner({
   onChange,
   syncRoomId,
 }: Props) {
-  const store = useQuickdrawStore(
-    initialSnapshot ? (initialSnapshot as unknown as Snapshot) : undefined,
-  );
+  const store = useQuickdrawStore(parseQuickdrawSnapshot(initialSnapshot));
   const ref = useRef<QuickdrawRef>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);

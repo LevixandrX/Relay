@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { Diff, Snapshot, Store } from "@quickdrawjs/core";
+import { loadBoardSnapshot } from "./boardSnapshot";
 
 function syncUrl() {
   return import.meta.env.VITE_BOARD_SYNC_URL ?? "ws://127.0.0.1:3001";
@@ -30,9 +31,13 @@ export function useBoardSync(store: Store | null, roomId: string | undefined, en
         return;
       }
       if (msg.type === "snapshot" && msg.data) {
-        store.loadSnapshot(msg.data as Snapshot, "remote");
+        loadBoardSnapshot(store, msg.data);
       } else if (msg.type === "diff" && msg.data) {
-        store.applyDiff(msg.data as Diff, "remote");
+        try {
+          store.applyDiff(msg.data as Diff, "remote");
+        } catch {
+          // ignore malformed peer diff
+        }
       }
     };
 
