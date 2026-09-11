@@ -3,6 +3,7 @@
 Приложение **Relay** живёт в `./relay`. Читай сначала:
 
 - `relay/docs/SPEC.md` — ТЗ и архитектурные запреты  
+- `relay/docs/DESIGN_PRINCIPLES.md` — визуальный характер UI  
 - `relay/AGENTS.md` — entrypoint для агентов  
 
 <!-- BEGIN:nextjs-agent-rules -->

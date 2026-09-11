@@ -7,8 +7,9 @@
 1. **[docs/SPEC.md](docs/SPEC.md)** — ТЗ, что сделано, стек, **запреты архитектуры**
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — границы модулей
 3. [docs/PRODUCT.md](docs/PRODUCT.md) — продукт
-4. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — как запускать
-5. [docs/API.md](docs/API.md) — контракт API при изменении эндпоинтов
+4. [docs/DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md) — визуальный характер: не AI-SaaS, спокойный desktop
+5. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — как запускать
+6. [docs/API.md](docs/API.md) — контракт API при изменении эндпоинтов
 
 ## Backend & DB (коротко)
 

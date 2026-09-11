@@ -7,8 +7,9 @@ Application lives in `relay/`. Parent repo may contain wrapper scripts.
 ## Before coding
 
 1. Read `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, and this file.
-2. For Next.js APIs, prefer `node_modules/next/dist/docs/` over training data (see root `AGENTS.md`).
-3. Keep changes tenant-safe: never fetch a page without membership join.
+2. Any UI change: read `docs/DESIGN_PRINCIPLES.md` first. Prefer quieter, more native desktop — not AI-SaaS polish.
+3. For Next.js APIs, prefer `node_modules/next/dist/docs/` over training data (see root `AGENTS.md`).
+4. Keep changes tenant-safe: never fetch a page without membership join.
 
 ## Запуск (важно)
 
@@ -64,6 +65,8 @@ npm run relay:start
 | `npm run desktop:build` | Сборка десктоп-приложения |
 
 Десктоп: `desktop/` — см. `desktop/README.md`. Стек: Tauri 2 + React + Vite.
+
+Shared web modules are imported via aliases in `desktop/vite.aliases.mjs`. Vite does **not** read `tsconfig.json` paths — a missing entry there is a runtime failure. Keep that file in sync with `desktop/tsconfig.json` `compilerOptions.paths`.
 
 ## GitHub Releases (опционально)
 

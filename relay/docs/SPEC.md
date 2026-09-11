@@ -101,7 +101,7 @@
 - HttpOnly session cookie; Bearer для desktop
 - Отзыв сессий (`sessions.jti`)
 - Claim-secret на desktop OAuth
-- Не линкуем OAuth к password-аккаунту без явного сценария
+- Не линкуем OAuth к password-аккаунту **молча**. Явная привязка/отвязка — из настроек аккаунта (`intent=link`). Отвязать нельзя, если это последний способ входа и нет пароля.
 - CORS allowlist; CSP в Tauri; shell open только http(s)
 - Лимиты размера content/board; entitlements по owner workspace
 - Email verification (ещё нет — без почтового провайдера)
@@ -168,7 +168,8 @@ Callback’и (local):
 
 - `/api/v1/auth/oauth/{google|github|yandex}/callback`
 
-Desktop: `POST /auth/desktop/pair` → browser → `POST /auth/desktop/claim` `{ code, claimSecret }`.
+Desktop: `POST /auth/desktop/pair` `{ provider, intent?: "link" }` → browser → `POST /auth/desktop/claim` `{ code, claimSecret }`.
+Привязка существующего аккаунта: web `GET /auth/oauth/{provider}?intent=link`, desktop pair с `intent=link` и Bearer. Callback не создаёт нового пользователя.
 
 ---
 
