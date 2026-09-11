@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, pages, pageRevisions, type Role } from "@/db/schema";
 import { ApiError } from "@/lib/errors";
@@ -14,6 +14,7 @@ import { writeAudit } from "@/domain/audit";
 /** Soft caps — keep DoS surface small without dragging Redis into the stack. */
 const MAX_CONTENT_JSON = 2_000_000;
 const MAX_BOARD_JSON = 8_000_000;
+const MAX_REVISIONS = 80;
 
 function escapeLike(q: string) {
   return q.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
@@ -34,6 +35,52 @@ export async function getPageForUser(userId: string, pageId: string) {
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+export async function snapshotPageRevision(input: {
+  page: typeof pages.$inferSelect;
+  userId: string;
+  force?: boolean;
+}) {
+  const latest = await db
+    .select()
+    .from(pageRevisions)
+    .where(eq(pageRevisions.pageId, input.page.id))
+    .orderBy(desc(pageRevisions.createdAt))
+    .limit(1);
+  const last = latest[0];
+  const age = last ? Date.now() - new Date(last.createdAt).getTime() : Infinity;
+  const should =
+    input.force ||
+    !last ||
+    age > 10 * 60 * 1000 ||
+    (age > 90 * 1000 &&
+      (last.content !== input.page.content ||
+        last.title !== input.page.title ||
+        (last.board ?? "") !== (input.page.board ?? "")));
+  if (!should) return false;
+
+  await db.insert(pageRevisions).values({
+    id: id.revision(),
+    pageId: input.page.id,
+    workspaceId: input.page.workspaceId,
+    title: input.page.title,
+    content: input.page.content,
+    board: input.page.board ?? "",
+    createdBy: input.userId,
+    createdAt: now(),
+  });
+
+  const extras = await db
+    .select({ id: pageRevisions.id })
+    .from(pageRevisions)
+    .where(eq(pageRevisions.pageId, input.page.id))
+    .orderBy(asc(pageRevisions.createdAt));
+  if (extras.length > MAX_REVISIONS) {
+    const drop = extras.slice(0, extras.length - MAX_REVISIONS).map((r) => r.id);
+    await db.delete(pageRevisions).where(inArray(pageRevisions.id, drop));
+  }
+  return true;
 }
 
 export async function listPagesForWorkspace(userId: string, workspaceId: string) {
@@ -157,27 +204,10 @@ export async function updatePage(input: {
   }
 
   const ts = now();
-  // maybe revision if last one older than 10 min
-  const revs = await db
-    .select()
-    .from(pageRevisions)
-    .where(eq(pageRevisions.pageId, found.page.id))
-    .orderBy(sql`${pageRevisions.createdAt} desc`)
-    .limit(1);
-  const lastRev = revs[0];
-  const shouldRev =
-    !lastRev || Date.now() - new Date(lastRev.createdAt).getTime() > 10 * 60 * 1000;
-  if (shouldRev) {
-    await db.insert(pageRevisions).values({
-      id: id.revision(),
-      pageId: found.page.id,
-      workspaceId: found.page.workspaceId,
-      title: found.page.title,
-      content: found.page.content,
-      createdBy: input.userId,
-      createdAt: ts,
-    });
-  }
+  const shouldRev = await snapshotPageRevision({
+    page: found.page,
+    userId: input.userId,
+  });
 
   await db
     .update(pages)
@@ -197,6 +227,7 @@ export async function updatePage(input: {
     action: "page.update",
     targetType: "page",
     targetId: found.page.id,
+    meta: { title: input.title ?? found.page.title },
   });
 
   return {

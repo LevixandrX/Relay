@@ -134,6 +134,19 @@ export const pageRevisions = sqliteTable("page_revisions", {
     .references(() => workspaces.id),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  board: text("board"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: text("created_at").notNull(),
+});
+
+export const workspaceRevisions = sqliteTable("workspace_revisions", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id),
+  board: text("board").notNull(),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),

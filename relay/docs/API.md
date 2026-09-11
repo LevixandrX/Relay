@@ -12,8 +12,10 @@ CORS: origins from `CORS_ORIGINS` (desktop Vite `:1420` included by default).
 | POST | `/auth/register` | `{ email, password, name, intent? }` → `{ …, accessToken }` + cookie; starts **14-day Pro trial** |
 | POST | `/auth/login` | `{ email, password }` → `{ …, accessToken }` |
 | POST | `/auth/logout` | |
-| GET | `/auth/me` | user + workspaces + checklist + **subscription** |
-| GET | `/auth/oauth/google?client=web\|desktop` | start Google OAuth |
+| GET | `/auth/me` | user (incl. `providers`, `hasPassword`, `avatarUrl`) + workspaces + checklist + **subscription** |
+| PATCH | `/auth/me` | `{ name?, avatarUrl? }` — `avatarUrl: null` clears |
+| DELETE | `/auth/me/providers/:provider` | unlink Google/GitHub/Yandex; refused if last login method |
+| GET | `/auth/oauth/google?client=web\|desktop&intent=link?` | start Google OAuth; `intent=link` requires session |
 | GET | `/auth/oauth/google/callback` | |
 | GET | `/auth/oauth/github?client=web\|desktop` | start GitHub OAuth |
 | GET | `/auth/oauth/github/callback` | |
@@ -21,7 +23,7 @@ CORS: origins from `CORS_ORIGINS` (desktop Vite `:1420` included by default).
 | GET | `/auth/oauth/yandex/callback` | |
 | GET | `/auth/oauth/vk?client=web\|desktop` | start VK OAuth |
 | GET | `/auth/oauth/vk/callback` | |
-| POST | `/auth/desktop/pair` | `{ provider }` → `{ code, claimSecret, url }` — one-time handshake for the desktop app |
+| POST | `/auth/desktop/pair` | `{ provider, intent?: "login"\|"link" }` → `{ code, claimSecret, url }` — `intent=link` needs Bearer |
 | POST | `/auth/desktop/claim` | `{ code, claimSecret }` → `{ status: pending \| ready \| error \| expired }`, token returned once |
 
 OAuth callback sets the session cookie, then redirects: web → `/app`, desktop → `/auth/desktop?status=…`
@@ -44,6 +46,9 @@ JWT is never placed in URLs or deep links.
 | GET | `/workspaces/:wid/members` |
 | POST | `/workspaces/:wid/invites` `{ email, role }` | owner; gated by member limit |
 | GET/PUT | `/workspaces/:wid/board` | workspace canvas |
+| GET | `/workspaces/:wid/board/revisions` | |
+| GET | `/workspaces/:wid/board/revisions/:rid` | |
+| POST | `/workspaces/:wid/board/revisions/:rid/restore` | |
 
 ## Invites
 
@@ -61,6 +66,9 @@ JWT is never placed in URLs or deep links.
 | GET | `/pages/:id` |
 | PATCH | `/pages/:id` | `{ title?, content?, board?, icon?, baseUpdatedAt }` |
 | DELETE | `/pages/:id` | soft delete |
+| GET | `/pages/:id/revisions` | version list (no heavy JSON) |
+| GET | `/pages/:id/revisions/:rid` | snapshot: title + content + board |
+| POST | `/pages/:id/revisions/:rid/restore` | write; snapshots current first |
 | POST | `/pages/:id/publish` | plan limit |
 | DELETE | `/pages/:id/publish` |
 | POST | `/pages/:id/run-prompt` | Live Prompt `{ prompt, mode? }` |
@@ -70,7 +78,7 @@ JWT is never placed in URLs or deep links.
 | Method | Path |
 |---|---|
 | GET | `/workspaces/:wid/search?q=` |
-| GET | `/workspaces/:wid/pulse` | recent audit events |
+| GET | `/workspaces/:wid/pulse` | recent audit events; `?pageId=` scopes to that page |
 
 ## Public
 

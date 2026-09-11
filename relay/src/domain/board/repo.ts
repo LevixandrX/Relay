@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/errors";
 import { requireWorkspaceAccess } from "@/domain/access";
 import { writeAudit } from "@/domain/audit";
 import { now } from "@/lib/ids";
+import { snapshotWorkspaceBoard } from "@/domain/board/revisions";
 
 export async function getWorkspaceBoard(userId: string, workspaceId: string) {
   await requireWorkspaceAccess(userId, workspaceId, "read");
@@ -31,6 +32,16 @@ export async function saveWorkspaceBoard(
   if (raw.length > 8_000_000) {
     throw new ApiError(400, "validation_error", "Холст слишком большой");
   }
+  const current = await db
+    .select({ board: workspaces.board })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  await snapshotWorkspaceBoard({
+    workspaceId,
+    board: current[0]?.board ?? null,
+    userId,
+  });
   await db
     .update(workspaces)
     .set({ board: raw })

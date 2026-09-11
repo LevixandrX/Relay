@@ -97,6 +97,14 @@ const statements = [
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    board TEXT,
+    created_by TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS workspace_revisions (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    board TEXT NOT NULL,
     created_by TEXT NOT NULL REFERENCES users(id),
     created_at TEXT NOT NULL
   )`,
@@ -125,6 +133,7 @@ const softAlters = [
   `ALTER TABLE workspaces ADD COLUMN board TEXT`,
   `ALTER TABLE pages ADD COLUMN board TEXT`,
   `ALTER TABLE auth_pairings ADD COLUMN claim_secret_hash TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE page_revisions ADD COLUMN board TEXT`,
 ];
 
 async function migrate() {
