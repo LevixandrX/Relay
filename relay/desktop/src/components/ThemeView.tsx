@@ -1,18 +1,36 @@
-import { ACCENTS, type AccentId } from "../theme/tokens";
+import { ACCENTS, SCHEMES, type AccentId, type SchemeId } from "../theme/tokens";
 import { useTheme } from "../theme/ThemeProvider";
 import { useAppLocale } from "../i18n/LocaleProvider";
 import { locales, type AppLocale } from "../i18n/config";
 import { useTranslations } from "use-intl";
+import type { ChromeMode } from "../lib/chrome";
+import { ColorField } from "./ColorField";
 
-const ACCENT_KEYS = {
-  cobalt: "accentCobalt",
-  mint: "accentMint",
-  rose: "accentRose",
-  amber: "accentAmber",
-  violet: "accentViolet",
+const SCHEME_KEYS = {
+  midnight: "schemeMidnight",
+  paper: "schemePaper",
+  ink: "schemeInk",
+  forest: "schemeForest",
+  dusk: "schemeDusk",
+  snow: "schemeSnow",
 } as const;
 
-export function ThemeView() {
+const CHROME_PRESETS = [
+  { id: "flat", transparency: 0, blur: 0, radius: 2 },
+  { id: "solid", transparency: 0, blur: 0, radius: 8 },
+  { id: "soft", transparency: 28, blur: 14, radius: 10 },
+  { id: "glass", transparency: 52, blur: 22, radius: 10 },
+  { id: "frost", transparency: 70, blur: 32, radius: 14 },
+  { id: "round", transparency: 40, blur: 18, radius: 22 },
+] as const;
+
+export function ThemeView({
+  chrome,
+  onChrome,
+}: {
+  chrome: ChromeMode;
+  onChrome: (mode: ChromeMode) => void;
+}) {
   const theme = useTheme();
   const t = useTranslations("desktop");
   const tl = useTranslations("locale");
@@ -64,8 +82,22 @@ export function ThemeView() {
     },
   ];
 
+  const layouts: { id: ChromeMode; label: string; hint: string }[] = [
+    { id: "normal", label: t("chromeLayout_normal"), hint: t("chromeLayoutHint_normal") },
+    { id: "compact", label: t("chromeLayout_compact"), hint: t("chromeLayoutHint_compact") },
+    { id: "zen", label: t("chromeLayout_zen"), hint: t("chromeLayoutHint_zen") },
+  ];
+
+  const chromePreset =
+    CHROME_PRESETS.find(
+      (p) =>
+        p.transparency === theme.transparency &&
+        p.blur === theme.blur &&
+        p.radius === theme.radius,
+    )?.id ?? null;
+
   return (
-    <>
+    <div className="page-frame theme-page">
       <div className="toprow">
         <div className="page-title">
           <h1>{t("themeTitle")}</h1>
@@ -73,21 +105,92 @@ export function ThemeView() {
       </div>
       <p className="theme-lede muted">{t("themeLede")}</p>
 
-      <div className="theme-preview" aria-hidden>
-        <div className="theme-preview-bar">
-          <span className="theme-preview-dot" />
-          <span className="theme-preview-dot" />
-          <span className="theme-preview-dot" />
-          <span className="theme-preview-title">Relay</span>
-        </div>
-        <div className="theme-preview-body">
-          <div className="theme-preview-rail" />
-          <div className="theme-preview-main">
-            <div className="theme-preview-line" style={{ width: "42%" }} />
-            <div className="theme-preview-line" style={{ width: "68%" }} />
-            <div className="theme-preview-chip" />
+      <div className="theme-stage">
+        <div className="theme-preview" data-layout={chrome} aria-hidden>
+          <div className="theme-preview-canvas" />
+          <div className="theme-preview-window">
+            <div className="theme-preview-bar">
+              <span className="theme-preview-dot" />
+              <span className="theme-preview-dot" />
+              <span className="theme-preview-dot" />
+              <span className="theme-preview-title">Relay</span>
+            </div>
+            <div className="theme-preview-body">
+              <div className="theme-preview-rail">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="theme-preview-main">
+                <div className="theme-preview-line" style={{ width: "42%" }} />
+                <div className="theme-preview-line" style={{ width: "68%" }} />
+                <div className="theme-preview-chip" />
+              </div>
+            </div>
           </div>
         </div>
+
+        <section className="settings-section theme-surfaces">
+          <header className="settings-section-head">
+            <h2>{t("chromeTitle")}</h2>
+            <p className="muted">{t("chromeHint")}</p>
+          </header>
+          <div className="chrome-rows">
+            <div className="chrome-presets" role="group" aria-label={t("chromeTitle")}>
+              {CHROME_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="chrome-preset"
+                  data-active={chromePreset === p.id}
+                  onClick={() => {
+                    theme.setTransparency(p.transparency);
+                    theme.setBlur(p.blur);
+                    theme.setRadius(p.radius);
+                  }}
+                >
+                  {t(
+                    p.id === "flat"
+                      ? "chromePresetFlat"
+                      : p.id === "solid"
+                        ? "chromePresetSolid"
+                        : p.id === "soft"
+                          ? "chromePresetSoft"
+                          : p.id === "glass"
+                            ? "chromePresetGlass"
+                            : p.id === "frost"
+                              ? "chromePresetFrost"
+                              : "chromePresetRound",
+                  )}
+                </button>
+              ))}
+            </div>
+            <SurfaceSlider
+              label={t("chromeGlass")}
+              value={theme.transparency}
+              min={0}
+              max={80}
+              unit="%"
+              onChange={theme.setTransparency}
+            />
+            <SurfaceSlider
+              label={t("chromeBlur")}
+              value={theme.blur}
+              min={0}
+              max={40}
+              unit="px"
+              onChange={theme.setBlur}
+            />
+            <SurfaceSlider
+              label={t("chromeRadius")}
+              value={theme.radius}
+              min={0}
+              max={24}
+              unit="px"
+              onChange={theme.setRadius}
+            />
+          </div>
+        </section>
       </div>
 
       <section className="settings-section">
@@ -120,32 +223,107 @@ export function ThemeView() {
 
       <section className="settings-section">
         <header className="settings-section-head">
-          <h2>{t("themeAccent")}</h2>
-          <p className="muted">{t("themeAccentHint")}</p>
+          <h2>{t("chromeLayout")}</h2>
+          <p className="muted">{t("chromeLayoutHint")}</p>
         </header>
-        <div className="accent-grid">
-          {(Object.keys(ACCENTS) as Exclude<AccentId, "custom">[]).map((id) => (
+        <div className="layout-cards" role="radiogroup" aria-label={t("chromeLayout")}>
+          {layouts.map((opt) => (
             <button
-              key={id}
+              key={opt.id}
               type="button"
-              className="accent-option"
-              data-active={theme.accent === id}
-              onClick={() => theme.setAccent(id)}
+              className="layout-card"
+              role="radio"
+              aria-checked={chrome === opt.id}
+              data-active={chrome === opt.id}
+              data-layout={opt.id}
+              onClick={() => onChrome(opt.id)}
             >
-              <span className="accent-dot" style={{ background: ACCENTS[id].hex }} />
-              <span>{t(ACCENT_KEYS[id])}</span>
+              <LayoutMock mode={opt.id} />
+              <span className="layout-card-copy">
+                <strong>{opt.label}</strong>
+                <span className="muted">{opt.hint}</span>
+              </span>
             </button>
           ))}
-          <label className="accent-option accent-custom" data-active={theme.accent === "custom"}>
-            <span className="accent-dot accent-dot-custom" style={{ background: theme.customAccent }} />
-            <span>{t("themeCustomColor")}</span>
-            <input
-              type="color"
-              value={theme.customAccent}
-              onChange={(e) => theme.setCustomAccent(e.target.value)}
-              aria-label={t("themeCustomColor")}
-            />
-          </label>
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <header className="settings-section-head">
+          <h2>{t("themeSchemes")}</h2>
+          <p className="muted">{t("themeSchemesHint")}</p>
+        </header>
+        <div className="scheme-grid" role="radiogroup" aria-label={t("themeSchemes")}>
+          {(Object.keys(SCHEMES) as SchemeId[]).map((id) => {
+            const scheme = SCHEMES[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                className="scheme-card"
+                role="radio"
+                aria-checked={theme.scheme === id}
+                data-active={theme.scheme === id}
+                onClick={() => theme.applyScheme(id)}
+              >
+                <span className="scheme-swatch" aria-hidden>
+                  <span style={{ background: scheme.bg }} />
+                  <span style={{ background: scheme.surface }} />
+                  <span style={{ background: scheme.accent }} />
+                </span>
+                <strong>{t(SCHEME_KEYS[id])}</strong>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="theme-pair">
+      <section className="settings-section">
+        <header className="settings-section-head">
+          <h2>{t("themeColors")}</h2>
+          <p className="muted">{t("themeColorsHint")}</p>
+        </header>
+        <div className="color-grid">
+          <ColorField
+            label={t("themeAccent")}
+            hint={t("themeAccentHint")}
+            value={theme.accent === "custom" ? theme.customAccent : ACCENTS[theme.accent as Exclude<AccentId, "custom">]?.hex ?? theme.customAccent}
+            fallback={theme.customAccent}
+            resetLabel={t("themeColorReset")}
+            hexLabel={t("themeHex")}
+            rgbLabel={t("themeRgb")}
+            hslLabel={t("themeHsl")}
+            pickLabel={t("themePick")}
+            onChange={(hex) => {
+              if (hex) theme.setCustomAccent(hex);
+              else theme.setAccent("cobalt");
+            }}
+          />
+          <ColorField
+            label={t("themeBg")}
+            hint={t("themeBgHint")}
+            value={theme.colorBg}
+            fallback={theme.mode === "light" ? "#f4f4f5" : "#111111"}
+            resetLabel={t("themeColorReset")}
+            hexLabel={t("themeHex")}
+            rgbLabel={t("themeRgb")}
+            hslLabel={t("themeHsl")}
+            pickLabel={t("themePick")}
+            onChange={theme.setColorBg}
+          />
+          <ColorField
+            label={t("themeSurface")}
+            hint={t("themeSurfaceHint")}
+            value={theme.colorSurface}
+            fallback={theme.mode === "light" ? "#ffffff" : "#1c1c1c"}
+            resetLabel={t("themeColorReset")}
+            hexLabel={t("themeHex")}
+            rgbLabel={t("themeRgb")}
+            hslLabel={t("themeHsl")}
+            pickLabel={t("themePick")}
+            onChange={theme.setColorSurface}
+          />
         </div>
       </section>
 
@@ -171,6 +349,74 @@ export function ThemeView() {
           ))}
         </div>
       </section>
-    </>
+      </div>
+    </div>
+  );
+}
+
+function SurfaceSlider({
+  label,
+  value,
+  min,
+  max,
+  unit,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  unit: string;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <label className="prop-row">
+      <span className="prop-label">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        style={{ ["--pct" as string]: `${((value - min) / (max - min)) * 100}%` }}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <span className="prop-value">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          aria-label={label}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n)));
+          }}
+        />
+        <em>{unit}</em>
+      </span>
+    </label>
+  );
+}
+
+function LayoutMock({ mode }: { mode: ChromeMode }) {
+  return (
+    <span className="layout-mock" data-layout={mode} aria-hidden>
+      <span className="layout-mock-bar">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span className="layout-mock-body">
+        <span className="layout-mock-side">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="layout-mock-main">
+          <em />
+          <em />
+        </span>
+      </span>
+    </span>
   );
 }

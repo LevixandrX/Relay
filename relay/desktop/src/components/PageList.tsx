@@ -9,11 +9,15 @@ export function PageList({
   pages,
   onOpen,
   onDelete,
+  onRename,
+  activeId,
   empty,
 }: {
   pages: PageRecord[];
   onOpen: (id: string) => void;
   onDelete?: (id: string, title: string) => void;
+  onRename?: (id: string, title: string) => void;
+  activeId?: string;
   empty?: ReactNode;
 }) {
   const t = useTranslations("desktop");
@@ -25,12 +29,30 @@ export function PageList({
     return <>{empty ?? null}</>;
   }
 
+  async function rename(id: string, current: string) {
+    if (!onRename) return;
+    const next = (
+      await dialog.prompt({
+        title: t("pagesRenamePrompt"),
+        defaultValue: current,
+        confirmLabel: t("pagesRename"),
+      })
+    )?.trim();
+    if (!next || next === current) return;
+    onRename(id, next);
+  }
+
   return (
     <div className="doc-list" role="list">
       {pages.map((p) => {
         const title = p.title || tc("untitled");
         return (
-          <div key={p.id} className="doc-row" role="listitem">
+          <div
+            key={p.id}
+            className="doc-row"
+            role="listitem"
+            data-active={p.id === activeId || undefined}
+          >
             <button type="button" className="doc-row-main" onClick={() => onOpen(p.id)}>
               <span className="doc-ico" aria-hidden>
                 {p.board ? <BoardGlyph /> : <PageGlyph />}
@@ -44,31 +66,60 @@ export function PageList({
                 </span>
               </span>
             </button>
-            {onDelete && (
-              <button
-                type="button"
-                className="doc-row-action"
-                title={tc("delete")}
-                aria-label={tc("delete")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void (async () => {
-                    const ok = await dialog.confirm({
-                      title: t("deleteConfirm", { title }),
-                      confirmLabel: tc("delete"),
-                      danger: true,
-                    });
-                    if (ok) onDelete(p.id, title);
-                  })();
-                }}
-              >
-                <TrashGlyph />
-              </button>
-            )}
+            <span className="doc-row-actions">
+              {onRename && (
+                <button
+                  type="button"
+                  className="doc-row-action"
+                  title={t("pagesRename")}
+                  aria-label={t("pagesRename")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void rename(p.id, title);
+                  }}
+                >
+                  <RenameGlyph />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  className="doc-row-action doc-row-action-danger"
+                  title={tc("delete")}
+                  aria-label={tc("delete")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void (async () => {
+                      const ok = await dialog.confirm({
+                        title: t("deleteConfirm", { title }),
+                        confirmLabel: tc("delete"),
+                        danger: true,
+                      });
+                      if (ok) onDelete(p.id, title);
+                    })();
+                  }}
+                >
+                  <TrashGlyph />
+                </button>
+              )}
+            </span>
           </div>
         );
       })}
     </div>
+  );
+}
+
+function RenameGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 16.8V20h3.2L18.6 8.6a1.7 1.7 0 0 0 0-2.4l-1.8-1.8a1.7 1.7 0 0 0-2.4 0L4 16.8Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

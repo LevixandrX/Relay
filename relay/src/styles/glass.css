@@ -1,0 +1,124 @@
+/* Web chrome. Imported last from layout.tsx so these values actually win.
+   Dark panes are almost solid so they read as the same surface family,
+   not as a clear sheet over the canvas. */
+
+:root {
+  --chrome-pct: 92%;
+  --chrome-float-pct: 92%;
+  --chrome-overlay-pct: 97%;
+  --chrome-blur: 22px;
+  --glass-sat: 1.35;
+  --chrome-bg: color-mix(in srgb, var(--surface) var(--chrome-pct), transparent);
+  --chrome-float-bg: color-mix(in srgb, var(--surface) var(--chrome-float-pct), transparent);
+  --chrome-overlay-bg: color-mix(in srgb, var(--surface) var(--chrome-overlay-pct), transparent);
+  --glass-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
+}
+
+.dark {
+  --chrome-pct: 96%;
+  --chrome-float-pct: 96%;
+  --chrome-overlay-pct: 98%;
+  --chrome-blur: 18px;
+  --glass-sat: 1.2;
+  --chrome-bg: rgb(14 14 14 / 0.96);
+  --chrome-float-bg: rgb(14 14 14 / 0.96);
+  --chrome-overlay-bg: rgb(12 12 12 / 0.98);
+  --glass-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
+}
+
+.relay-board-wrap,
+.relay-board .qd-root {
+  outline: 1px solid transparent;
+}
+
+.relay-board .qd-root canvas,
+.relay-board canvas,
+.relay-shell canvas {
+  background-image: linear-gradient(transparent, transparent) !important;
+  transform: none !important;
+  translate: 0 !important;
+  will-change: auto !important;
+  isolation: auto !important;
+  opacity: 1 !important;
+}
+
+.sidebar,
+.relay-topbar {
+  background: transparent !important;
+  isolation: auto !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.sidebar::before,
+.relay-topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--chrome-bg) !important;
+  backdrop-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
+}
+
+.sidebar > *,
+.relay-topbar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.relay-board .qd-dock,
+.relay-board .qd-actions,
+.relay-board-dock-bar,
+.relay-board-dock-map {
+  isolation: auto;
+  background: var(--chrome-bg) !important;
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.relay-ws-menu,
+.relay-activity-hover,
+.relay-activity-panel,
+.relay-activity-pop,
+.relay-page-menu-pop,
+.relay-menu,
+.relay-modal,
+.relay-help,
+.palette,
+.relay-focus-toast,
+.relay-board-menu,
+.relay-board .qd-popover,
+.relay-board .qd-submenu,
+.relay-board .qd-geo-pop,
+.relay-board .qd-grid-pop,
+.relay-slash {
+  isolation: auto !important;
+  background: var(--chrome-overlay-bg) !important;
+  backdrop-filter: blur(var(--chrome-blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(1.2);
+}
+
+.relay-shell[data-chrome="focus"] .sidebar,
+.relay-shell[data-chrome="focus"] .relay-sidebar,
+.relay-shell[data-chrome="focus"] .relay-topbar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.relay-shell[data-chrome="focus"] .sidebar::before,
+.relay-shell[data-chrome="focus"] .relay-topbar::before {
+  background: var(--chrome-bg) !important;
+  backdrop-filter: blur(calc(var(--chrome-blur) + 6px)) saturate(1.2);
+  -webkit-backdrop-filter: blur(calc(var(--chrome-blur) + 6px)) saturate(1.2);
+}
+
+.account-sheet-panel,
+.relay-auth-card {
+  isolation: isolate;
+  background: var(--surface);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

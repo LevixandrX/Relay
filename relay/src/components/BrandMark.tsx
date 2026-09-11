@@ -23,15 +23,18 @@ export function BrandMark({ size = 28, className }: Props) {
 export function BrandLockup({
   size = 28,
   href,
+  wordmark = true,
 }: {
   size?: number;
   /** When set, brand is a link (auth pages pass `/`). */
   href?: string;
+  /** Compact rails keep the mark and drop the word. */
+  wordmark?: boolean;
 }) {
   const inner = (
     <>
       <BrandMark size={size} />
-      <span>Relay</span>
+      {wordmark ? <span>Relay</span> : null}
     </>
   );
 
@@ -48,5 +51,9 @@ export function BrandLockup({
     );
   }
 
-  return <div className="relay-brand">{inner}</div>;
+  return (
+    <div className="relay-brand" aria-label={wordmark ? undefined : "Relay"}>
+      {inner}
+    </div>
+  );
 }

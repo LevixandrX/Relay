@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { Titlebar } from "./components/Titlebar";
 import { Sidebar } from "./components/Sidebar";
@@ -12,6 +12,9 @@ import { TeamView } from "./components/TeamView";
 import { useWorkspace } from "./lib/workspace";
 import { useAuth } from "./lib/auth";
 import { useDialog } from "./components/DialogHost";
+import { CommandPalette } from "./components/CommandPalette";
+import { useChromeMode } from "./lib/chrome";
+import { HelpPanel } from "@relay-help";
 
 export type ViewId = "home" | "board" | "pages" | "theme" | "auth" | "team";
 
@@ -31,6 +34,75 @@ export function App() {
   const dialog = useDialog();
   const t = useTranslations("desktop");
   const ta = useTranslations("app");
+  const chrome = useChromeMode();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [zenTop, setZenTop] = useState(false);
+
+  useEffect(() => {
+    if (chrome.mode !== "zen") {
+      setZenTop(false);
+      return;
+    }
+    let hide: ReturnType<typeof setTimeout> | null = null;
+    const shown = { current: false };
+    function show() {
+      if (hide) {
+        clearTimeout(hide);
+        hide = null;
+      }
+      if (!shown.current) {
+        shown.current = true;
+        setZenTop(true);
+      }
+    }
+    function scheduleHide() {
+      if (hide) return;
+      hide = setTimeout(() => {
+        shown.current = false;
+        setZenTop(false);
+        hide = null;
+      }, 280);
+    }
+    function onMove(e: PointerEvent) {
+      const overChrome = Boolean(
+        (e.target as HTMLElement | null)?.closest?.(".titlebar, .titlebar-slot, .win-btn"),
+      );
+      // Hide only when the pointer is clearly in the content. Native snap /
+      // caption overlays steal events without leaving the titlebar band.
+      if (overChrome || e.clientY <= (shown.current ? 44 : 28)) show();
+      else if (e.clientY > 52) scheduleHide();
+    }
+    window.addEventListener("pointermove", onMove);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      if (hide) clearTimeout(hide);
+    };
+  }, [chrome.mode]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.code === "KeyK" || e.key.toLowerCase() === "k")) {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    const onPage = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setRoute({ kind: "page", pageId: id });
+    };
+    const onBoard = () => setRoute({ kind: "board" });
+    window.addEventListener("relay:open-page", onPage);
+    window.addEventListener("relay:open-board", onBoard);
+    return () => {
+      window.removeEventListener("relay:open-page", onPage);
+      window.removeEventListener("relay:open-board", onBoard);
+    };
+  }, []);
 
   const navView: ViewId =
     route.kind === "page" ? "pages" : route.kind === "home" ? "home" : route.kind;
@@ -55,11 +127,21 @@ export function App() {
   }
 
   return (
-    <div className="app">
-      <Titlebar />
-      <div className="shell">
+    <div className="app" data-chrome={chrome.mode} data-peek-top={zenTop || undefined}>
+      <div className="titlebar-slot">
+        <Titlebar activityPageId={route.kind === "page" ? route.pageId : null} />
+      </div>
+      <div className="shell" data-chrome={chrome.mode}>
+        {/* hover target that brings the sidebar back in zen mode */}
+        {chrome.mode === "zen" && <div className="shell-edge" aria-hidden />}
         <Sidebar
           view={navView}
+          chrome={chrome.mode}
+          onChrome={chrome.set}
+          onSearch={() => setPaletteOpen(true)}
+          onCreatePage={() => void createAndOpen()}
+          activePageId={route.kind === "page" ? route.pageId : null}
+          onOpenPage={openPage}
           onNavigate={(id) => {
             if (id === "home") setRoute({ kind: "home" });
             if (id === "board") setRoute({ kind: "board" });
@@ -71,9 +153,11 @@ export function App() {
         />
         <main className="main" data-fill={fill} data-auth={route.kind === "auth" || undefined}>
           {auth.loading && (
-            <section className="card">
-              <p className="muted">{t("syncAccount")}</p>
-            </section>
+            <div className="page-frame">
+              <section className="card">
+                <p className="muted">{t("syncAccount")}</p>
+              </section>
+            </div>
           )}
           {!auth.loading && route.kind === "home" && (
             <HomeView
@@ -82,6 +166,8 @@ export function App() {
               onOpenPage={openPage}
               onNeedAuth={() => setRoute({ kind: "auth" })}
               onCreatePage={() => void createAndOpen()}
+              onSearch={() => setPaletteOpen(true)}
+              onOpenTeam={() => setRoute({ kind: "team" })}
             />
           )}
           {!auth.loading && route.kind === "board" && <BoardView />}
@@ -95,7 +181,9 @@ export function App() {
           {!auth.loading && route.kind === "page" && (
             <PageView pageId={route.pageId} onBack={() => setRoute({ kind: "pages" })} />
           )}
-          {!auth.loading && route.kind === "theme" && <ThemeView />}
+          {!auth.loading && route.kind === "theme" && (
+            <ThemeView chrome={chrome.mode} onChrome={chrome.set} />
+          )}
           {!auth.loading && route.kind === "auth" && (
             <AuthView onDone={() => setRoute({ kind: "home" })} />
           )}
@@ -104,6 +192,14 @@ export function App() {
           )}
         </main>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenPage={openPage}
+        onOpenBoard={() => setRoute({ kind: "board" })}
+        onCreatePage={() => void createAndOpen()}
+      />
+      <HelpPanel />
     </div>
   );
 }

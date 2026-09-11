@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { BlockEditor } from "@/editor/BlockEditor";
 import { InfiniteBoard, type BoardSnapshot } from "@/components/InfiniteBoard";
 import type { Doc } from "@/domain/blocks/schema";
@@ -12,8 +12,21 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { WebWorkspaceSwitcher } from "@/components/WebWorkspaceSwitcher";
 import { WorkspaceShareModal } from "@/components/WorkspaceShareModal";
 import { DialogProvider, useDialog } from "@/components/DialogHost";
+import { HelpButton, HelpPanel } from "@/components/BoardHelp";
+import { ActivityDisclosure } from "@/components/ActivityDisclosure";
+import { SearchPalette } from "@/components/SearchPalette";
 import { useTranslations } from "next-intl";
 import { workspaceDisplayName } from "@/domain/workspaces/naming";
+import {
+  readPulseSeen,
+  subscribePulseSeen,
+  writePulseSeen,
+} from "@/lib/board/pulse-seen";
+import { shortcutHint, useModLabel } from "@/lib/board/mod-key";
+import { UserAvatar } from "@/components/UserAvatar";
+import { AccountSettings } from "@/components/AccountSettings";
+import { VersionHistory } from "@/components/VersionHistory";
+import { CompactRailScroll, OverlayScroll } from "@/lib/board/CompactRailScroll";
 
 type PageMeta = {
   id: string;
@@ -36,7 +49,9 @@ type PulseEvent = {
   action: string;
   actorName: string | null;
   createdAt: string;
-  meta: { title?: string; email?: string } | null;
+  targetType?: string | null;
+  targetId?: string | null;
+  meta: { title?: string; email?: string; name?: string } | null;
 };
 
 type ViewMode = "board" | "text";
@@ -61,6 +76,7 @@ type Props = {
   checklist: Checklist | null;
   defaultMode?: ViewMode;
   ownerName?: string | null;
+  viewerId: string;
 };
 
 export function WorkspaceApp(props: Props) {
@@ -82,11 +98,17 @@ function WorkspaceAppInner({
   checklist: initialChecklist,
   defaultMode = "board",
   ownerName,
+  viewerId,
 }: Props) {
   const t = useTranslations("app");
   const tc = useTranslations("common");
+  const tb = useTranslations("board");
+  const td = useTranslations("desktop");
   const dialog = useDialog();
+  const mod = useModLabel();
+  const searchHint = shortcutHint(mod, "K");
   const router = useRouter();
+  const pathname = usePathname();
   const canWrite = role === "owner" || role === "editor";
   const isWorkspaceBoard = !pageId;
 
@@ -104,6 +126,7 @@ function WorkspaceAppInner({
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [checklist, setChecklist] = useState(initialChecklist);
   const [pulse, setPulse] = useState<PulseEvent[]>([]);
+  const [pulseSeen, setPulseSeen] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [compassOpen, setCompassOpen] = useState(false);
   const [compassQ, setCompassQ] = useState("");
@@ -111,19 +134,33 @@ function WorkspaceAppInner({
     { pageId: string; title: string; snippet: string }[]
   >([]);
   const [mode, setMode] = useState<ViewMode>(isWorkspaceBoard ? "board" : defaultMode);
-  const [me, setMe] = useState<{ name: string; email: string } | null>(null);
+  const [me, setMe] = useState<{
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
+    providers?: string[];
+    hasPassword?: boolean;
+  } | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [chrome, setChrome] = useState<"expanded" | "rail" | "focus">("expanded");
+  const rail = chrome === "rail";
   const [peek, setPeek] = useState(false);
   const [peekTop, setPeekTop] = useState(false);
   const [focusHint, setFocusHint] = useState(false);
   const [focusHintHide, setFocusHintHide] = useState(false);
   const [pageMenuOpen, setPageMenuOpen] = useState(false);
+  const [copied, setCopied] = useState<"link" | "public" | null>(null);
   const peekHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageMenuRef = useRef<HTMLDivElement>(null);
   const prevModeRef = useRef<ViewMode>(isWorkspaceBoard ? "board" : defaultMode);
   const updatedAtRef = useRef(initialPage?.updatedAt ?? "");
   const skipSaveRef = useRef(false);
+  const railListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -133,6 +170,15 @@ function WorkspaceAppInner({
       /* ignore */
     }
   }, []);
+
+  // normal → compact → zen, the same rotation the desktop shell uses
+  const nextChrome = chrome === "expanded" ? "rail" : chrome === "rail" ? "focus" : "expanded";
+  const nextChromeLabel =
+    nextChrome === "expanded"
+      ? tb("chromeNormal")
+      : nextChrome === "rail"
+        ? tb("chromeCompact")
+        : tb("chromeZen");
 
   function setChromePersist(next: "expanded" | "rail" | "focus") {
     setChrome(next);
@@ -198,7 +244,7 @@ function WorkspaceAppInner({
     peekHideTimer.current = setTimeout(() => {
       setPeek(false);
       peekHideTimer.current = null;
-    }, 480);
+    }, 220);
   }
 
   function showTopPeek() {
@@ -214,7 +260,7 @@ function WorkspaceAppInner({
     peekHideTimer.current = setTimeout(() => {
       setPeekTop(false);
       peekHideTimer.current = null;
-    }, 480);
+    }, 220);
   }
 
   useEffect(() => {
@@ -231,7 +277,11 @@ function WorkspaceAppInner({
       if (!pageMenuRef.current?.contains(e.target as Node)) setPageMenuOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setPageMenuOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setPageMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -247,9 +297,23 @@ function WorkspaceAppInner({
       try {
         const res = await fetch("/api/v1/auth/me", { credentials: "include" });
         if (!res.ok) return;
-        const data = (await res.json()) as { user?: { name?: string; email?: string } };
+        const data = (await res.json()) as {
+          user?: {
+            name?: string;
+            email?: string;
+            avatarUrl?: string | null;
+            providers?: string[];
+            hasPassword?: boolean;
+          };
+        };
         if (!cancelled && data.user) {
-          setMe({ name: data.user.name ?? "", email: data.user.email ?? "" });
+          setMe({
+            name: data.user.name ?? "",
+            email: data.user.email ?? "",
+            avatarUrl: data.user.avatarUrl,
+            providers: data.user.providers,
+            hasPassword: data.user.hasPassword,
+          });
         }
       } catch {
         /* ignore */
@@ -315,41 +379,66 @@ function WorkspaceAppInner({
   }, [workspaceId]);
 
   const refreshPulse = useCallback(async () => {
-    const res = await fetch(`/api/v1/workspaces/${workspaceId}/pulse`);
+    const q = pageId ? `?pageId=${encodeURIComponent(pageId)}` : "";
+    const res = await fetch(`/api/v1/workspaces/${workspaceId}/pulse${q}`);
     if (!res.ok) return;
     const data = await res.json();
     setPulse(data.events);
-  }, [workspaceId]);
+  }, [workspaceId, pageId]);
 
   useEffect(() => {
     void refreshPulse();
   }, [refreshPulse, pageId]);
 
   useEffect(() => {
+    const sync = () => setPulseSeen(readPulseSeen(workspaceId));
+    sync();
+    return subscribePulseSeen(sync);
+  }, [workspaceId]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.code === "KeyK" || e.key.toLowerCase() === "k")) {
         e.preventDefault();
+        setCompassQ("");
         setCompassOpen(true);
       }
       if (e.key === "Escape") {
         if (compassOpen || shareOpen) {
+          e.preventDefault();
+          e.stopPropagation();
           setCompassOpen(false);
           setShareOpen(false);
-          return;
         }
-        if (chrome === "focus") setChromePersist("expanded");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [chrome, compassOpen, shareOpen]);
+  }, [compassOpen, shareOpen]);
 
   useEffect(() => {
-    if (!compassOpen || compassQ.trim().length < 1) {
-      setSearchResults([]);
+    const onPage = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) router.push(`/w/${workspaceId}/p/${id}`);
+    };
+    const onBoard = () => router.push(`/w/${workspaceId}/board`);
+    window.addEventListener("relay:open-page", onPage);
+    window.addEventListener("relay:open-board", onBoard);
+    return () => {
+      window.removeEventListener("relay:open-page", onPage);
+      window.removeEventListener("relay:open-board", onBoard);
+    };
+  }, [router, workspaceId]);
+
+  useEffect(() => {
+    if (!compassOpen) return;
+    if (compassQ.trim().length < 1) {
+      setSearchResults(
+        pages.slice(0, 8).map((p) => ({ pageId: p.id, title: p.title, snippet: "" })),
+      );
       return;
     }
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       const res = await fetch(
         `/api/v1/workspaces/${workspaceId}/search?q=${encodeURIComponent(compassQ)}`,
       );
@@ -357,8 +446,8 @@ function WorkspaceAppInner({
       const data = await res.json();
       setSearchResults(data.results);
     }, 200);
-    return () => clearTimeout(t);
-  }, [compassOpen, compassQ, workspaceId]);
+    return () => clearTimeout(timer);
+  }, [compassOpen, compassQ, workspaceId, pages]);
 
   // Автосохранение текста
   useEffect(() => {
@@ -530,17 +619,43 @@ function WorkspaceAppInner({
     return `${base}/p/${publicId}`;
   }, [publicId]);
 
+  const pageUrl =
+    typeof window !== "undefined" && pageId
+      ? `${window.location.origin}/w/${workspaceId}/p/${pageId}`
+      : pageId
+        ? `/w/${workspaceId}/p/${pageId}`
+        : null;
+
+  function copyPageText(text: string, kind: "link" | "public") {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(kind);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(null), 1400);
+    });
+  }
+
   function labelAction(action: string) {
     const map: Record<string, string> = {
       "page.create": t("actionPageCreate"),
       "page.update": t("actionPageUpdate"),
       "page.publish": t("actionPagePublish"),
       "page.prompt": t("actionPagePrompt"),
+      "page.restore": t("actionPageRestore"),
       "member.invite": t("actionMemberInvite"),
       "workspace.create": t("actionWorkspaceCreate"),
       "board.update": t("actionBoardUpdate"),
+      "board.restore": t("actionBoardRestore"),
     };
     return map[action] ?? action;
+  }
+
+  const latestPulseId = pulse[0] ? String(pulse[0].id) : null;
+  const pulseUnread = Boolean(latestPulseId && latestPulseId !== pulseSeen);
+
+  function markPulseSeen() {
+    if (!latestPulseId) return;
+    writePulseSeen(workspaceId, latestPulseId);
+    setPulseSeen(latestPulseId);
   }
 
   const saveLabel =
@@ -580,197 +695,6 @@ function WorkspaceAppInner({
           {t("focusHint")}
         </div>
       )}
-
-      <aside
-        className="relay-sidebar"
-        onMouseEnter={() => {
-          if (chrome === "focus") showSidebarPeek();
-        }}
-        onMouseLeave={() => {
-          if (chrome === "focus") scheduleHideSidebarPeek();
-        }}
-      >
-        <div className="relay-sidebar-brand">
-          <BrandLockup size={chrome === "rail" ? 20 : 22} />
-          {chrome !== "rail" && (
-            <button
-              type="button"
-              className="relay-icon-btn relay-icon-btn-surface relay-chrome-btn"
-              title={chrome === "focus" ? t("exitFocus") : t("focusMode")}
-              aria-label={chrome === "focus" ? t("exitFocus") : t("focusMode")}
-              data-active={chrome === "focus" || undefined}
-              onClick={toggleFocus}
-            >
-              <FocusIcon />
-            </button>
-          )}
-        </div>
-
-        <WebWorkspaceSwitcher
-          workspaceId={workspaceId}
-          workspaceName={workspaceName}
-          ownerName={ownerName}
-          collapsed={chrome === "rail"}
-          onExpand={() => setChromePersist("expanded")}
-          onInvite={() => {
-            setShareOpen(true);
-            void markChecklist("openedShare");
-          }}
-        />
-
-        <Link
-          href={`/w/${workspaceId}/board`}
-          className="relay-page-link relay-board-nav"
-          data-active={isWorkspaceBoard}
-          title={t("infiniteBoard")}
-        >
-          <span className="icon">∞</span>
-          <span className="relay-ellipsis">{t("infiniteBoard")}</span>
-        </Link>
-        <button
-          type="button"
-          className="relay-page-link"
-          title={t("invitePeople")}
-          onClick={() => {
-            setShareOpen(true);
-            void markChecklist("openedShare");
-          }}
-        >
-          <span className="icon" aria-hidden>
-            <PeopleIcon />
-          </span>
-          <span className="relay-ellipsis">{t("invitePeople")}</span>
-        </button>
-
-        <div className="relay-nav-row">
-          <div className="relay-nav-label">{t("pages")}</div>
-          {canWrite && (
-            <button
-              type="button"
-              className="relay-add-page"
-              onClick={() => void createPage()}
-              title={t("newPageTitle")}
-              aria-label={t("newPageTitle")}
-            >
-              <PlusIcon />
-            </button>
-          )}
-        </div>
-
-        <div className="relay-page-list">
-          {pages.length === 0 && (
-            <div className="relay-empty-side">{t("emptyPages")}</div>
-          )}
-          {pages.map((p) => {
-            const label = p.title || tc("untitled");
-            return (
-              <div
-                key={p.id}
-                className="relay-page-row"
-                data-active={p.id === pageId || undefined}
-              >
-                <Link
-                  href={`/w/${workspaceId}/p/${p.id}`}
-                  className="relay-page-link"
-                  data-active={p.id === pageId}
-                  title={label}
-                >
-                  <span className="icon">{p.icon ?? "◇"}</span>
-                  <span className="relay-ellipsis">{label}</span>
-                </Link>
-                {canWrite && chrome === "expanded" && (
-                  <button
-                    type="button"
-                    className="relay-page-delete"
-                    title={tc("delete")}
-                    aria-label={tc("delete")}
-                    onClick={() => void deletePage(p.id, label)}
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="relay-sidebar-foot">
-          {checklist && !checklist.dismissed && chrome === "expanded" && (
-            <div className="relay-checklist">
-              <div className="relay-checklist-head">
-                <h3>{t("firstSteps")}</h3>
-                <button
-                  type="button"
-                  className="relay-link-btn"
-                  onClick={() => void markChecklist("dismissed")}
-                >
-                  {t("hide")}
-                </button>
-              </div>
-              <div className="relay-check-item" data-done={checklist.editedPage}>
-                <span>{checklist.editedPage ? "✓" : "1"}</span>
-                <span>{t("stepDraw")}</span>
-              </div>
-              <div className="relay-check-item" data-done={checklist.usedSlashOrPrompt}>
-                <span>{checklist.usedSlashOrPrompt ? "✓" : "2"}</span>
-                <span>{t("stepSlash")}</span>
-              </div>
-              <div className="relay-check-item" data-done={checklist.openedShare}>
-                <span>{checklist.openedShare ? "✓" : "3"}</span>
-                <span>{t("stepShare")}</span>
-              </div>
-            </div>
-          )}
-
-          {chrome === "expanded" && (
-            <div className="relay-pulse">
-              <div className="relay-nav-label">{t("pulse")}</div>
-              {pulse.length === 0 && (
-                <div className="relay-pulse-item">{t("pulseEmpty")}</div>
-              )}
-              {pulse.slice(0, 3).map((ev) => (
-                <div key={ev.id} className="relay-pulse-item">
-                  <strong>{ev.actorName ?? tc("someone")}</strong> {labelAction(ev.action)}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {me && (
-            <div className="relay-account">
-              <span className="relay-account-avatar" aria-hidden>
-                {me.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="relay-account-copy">
-                <span className="relay-account-name">{me.name}</span>
-                <span className="relay-account-email">{me.email}</span>
-              </span>
-              <button
-                type="button"
-                className="relay-icon-btn relay-icon-btn-surface"
-                title={tc("logout")}
-                aria-label={tc("logout")}
-                onClick={() => void logout()}
-              >
-                <LogoutIcon />
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="relay-sidebar-collapse"
-            onClick={() =>
-              setChromePersist(chrome === "expanded" ? "rail" : chrome === "rail" ? "expanded" : "expanded")
-            }
-            title={chrome === "rail" ? t("sidebarExpand") : t("sidebarCollapse")}
-            aria-label={chrome === "rail" ? t("sidebarExpand") : t("sidebarCollapse")}
-          >
-            <CollapseIcon collapsed={chrome !== "expanded"} />
-            <span>{chrome === "rail" ? t("sidebarExpand") : t("sidebarCollapse")}</span>
-          </button>
-        </div>
-      </aside>
 
       <main className="relay-main">
         <div
@@ -817,7 +741,6 @@ function WorkspaceAppInner({
                 </button>
               </div>
             )}
-            <span className="relay-save">{saveLabel}</span>
           </div>
 
           <div className="relay-topbar-center">
@@ -835,10 +758,32 @@ function WorkspaceAppInner({
                 onChange={(e) => setTitle(e.target.value)}
               />
             )}
+            <span className="relay-save" data-state={saveState}>
+              {saveLabel}
+            </span>
           </div>
 
           <div className="relay-topbar-actions">
-            {!isWorkspaceBoard && canWrite && (
+            {isWorkspaceBoard && (
+              <button
+                type="button"
+                className="relay-btn relay-btn-compact"
+                onClick={() => setHistoryOpen(true)}
+              >
+                {t("pageMenuHistory")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="relay-btn relay-btn-compact"
+              onClick={() => {
+                setShareOpen(true);
+                void markChecklist("openedShare");
+              }}
+            >
+              {t("share")}
+            </button>
+            {!isWorkspaceBoard && (
               <div className="relay-page-menu" ref={pageMenuRef}>
                 <button
                   type="button"
@@ -852,51 +797,67 @@ function WorkspaceAppInner({
                 </button>
                 {pageMenuOpen && (
                   <div className="relay-page-menu-pop" role="menu">
-                    <button
-                      type="button"
-                      className="relay-page-menu-item"
-                      data-danger="true"
-                      role="menuitem"
-                      onClick={() => pageId && void deletePage(pageId, title)}
-                    >
-                      {t("pageMenuDelete")}
-                    </button>
+                    {pageUrl && (
+                      <button
+                        type="button"
+                        className="relay-page-menu-item"
+                        role="menuitem"
+                        onClick={() => copyPageText(pageUrl, "link")}
+                      >
+                        {copied === "link" ? t("pageMenuCopied") : t("pageMenuCopyLink")}
+                      </button>
+                    )}
+                    {publicUrl && (
+                      <button
+                        type="button"
+                        className="relay-page-menu-item"
+                        role="menuitem"
+                        onClick={() => copyPageText(publicUrl, "public")}
+                      >
+                        {copied === "public" ? t("pageMenuCopied") : t("pageMenuCopyPublic")}
+                      </button>
+                    )}
+                    {canWrite && (
+                      <>
+                        <button
+                          type="button"
+                          className="relay-page-menu-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setPageMenuOpen(false);
+                            setHistoryOpen(true);
+                          }}
+                        >
+                          {t("pageMenuHistory")}
+                        </button>
+                        <div className="relay-page-menu-sep" role="separator" />
+                        <button
+                          type="button"
+                          className="relay-page-menu-item"
+                          data-danger="true"
+                          role="menuitem"
+                          onClick={() => pageId && void deletePage(pageId, title)}
+                        >
+                          {t("pageMenuDelete")}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             )}
-            {isWorkspaceBoard && chrome !== "focus" && (
-              <button
-                type="button"
-                className="relay-icon-btn relay-icon-btn-surface"
-                title={t("focusMode")}
-                aria-label={t("focusMode")}
-                onClick={toggleFocus}
-              >
-                <FocusIcon />
-              </button>
-            )}
-            <button
-              type="button"
-              className="relay-icon-btn relay-icon-btn-surface"
-              onClick={() => setCompassOpen(true)}
-              title={t("searchTitle")}
-              aria-label={tc("search")}
-            >
-              ⌕
-            </button>
-            <button
-              type="button"
-              className="relay-btn relay-btn-compact"
-              onClick={() => {
-                setShareOpen(true);
-                void markChecklist("openedShare");
-              }}
-            >
-              {t("share")}
-            </button>
-            <LanguageToggle variant="toolbar" />
-            <ThemeToggle variant="toolbar" />
+            <div className="relay-topbar-app">
+              <ActivityDisclosure
+                variant="chrome"
+                items={pulse}
+                unread={pulseUnread}
+                labelAction={labelAction}
+                onOpen={markPulseSeen}
+              />
+              <HelpButton />
+              <LanguageToggle variant="toolbar" />
+              <ThemeToggle variant="toolbar" />
+            </div>
           </div>
         </div>
 
@@ -906,13 +867,8 @@ function WorkspaceAppInner({
               key={isWorkspaceBoard ? `ws-${workspaceId}` : `pg-${pageId}-board`}
               editable={canWrite}
               initialSnapshot={isWorkspaceBoard ? wsBoard : pageBoard}
-              syncRoomId={
-                canWrite
-                  ? isWorkspaceBoard
-                    ? `ws-${workspaceId}`
-                    : `pg-${pageId}`
-                  : undefined
-              }
+              syncRoomId={isWorkspaceBoard ? `ws-${workspaceId}` : `pg-${pageId}`}
+              viewerId={viewerId}
               onChange={
                 isWorkspaceBoard ? saveWorkspaceBoardSnapshot : savePageBoardSnapshot
               }
@@ -933,6 +889,205 @@ function WorkspaceAppInner({
         )}
       </main>
 
+      <aside
+        className="sidebar relay-sidebar"
+        data-collapsed={rail ? "true" : "false"}
+        onMouseEnter={() => {
+          if (chrome === "focus") showSidebarPeek();
+        }}
+        onMouseLeave={() => {
+          if (chrome === "focus") scheduleHideSidebarPeek();
+        }}
+      >
+        {!rail && (
+          <div className="sidebar-logo">
+            <BrandLockup size={22} wordmark />
+          </div>
+        )}
+
+        <div className="sidebar-brand">
+          <WebWorkspaceSwitcher
+            workspaceId={workspaceId}
+            workspaceName={workspaceName}
+            ownerName={ownerName}
+            collapsed={rail}
+            onInvite={() => {
+              setShareOpen(true);
+              void markChecklist("openedShare");
+            }}
+          />
+        </div>
+
+        <div className="sidebar-quick">
+          <button
+            type="button"
+            className="nav-item"
+            onClick={() => {
+              setCompassQ("");
+              setCompassOpen(true);
+            }}
+            title={`${tc("search")} · ${searchHint}`}
+            aria-label={tc("search")}
+          >
+            <span className="nav-ico">
+              <SearchIcon />
+            </span>
+            <span className="nav-title">{tc("search")}</span>
+            {!rail && <span className="nav-hint">{searchHint}</span>}
+          </button>
+        </div>
+
+        <nav id="relay-sidebar-nav" className="sidebar-nav" aria-label={tc("menu")}>
+          <Link
+            href={`/w/${workspaceId}/board`}
+            className="nav-item"
+            data-active={isWorkspaceBoard}
+            title={td("navBoardHint")}
+            aria-current={isWorkspaceBoard ? "page" : undefined}
+            aria-label={t("board")}
+          >
+            <span className="nav-ico">
+              <BoardIcon />
+            </span>
+            <span className="nav-title">{t("board")}</span>
+          </Link>
+          <div className="nav-rule" aria-hidden />
+        </nav>
+
+        {rail ? (
+          <div className="sidebar-page-rail">
+            <div className="sidebar-page-rail-scroll">
+              <div className="sidebar-page-rail-list" ref={railListRef}>
+                {pages.map((p) => {
+                  const label = p.title || tc("untitled");
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/w/${workspaceId}/p/${p.id}`}
+                      className="nav-item"
+                      data-active={p.id === pageId}
+                      title={label}
+                      aria-label={label}
+                    >
+                      <span className="nav-ico" aria-hidden>
+                        <span className="sidebar-page-mark">
+                          {p.icon ?? label.slice(0, 1).toUpperCase()}
+                        </span>
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+              <CompactRailScroll target={railListRef} itemCount={pages.length} />
+            </div>
+            {canWrite && (
+              <button
+                type="button"
+                className="nav-item"
+                title={td("newPageShort")}
+                aria-label={td("newPageShort")}
+                onClick={() => void createPage()}
+              >
+                <span className="nav-ico">
+                  <PlusIcon />
+                </span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="sidebar-pages">
+            <div className="sidebar-pages-head">
+              <span>{td("navPages")}</span>
+            </div>
+            <OverlayScroll contentClassName="sidebar-page-list">
+              {pages.length === 0 ? (
+                <p className="sidebar-pages-empty">{td("pagesEmptyHint")}</p>
+              ) : (
+                pages.map((p) => {
+                  const label = p.title || tc("untitled");
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/w/${workspaceId}/p/${p.id}`}
+                      className="nav-item sidebar-page-item"
+                      data-active={p.id === pageId}
+                      title={label}
+                    >
+                      <span className="sidebar-page-mark" aria-hidden>
+                        {p.icon ?? label.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="nav-title">{label}</span>
+                    </Link>
+                  );
+                })
+              )}
+            </OverlayScroll>
+            {canWrite && (
+              <button type="button" className="sidebar-new-page" onClick={() => void createPage()}>
+                <PlusIcon />
+                <span>{td("newPageShort")}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="sidebar-tools">
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => setChromePersist(nextChrome)}
+            aria-controls="relay-sidebar-nav"
+            title={tb("chromeSwitch", { mode: nextChromeLabel })}
+            aria-label={tb("chromeSwitch", { mode: nextChromeLabel })}
+          >
+            <ChevronIcon collapsed={rail} />
+            {!rail && <span>{nextChromeLabel}</span>}
+          </button>
+        </div>
+
+        <div className="sidebar-foot">
+          {me && (
+            <div
+              className="account-chip"
+              title={rail ? `${me.name} · ${me.email}` : undefined}
+            >
+              <button
+                type="button"
+                className="account-chip-main"
+                onClick={() => {
+                  setAccountError(null);
+                  setAccountOpen(true);
+                }}
+                aria-label={me.name}
+              >
+                <UserAvatar name={me.name} url={me.avatarUrl} className="account-avatar" />
+                {!rail && (
+                  <span className="account-meta">
+                    <span className="account-name">{me.name}</span>
+                    <span className="account-sub">
+                      <span className="account-email">{me.email}</span>
+                    </span>
+                  </span>
+                )}
+              </button>
+              {!rail && (
+                <button
+                  type="button"
+                  className="account-logout"
+                  title={tc("logout")}
+                  aria-label={tc("logout")}
+                  onClick={() => void logout()}
+                >
+                  <LogoutIcon />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <HelpPanel />
+
       <WorkspaceShareModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
@@ -945,60 +1100,147 @@ function WorkspaceAppInner({
         onTogglePublish={togglePublish}
       />
 
-      {compassOpen && (
-        <div className="relay-modal-backdrop" onClick={() => setCompassOpen(false)}>
-          <div className="relay-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{t("compass")}</h2>
-            <input
-              className="relay-input"
-              autoFocus
-              placeholder={t("searchPlaceholder")}
-              value={compassQ}
-              onChange={(e) => setCompassQ(e.target.value)}
+      <SearchPalette
+        open={compassOpen}
+        onClose={() => setCompassOpen(false)}
+        query={compassQ}
+        onQueryChange={setCompassQ}
+        label={`${t("searchTitle")} · ${searchHint}`}
+        placeholder={t("searchPlaceholder")}
+        actionsLabel={td("paletteActions")}
+        pagesLabel={t("pages")}
+        emptyLabel={td("pagesSearchEmpty")}
+        emptyHint={td("pagesSearchEmptyHint")}
+        actions={[
+          {
+            id: "board",
+            title: t("infiniteBoard"),
+            onSelect: () => router.push(`/w/${workspaceId}/board`),
+          },
+          {
+            id: "new",
+            title: t("newPageTitle"),
+            onSelect: () => void createPage(),
+          },
+        ]}
+        hits={searchResults.map((r) => ({
+          id: r.pageId,
+          title: r.title,
+          snippet: r.snippet,
+        }))}
+        onOpenHit={(id) => router.push(`/w/${workspaceId}/p/${id}`)}
+      />
+
+      {accountOpen && me && (
+        <div className="account-sheet">
+          <button
+            type="button"
+            className="account-sheet-scrim"
+            aria-label={t("close")}
+            onClick={() => setAccountOpen(false)}
+          />
+          <div className="account-sheet-panel" role="dialog" aria-label={t("accountSheetTitle")}>
+            <h1>{t("accountSheetTitle")}</h1>
+            <AccountSettings
+              user={me}
+              busy={accountBusy}
+              error={accountError}
+              onSave={async (input) => {
+                setAccountBusy(true);
+                setAccountError(null);
+                try {
+                  const body: { name: string; avatarUrl?: string | null } = { name: input.name };
+                  if (input.avatarUrl !== undefined) body.avatarUrl = input.avatarUrl;
+                  const res = await fetch("/api/v1/auth/me", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(body),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    throw new Error((data as { message?: string }).message || t("historyRestoreFailed"));
+                  }
+                  const next = (data as { user?: typeof me }).user;
+                  if (next) setMe({ ...me, ...next });
+                } catch (err) {
+                  setAccountError(err instanceof Error ? err.message : t("historyRestoreFailed"));
+                } finally {
+                  setAccountBusy(false);
+                }
+              }}
+              onLink={(provider) => {
+                const next = pathname.startsWith("/") ? pathname : `/w/${workspaceId}/board`;
+                window.location.href = `/api/v1/auth/oauth/${provider}?intent=link&next=${encodeURIComponent(next)}`;
+              }}
+              onUnlink={async (provider) => {
+                setAccountBusy(true);
+                setAccountError(null);
+                try {
+                  const res = await fetch(`/api/v1/auth/me/providers/${provider}`, {
+                    method: "DELETE",
+                    credentials: "include",
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    throw new Error((data as { message?: string }).message || t("historyRestoreFailed"));
+                  }
+                  setMe({
+                    ...me,
+                    providers: (me.providers ?? []).filter((p) => p !== provider),
+                  });
+                } catch (err) {
+                  setAccountError(err instanceof Error ? err.message : t("historyRestoreFailed"));
+                } finally {
+                  setAccountBusy(false);
+                }
+              }}
+              onLogout={() => void logout()}
             />
-            <div style={{ marginTop: 12, display: "grid", gap: 4 }}>
-              <button
-                type="button"
-                className="relay-page-link"
-                onClick={() => {
-                  setCompassOpen(false);
-                  router.push(`/w/${workspaceId}/board`);
-                }}
-              >
-                ∞ {t("openBoard")}
-              </button>
-              <button type="button" className="relay-page-link" onClick={() => void createPage()}>
-                + {t("newPageTitle")}
-              </button>
-              {searchResults.map((r) => (
-                <button
-                  key={r.pageId}
-                  type="button"
-                  className="relay-page-link"
-                  onClick={() => {
-                    setCompassOpen(false);
-                    router.push(`/w/${workspaceId}/p/${r.pageId}`);
-                  }}
-                >
-                  <div>
-                    <div>{r.title}</div>
-                    <div className="relay-muted" style={{ fontSize: "0.78rem" }}>
-                      {r.snippet}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       )}
+
+      <VersionHistory
+        open={historyOpen}
+        title={isWorkspaceBoard ? t("infiniteBoard") : title}
+        canRestore={canWrite}
+        client={
+          isWorkspaceBoard
+            ? {
+                list: () =>
+                  fetch(`/api/v1/workspaces/${workspaceId}/board/revisions`).then((r) => r.json()),
+                get: (id) =>
+                  fetch(`/api/v1/workspaces/${workspaceId}/board/revisions/${id}`).then((r) => r.json()),
+                restore: async (id) => {
+                  const res = await fetch(
+                    `/api/v1/workspaces/${workspaceId}/board/revisions/${id}/restore`,
+                    { method: "POST" },
+                  );
+                  if (!res.ok) throw new Error("restore");
+                },
+              }
+            : {
+                list: () => fetch(`/api/v1/pages/${pageId}/revisions`).then((r) => r.json()),
+                get: (id) => fetch(`/api/v1/pages/${pageId}/revisions/${id}`).then((r) => r.json()),
+                restore: async (id) => {
+                  const res = await fetch(`/api/v1/pages/${pageId}/revisions/${id}/restore`, {
+                    method: "POST",
+                  });
+                  if (!res.ok) throw new Error("restore");
+                },
+              }
+        }
+        onClose={() => setHistoryOpen(false)}
+        onRestored={() => window.location.reload()}
+      />
     </div>
   );
 }
 
 function LogoutIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
       <path
         d="M10 4.5H6.5A2 2 0 0 0 4.5 6.5v11A2 2 0 0 0 6.5 19.5H10"
         stroke="currentColor"
@@ -1018,28 +1260,82 @@ function LogoutIcon() {
 
 function PlusIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M7 2.5v9M2.5 7h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <svg
+      className="nav-ico-svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 5.5v13M5.5 12h13" />
     </svg>
   );
 }
 
-function PeopleIcon() {
+function SearchIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M16 19v-1.2A2.8 2.8 0 0 0 13.2 15H7.8A2.8 2.8 0 0 0 5 17.8V19"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <circle cx="10.5" cy="9" r="2.6" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M19 19v-1.1a2.4 2.4 0 0 0-1.7-2.3M15.2 7.2a2.4 2.4 0 0 1 0 3.6"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
+    <svg
+      className="nav-ico-svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="11" cy="11" r="6.2" />
+      <path d="m15.6 15.6 3.7 3.7" />
+    </svg>
+  );
+}
+
+function BoardIcon() {
+  return (
+    <svg
+      className="nav-ico-svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      className="nav-ico-svg"
+      width={16}
+      height={16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      style={{ transform: collapsed ? "rotate(180deg)" : undefined }}
+    >
+      <path d="M15 6 9 12l6 6" />
     </svg>
   );
 }
@@ -1057,21 +1353,6 @@ function FocusIcon() {
   );
 }
 
-function CollapseIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden
-      style={{ transform: collapsed ? "rotate(180deg)" : undefined, transition: "transform .2s ease" }}
-    >
-      <path d="M8.5 3.5 5 7l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function MoreIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -1082,17 +1363,3 @@ function MoreIcon() {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M5 7h14M10 7V5.5A1.5 1.5 0 0 1 11.5 4h1A1.5 1.5 0 0 1 14 5.5V7m2 0v12a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 8 19V7"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  );
-}

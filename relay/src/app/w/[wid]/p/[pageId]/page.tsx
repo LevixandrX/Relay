@@ -71,6 +71,7 @@ export default async function WorkspacePageView({ params, searchParams }: Props)
       }}
       checklist={checklistRows[0] ?? null}
       ownerName={mem[0].ownerName}
+      viewerId={user.id}
       defaultMode={sp.mode === "text" ? "text" : "board"}
     />
   );

@@ -72,6 +72,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     <DialogContext.Provider value={api}>
       {children}
       {dialog && (
+        <>
         <div
           className="relay-modal-backdrop"
           onClick={() => {
@@ -80,13 +81,12 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             else dialog.resolve();
             close();
           }}
-        >
+        />
           <div
             className="relay-modal relay-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="relay-dialog-title"
-            onClick={(e) => e.stopPropagation()}
           >
             <h2 id="relay-dialog-title">{dialog.title}</h2>
             {dialog.body && <p className="relay-modal-lede">{dialog.body}</p>}
@@ -144,7 +144,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </DialogContext.Provider>
   );

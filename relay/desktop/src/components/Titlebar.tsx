@@ -2,6 +2,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { LanguageToggle } from "./LanguageToggle";
+import { HelpButton } from "@relay-help";
+import { ActivityStrip } from "./ActivityStrip";
 
 async function safeWindowAction(action: "minimize" | "toggleMaximize" | "close") {
   try {
@@ -59,7 +61,7 @@ function CaptionGlyph({ kind }: { kind: "min" | "max" | "restore" | "close" }) {
   );
 }
 
-export function Titlebar() {
+export function Titlebar({ activityPageId }: { activityPageId?: string | null }) {
   const t = useTranslations("desktop");
   const [maximized, setMaximized] = useState(false);
 
@@ -97,6 +99,8 @@ export function Titlebar() {
       </div>
       <div className="titlebar-actions">
         <div className="titlebar-locale" data-tauri-drag-region="false">
+          <ActivityStrip pageId={activityPageId} />
+          <HelpButton className="titlebar-help" />
           <LanguageToggle />
         </div>
         <button

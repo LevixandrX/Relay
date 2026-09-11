@@ -46,6 +46,7 @@ export default async function WorkspaceBoardPage({ params }: Props) {
       workspaceBoard={mem[0].board ? (JSON.parse(mem[0].board) as BoardSnapshot) : null}
       ownerName={mem[0].ownerName}
       checklist={checklistRows[0] ?? null}
+      viewerId={user.id}
       defaultMode="board"
     />
   );

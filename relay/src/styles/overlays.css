@@ -1,0 +1,410 @@
+.version-history {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17.5rem;
+  background: var(--bg, var(--surface));
+  color: var(--text, var(--ink));
+}
+
+.version-history-preview {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--canvas, var(--bg));
+}
+
+.version-history-preview-head {
+  padding: 1.25rem 1.5rem 0.75rem;
+}
+
+.version-history-preview-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.version-history-preview-head p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.version-history-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.version-history-preview-body pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.version-history-board {
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.version-history-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--chrome-overlay-bg, var(--chrome-bg, var(--surface)));
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.version-history-side-head,
+.version-history-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem;
+  flex: none;
+}
+
+.version-history-side-head {
+  border-bottom: 1px solid var(--line);
+}
+
+.version-history-close {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.version-history-close:hover {
+  background: var(--hover);
+  color: inherit;
+}
+
+.version-history-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.35rem;
+}
+
+.version-history-item {
+  display: grid;
+  gap: 0.12rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+}
+
+.version-history-item span:first-child {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.version-history-item span:last-child {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.version-history-item:hover {
+  background: var(--hover);
+}
+
+.version-history-item[data-active="true"] {
+  background: color-mix(in oklab, var(--text, var(--ink)) 7%, transparent);
+}
+
+.version-history-empty {
+  margin: 0;
+  padding: 0.85rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.version-history-foot {
+  border-top: 1px solid var(--line);
+}
+
+.version-history-foot > span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.account-settings {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.account-settings-id {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.account-settings-avatar {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.account-avatar-lg {
+  width: 3.25rem;
+  height: 3.25rem;
+  font-size: 1.1rem;
+  border-radius: 10px;
+}
+
+.account-settings-copy {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.account-settings-copy label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.account-settings-copy input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg, var(--surface));
+  color: inherit;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.9rem;
+}
+
+.account-settings-plan {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.account-settings-links h2 {
+  margin: 0 0 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.account-provider-list {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.45rem;
+}
+
+.account-provider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0;
+  font-size: 0.86rem;
+}
+
+.account-provider-row .linkish,
+.account-settings .linkish {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.account-provider-row .linkish:hover,
+.account-settings .linkish:hover {
+  color: inherit;
+}
+
+.account-settings-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.account-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.account-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, black 35%, transparent);
+}
+
+.account-sheet-panel {
+  position: relative;
+  isolation: isolate;
+  width: min(28rem, 100%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface, var(--card));
+  color: var(--ink, var(--text));
+  padding: 1.15rem 1.2rem 1.25rem;
+  box-shadow: var(--chrome-shadow, 0 16px 40px rgba(0, 0, 0, 0.2));
+}
+
+.account-sheet-panel h1 {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.version-history-foot .btn,
+.account-settings .btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.version-history-foot .btn-accent,
+.account-settings .btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sidebar-pages > .overlay-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-pages .overlay-scroll-target {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sidebar-page-rail-scroll {
+  position: relative;
+  flex: 0 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.overlay-scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.overlay-scroll-target {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overlay-scroll-target::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.rail-scroll {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  bottom: 0;
+  width: 5px;
+  z-index: 3;
+  cursor: default;
+  touch-action: none;
+}
+
+.sidebar-page-rail-scroll > .rail-scroll {
+  right: -0.34rem;
+}
+
+.palette .overlay-scroll,
+.relay-help .overlay-scroll,
+.relay-activity-panel .overlay-scroll,
+.pages-shell .overlay-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.relay-help .overlay-scroll,
+.relay-help .overlay-scroll-target {
+  min-height: 12.5rem;
+}
+
+.palette .overlay-scroll,
+.palette .overlay-scroll-target {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(60vh - 3.5rem);
+}
+
+.rail-scroll[data-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.rail-scroll-thumb {
+  position: absolute;
+  right: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text, var(--ink)) 36%, transparent);
+  transition: width 0.18s ease, background-color 0.18s ease;
+}
+
+.rail-scroll:hover .rail-scroll-thumb {
+  width: 5px;
+  background: color-mix(in oklab, var(--text, var(--ink)) 58%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-scroll-thumb {
+    transition: none;
+  }
+}

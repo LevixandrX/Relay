@@ -1,16 +1,15 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useTheme } from "@/components/ThemeProvider";
 
 type Props = {
   variant?: "toolbar" | "sidebar" | "floating" | "landing" | "inline";
 };
 
 function systemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
@@ -18,13 +17,19 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
   const t = useTranslations("theme");
   const tc = useTranslations("common");
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setReady(true);
+  }, []);
 
   const resolved = resolvedTheme === "dark" ? "dark" : "light";
   const Icon = resolved === "dark" ? Moon : Sun;
-  const nextLabel = resolved === "dark" ? t("switchToLight") : t("switchToDark");
+  const nextLabel = ready
+    ? resolved === "dark"
+      ? t("switchToLight")
+      : t("switchToDark")
+    : tc("theme");
 
   const btnClass =
     variant === "sidebar"
@@ -52,18 +57,6 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
     setTheme(next);
   }
 
-  if (!mounted) {
-    return (
-      <button
-        type="button"
-        className={btnClass}
-        aria-label={tc("theme")}
-        disabled
-        aria-hidden
-      />
-    );
-  }
-
   const outerClass =
     variant === "floating"
       ? ""
@@ -77,11 +70,13 @@ export function ThemeToggle({ variant = "toolbar" }: Props) {
     <button
       type="button"
       className={[outerClass, btnClass].filter(Boolean).join(" ")}
-      aria-label={nextLabel}
+      aria-label={tc("theme")}
       title={nextLabel}
       onClick={toggleTheme}
     >
-      <Icon size={16} strokeWidth="2" aria-hidden />
+      <span className="relay-theme-ico" aria-hidden>
+        {ready ? <Icon size={16} strokeWidth="2" /> : <span className="relay-theme-ico-slot" />}
+      </span>
       {variant === "inline" && (
         <span className="relay-theme-btn-label">{tc("theme")}</span>
       )}

@@ -3,6 +3,7 @@ import { useTranslations } from "use-intl";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { ApiClientError } from "../lib/api";
+import { publicAppOrigin } from "../lib/app-origin";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,15 +16,6 @@ function roleLabelKey(role: string) {
   if (role === "owner") return "roleOwner" as const;
   if (role === "editor") return "roleEditor" as const;
   return "roleViewer" as const;
-}
-
-/** Public web origin for invite links — prefer localhost over 127.0.0.1 (cookie/host mismatch). */
-function publicAppOrigin() {
-  const raw =
-    (import.meta.env.VITE_APP_URL as string | undefined) ||
-    (import.meta.env.VITE_API_URL as string | undefined) ||
-    "http://localhost:3000";
-  return raw.replace(/\/$/, "").replace(/^http:\/\/127\.0\.0\.1(?=[:/]|$)/, "http://localhost");
 }
 
 export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
@@ -56,6 +48,7 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
 
   if (ws.mode === "guest") {
     return (
+      <div className="page-frame">
       <section className="card surface-card">
         <div className="empty-state">
           <p className="empty-state-title">{t("teamGuestTitle")}</p>
@@ -67,6 +60,7 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
           </div>
         </div>
       </section>
+      </div>
     );
   }
 
@@ -110,12 +104,12 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
   }
 
   return (
-    <>
+    <div className="page-frame">
       <div className="toprow">
         <div className="page-title">
           <h1>{t("teamTitle")}</h1>
           {limit != null && (
-            <span className="badge">{t("membersLimit", { plan, limit })}</span>
+            <span className="quiet-status">{t("membersLimit", { plan, limit })}</span>
           )}
         </div>
       </div>
@@ -230,6 +224,6 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
           </p>
         </section>
       )}
-    </>
+    </div>
   );
 }

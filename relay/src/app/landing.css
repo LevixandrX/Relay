@@ -1,84 +1,78 @@
 /* ===== Landing — clean grid, play-once + idle ===== */
 .ld {
   --ld-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --ld-ink: #0b1220;
-  --ld-soft: #3d4a63;
-  --ld-muted: rgba(11, 18, 32, 0.38);
-  --ld-paper: #e9eef6;
-  --ld-paper-2: #eef2f8;
-  --ld-field-bg: #e8eef7;
-  --ld-fade-to: #eef2f8;
+  --ld-ink: #171717;
+  --ld-soft: #525252;
+  --ld-muted: rgba(0, 0, 0, 0.38);
+  --ld-paper: #f4f4f5;
+  --ld-paper-2: #fafafa;
+  --ld-field-bg: #ececee;
+  --ld-fade-to: #f4f4f5;
   --ld-blue: #1d4ed8;
   --ld-blue-hover: #1e40af;
   --ld-surface: #ffffff;
   --ld-surface-soft: rgba(255, 255, 255, 0.7);
   --ld-surface-glass: rgba(255, 255, 255, 0.92);
-  --ld-line: rgba(11, 18, 32, 0.08);
-  --ld-line-soft: rgba(11, 18, 32, 0.05);
-  --ld-line-strong: rgba(11, 18, 32, 0.1);
-  --ld-shadow: 0 18px 40px rgba(11, 18, 32, 0.08);
-  --ld-shadow-sm: 0 10px 28px rgba(11, 18, 32, 0.06);
-  --ld-grid-line: rgba(29, 78, 216, 0.1);
-  --ld-hover: rgba(11, 18, 32, 0.06);
+  --ld-line: rgba(0, 0, 0, 0.08);
+  --ld-line-soft: rgba(0, 0, 0, 0.05);
+  --ld-line-strong: rgba(0, 0, 0, 0.1);
+  --ld-shadow: 0 18px 40px rgba(0, 0, 0, 0.06);
+  --ld-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.05);
+  --ld-grid-line: rgba(0, 0, 0, 0.06);
+  --ld-hover: rgba(0, 0, 0, 0.05);
   --ld-accent-soft: rgba(29, 78, 216, 0.08);
   --ld-accent-line: rgba(29, 78, 216, 0.18);
   --ld-on-accent: #ffffff;
   --ld-hero-ghost-border: rgba(255, 255, 255, 0.35);
   --ld-hero-ghost-text: #f8fafc;
-  --ld-close-bg: #0b1220;
+  --ld-close-bg: #171717;
   --ld-close-text: #f8fafc;
   --ld-close-cta-bg: #ffffff;
-  --ld-close-cta-ink: #0b1220;
+  --ld-close-cta-ink: #171717;
   --ld-close-bridge: clamp(96px, 16vh, 200px);
   --ld-pill-fill: #ffffff;
-  --ld-pill-stroke: rgba(11, 18, 32, 0.12);
-  --ld-pill-shadow: rgba(11, 18, 32, 0.08);
-  --ld-sn-ai-fill: #eff6ff;
-  --ld-sn-ai-stroke: #bfdbfe;
-  --ld-copy-wash: radial-gradient(ellipse 68% 62% at 28% 40%, rgba(232, 238, 247, 0.92), transparent 70%);
+  --ld-pill-stroke: rgba(0, 0, 0, 0.12);
+  --ld-pill-shadow: rgba(0, 0, 0, 0.08);
+  --ld-sn-ai-fill: #f4f4f5;
+  --ld-sn-ai-stroke: #d4d4d8;
+  --ld-copy-wash: radial-gradient(ellipse 68% 62% at 28% 40%, rgba(244, 244, 245, 0.92), transparent 70%);
   --ld-blend-h: clamp(72px, 14vh, 160px);
   --ld-pad: clamp(1.5rem, 5vw, 3.25rem);
   min-height: 100%;
   color: var(--ld-ink);
   overflow-x: clip;
-  background:
-    radial-gradient(900px 480px at 100% 0%, rgba(29, 78, 216, 0.11), transparent 55%),
-    radial-gradient(700px 400px at 0% 40%, rgba(15, 118, 110, 0.05), transparent 50%),
-    var(--ld-paper);
+  background: var(--ld-paper);
 }
 
 .dark .ld {
-  --ld-ink: #eef2ff;
-  --ld-soft: #a7b0c5;
-  --ld-muted: rgba(238, 242, 255, 0.42);
-  --ld-paper: #0b0d12;
-  --ld-paper-2: #12151d;
-  --ld-field-bg: #0f121a;
-  --ld-fade-to: #12151d;
+  --ld-ink: #f0f0f0;
+  --ld-soft: #a3a3a3;
+  --ld-muted: rgba(240, 240, 240, 0.42);
+  --ld-paper: #111111;
+  --ld-paper-2: #181818;
+  --ld-field-bg: #181818;
+  --ld-fade-to: #181818;
   --ld-blue: #3b82f6;
   --ld-blue-hover: #2563eb;
-  --ld-surface: #161a24;
-  --ld-surface-soft: rgba(22, 26, 36, 0.82);
-  --ld-surface-glass: rgba(22, 26, 36, 0.92);
-  --ld-line: rgba(255, 255, 255, 0.08);
+  --ld-surface: #1c1c1c;
+  --ld-surface-soft: rgba(28, 28, 28, 0.82);
+  --ld-surface-glass: rgba(28, 28, 28, 0.92);
+  --ld-line: rgba(255, 255, 255, 0.09);
   --ld-line-soft: rgba(255, 255, 255, 0.05);
   --ld-line-strong: rgba(255, 255, 255, 0.12);
   --ld-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
   --ld-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.28);
-  --ld-grid-line: rgba(59, 130, 246, 0.14);
+  --ld-grid-line: rgba(255, 255, 255, 0.06);
   --ld-hover: rgba(255, 255, 255, 0.06);
   --ld-accent-soft: rgba(59, 130, 246, 0.14);
   --ld-accent-line: rgba(59, 130, 246, 0.28);
-  --ld-pill-fill: #1e2433;
+  --ld-pill-fill: #242424;
   --ld-pill-stroke: rgba(255, 255, 255, 0.1);
   --ld-pill-shadow: rgba(0, 0, 0, 0.28);
-  --ld-sn-ai-fill: rgba(59, 130, 246, 0.12);
-  --ld-sn-ai-stroke: rgba(59, 130, 246, 0.35);
+  --ld-sn-ai-fill: rgba(255, 255, 255, 0.06);
+  --ld-sn-ai-stroke: rgba(255, 255, 255, 0.16);
   --ld-copy-wash: none;
-  background:
-    radial-gradient(900px 480px at 100% 0%, rgba(59, 130, 246, 0.14), transparent 55%),
-    radial-gradient(700px 400px at 0% 40%, rgba(45, 212, 191, 0.08), transparent 50%),
-    var(--ld-paper);
+  background: var(--ld-paper);
 }
 
 .ld-nav {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 
 type Member = {
@@ -130,9 +131,10 @@ export function WorkspaceShareModal({
     return `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
   }
 
-  return (
-    <div className="relay-modal-backdrop" onClick={onClose}>
-      <div className="relay-modal relay-share-modal" onClick={(e) => e.stopPropagation()}>
+  return createPortal(
+    <>
+      <div className="relay-modal-backdrop" onClick={onClose} />
+      <div className="relay-modal relay-share-modal" role="dialog" aria-modal="true">
         <header className="relay-share-head">
           <div>
             <h2>{t("shareTitle")}</h2>
@@ -266,6 +268,7 @@ export function WorkspaceShareModal({
           </button>
         </div>
       </div>
-    </div>
+    </>,
+    document.body,
   );
 }

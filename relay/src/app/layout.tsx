@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
+import "../styles/glass.css";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -38,6 +39,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       className={`${manrope.variable} ${unbounded.variable} h-full`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k="relay-theme";var t=localStorage.getItem(k)||"system";var d=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=t==="dark"||t==="light"?t:d;var e=document.documentElement;e.classList.remove("light","dark");e.classList.add(r);e.style.colorScheme=r;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full antialiased">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>{children}</ThemeProvider>

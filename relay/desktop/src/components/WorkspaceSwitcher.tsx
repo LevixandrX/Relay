@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "use-intl";
 import { useAuth, type CloudWorkspace } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
@@ -42,11 +43,9 @@ function metaLine(
  */
 export function WorkspaceSwitcher({
   collapsed,
-  onExpand,
   onInvite,
 }: {
   collapsed: boolean;
-  onExpand?: () => void;
   onInvite?: () => void;
 }) {
   const t = useTranslations("desktop");
@@ -56,7 +55,9 @@ export function WorkspaceSwitcher({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 280 });
 
   const active =
     auth.workspaces.find((w) => w.id === ws.activeWorkspaceId) ?? auth.workspaces[0] ?? null;
@@ -65,13 +66,40 @@ export function WorkspaceSwitcher({
     if (collapsed) setOpen(false);
   }, [collapsed]);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const el = rootRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const width = Math.max(280, r.width);
+      let left = r.left;
+      if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+      if (left < 8) left = 8;
+      setMenuPos({ top: r.bottom + 6, left, width });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const node = e.target as Node;
+      if (rootRef.current?.contains(node) || menuRef.current?.contains(node)) return;
+      setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -86,22 +114,6 @@ export function WorkspaceSwitcher({
   const label = displayName(active, t);
   const sub = metaLine(active, t);
   const mark = workspaceMark(active.name, active.ownerName);
-
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        className="ws-mark-btn"
-        title={`${label} · ${sub}`}
-        aria-label={label}
-        onClick={() => onExpand?.()}
-      >
-        <span className="ws-mark" style={{ background: workspaceAccent(active.id) }} aria-hidden>
-          {mark}
-        </span>
-      </button>
-    );
-  }
 
   async function createWorkspace() {
     if (!auth.token || busy) return;
@@ -163,13 +175,14 @@ export function WorkspaceSwitcher({
   }
 
   return (
-    <div className="ws-switch" ref={rootRef}>
+    <div className="ws-switch" data-collapsed={collapsed ? "true" : undefined} ref={rootRef}>
       <button
         type="button"
         className="ws-switch-trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        title={collapsed ? `${label} · ${sub}` : undefined}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="ws-mark" style={{ background: workspaceAccent(active.id) }} aria-hidden>
@@ -192,8 +205,16 @@ export function WorkspaceSwitcher({
         </span>
       </button>
 
-      {open && (
-        <div className="ws-menu" id={listId} role="listbox" aria-label={t("workspaceAria")}>
+      {open &&
+        createPortal(
+        <div
+          ref={menuRef}
+          className="ws-menu"
+          id={listId}
+          role="listbox"
+          aria-label={t("workspaceAria")}
+          style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+        >
           <div className="ws-menu-label">{t("workspaceSwitcherLabel")}</div>
           {auth.workspaces.map((w) => {
             const selected = w.id === active.id;
@@ -268,8 +289,9 @@ export function WorkspaceSwitcher({
           >
             {t("createWorkspace")}
           </button>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   );
 }

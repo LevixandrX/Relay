@@ -1,0 +1,496 @@
+/* Desktop-parity sidebar chrome for the web shell.
+   Desktop `Sidebar.tsx` is the source of truth — do not restyle that file
+   to match web. This file copies the same class names for WorkspaceApp. */
+
+.relay-shell > .sidebar {
+  width: var(--sidebar-w);
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.sidebar {
+  --sidebar-w: 240px;
+  width: var(--sidebar-w);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  padding: 0.7rem 0.75rem 0.7rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: transparent;
+  overflow: visible;
+  position: relative;
+  z-index: 4;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--chrome-bg);
+  backdrop-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
+  pointer-events: none;
+}
+
+.sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar[data-collapsed="true"] {
+  --sidebar-w: 56px;
+  padding: 0.65rem 0.4rem;
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  padding: 0.05rem 0.2rem 0.2rem;
+  flex-shrink: 0;
+}
+
+.sidebar-logo .relay-brand {
+  font-size: 1.05rem;
+}
+
+.sidebar-brand {
+  min-width: 0;
+  margin-bottom: 0.15rem;
+  flex-shrink: 0;
+}
+
+.sidebar-brand .relay-ws-switch {
+  width: 100%;
+}
+
+.sidebar[data-collapsed="true"] .sidebar-brand {
+  display: grid;
+  place-items: center;
+}
+
+.sidebar-quick {
+  display: grid;
+  gap: 0.1rem;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.15rem;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.nav-rule {
+  height: 1px;
+  margin: 0.45rem 0.5rem;
+  background: var(--line);
+  opacity: 0.9;
+}
+
+.sidebar[data-collapsed="true"] .nav-rule {
+  margin-inline: 0.35rem;
+}
+
+.nav-hint {
+  margin-left: auto;
+  font-size: 0.66rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: none;
+  background: transparent;
+  color: color-mix(in oklab, var(--muted) 88%, var(--ink));
+  border-radius: 7px;
+  padding: 0.42rem 0.55rem;
+  text-align: left;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+a.nav-item:hover,
+a.nav-item:focus-visible {
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.sidebar[data-collapsed="true"] .nav-item {
+  display: grid;
+  place-items: center;
+  gap: 0;
+  justify-content: center;
+  flex: 0 0 2.15rem;
+  width: 2.15rem;
+  max-width: 100%;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+  padding: 0;
+  margin-inline: auto;
+  overflow: hidden;
+}
+
+.nav-item:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 5.5%, transparent);
+}
+
+.nav-item[data-active="true"] {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
+}
+
+.nav-item[data-active="true"] .nav-title {
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.nav-ico {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: grid;
+  place-items: center;
+  flex: none;
+  opacity: 0.72;
+  color: inherit;
+  position: relative;
+}
+
+.nav-item:hover .nav-ico,
+.nav-item[data-active="true"] .nav-ico {
+  opacity: 1;
+}
+
+.nav-ico-svg {
+  display: block;
+}
+
+.nav-title {
+  font-weight: 500;
+  font-size: 0.86rem;
+  letter-spacing: -0.012em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar[data-collapsed="true"] .nav-title,
+.sidebar[data-collapsed="true"] .nav-hint {
+  display: none;
+}
+
+.sidebar-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  margin-top: 0;
+  padding-top: 0.15rem;
+}
+
+.sidebar-pages-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.15rem 0.55rem 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.sidebar-page-list {
+  overflow-x: clip;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overscroll-behavior: contain;
+  padding-right: 0.32rem;
+  scrollbar-gutter: stable;
+}
+
+.sidebar-page-mark {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.nav-ico .sidebar-page-mark {
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+}
+
+.sidebar-pages-empty {
+  margin: 0;
+  padding: 0.2rem 0.55rem 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.sidebar-new-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font: inherit;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.sidebar-new-page:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.sidebar-new-page .nav-ico-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sidebar-page-rail {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: stretch;
+}
+
+.sidebar-page-rail-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-page-rail-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.sidebar-page-rail > .nav-item {
+  flex: 0 0 auto;
+}
+
+.sidebar-page-rail .nav-item,
+.sidebar-page-rail-list > .nav-item {
+  flex: 0 0 2.15rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+}
+
+.sidebar-page-rail .sidebar-page-mark {
+  margin: 0;
+}
+
+.sidebar-tools {
+  padding: 0.15rem 0 0.45rem;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.sidebar[data-collapsed="true"] .sidebar-tools {
+  display: grid;
+  place-items: center;
+}
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.35rem 0.5rem;
+  font-family: inherit;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar[data-collapsed="true"] .sidebar-toggle {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.sidebar-toggle:hover {
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.sidebar-foot {
+  margin-top: 0.25rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.sidebar[data-collapsed="true"] .sidebar-foot {
+  border-top: none;
+  padding-top: 0.2rem;
+  display: grid;
+  place-items: center;
+}
+
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.account-chip-main {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0.3rem;
+  border-radius: 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.account-chip-main:hover {
+  background: color-mix(in oklab, var(--surface) 85%, transparent);
+}
+
+.account-meta {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 750;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.account-email {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-logout {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  flex: none;
+  cursor: pointer;
+}
+
+.account-logout:hover {
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border-color: color-mix(in oklab, var(--danger) 22%, transparent);
+}
+
+.account-avatar {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.78rem;
+  display: grid;
+  place-items: center;
+  flex: none;
+  object-fit: cover;
+  overflow: hidden;
+}
