@@ -17,7 +17,8 @@
     "relay:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-relay.ps1",
     "relay:shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-desktop-shortcut.ps1",
     "desktop:dev-ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Dev",
-    "desktop:rebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Rebuild"
+    "desktop:rebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-desktop.ps1 -Rebuild",
+    "postinstall": "node scripts/patch-quickdraw.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

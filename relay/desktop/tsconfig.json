@@ -19,7 +19,17 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@relay-messages/*": ["../messages/*"],
+      "@relay-i18n/*": ["../src/i18n/*"],
+      "@relay-board/*": ["../src/lib/board/*"],
+      "@relay-board-chrome": ["../src/components/BoardChrome.tsx"],
+      "@relay-help": ["../src/components/BoardHelp.tsx"],
+      "@relay-activity": ["../src/components/ActivityDisclosure.tsx"],
+      "@relay-search": ["../src/components/SearchPalette.tsx"],
+      "@relay-history": ["../src/components/VersionHistory.tsx"],
+      "@relay-account": ["../src/components/AccountSettings.tsx"],
+      "@relay-avatar": ["../src/components/UserAvatar.tsx"]
     }
   },
   "include": ["src"]

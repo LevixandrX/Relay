@@ -1,17 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { relayDesktopAliases } from "./vite.aliases.mjs";
 
+const here = path.dirname(fileURLToPath(import.meta.url));
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-      "@relay-messages": path.resolve(__dirname, "../messages"),
-      "@relay-i18n": path.resolve(__dirname, "../src/i18n"),
-    },
+    alias: relayDesktopAliases(here),
   },
   clearScreen: false,
   server: {
@@ -35,7 +34,7 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   optimizeDeps: {
-    exclude: ["tauri-plugin-snap-layout"],
+    exclude: ["tauri-plugin-snap-layout", "@quickdrawjs/core", "@quickdrawjs/react"],
   },
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",

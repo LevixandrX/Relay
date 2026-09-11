@@ -18,6 +18,27 @@ fn apply_corner_preference(window: &tauri::WebviewWindow) {
   }
 }
 
+/// WebView2: block page zoom but keep pinch → ctrl+wheel events for the canvas.
+#[cfg(windows)]
+fn configure_webview_zoom(window: &tauri::WebviewWindow) {
+  let _ = window.with_webview(|webview| {
+    unsafe {
+      use webview2_com::Microsoft::Web::WebView2::Win32::*;
+      use windows_core::Interface;
+
+      let controller: ICoreWebView2Controller = webview.controller();
+      let core = controller.CoreWebView2().expect("webview2 core");
+      let settings = core.Settings().expect("webview2 settings");
+
+      let _ = settings.SetIsZoomControlEnabled(false);
+      if let Ok(s5) = settings.cast::<ICoreWebView2Settings5>() {
+        let _ = s5.SetIsPinchZoomEnabled(true);
+      }
+      let _ = controller.SetZoomFactor(1.0);
+    }
+  });
+}
+
 #[tauri::command]
 fn app_info() -> serde_json::Value {
   serde_json::json!({
@@ -41,7 +62,10 @@ pub fn run() {
       if let Some(window) = app.get_webview_window("main") {
         let _ = window.set_title("Relay");
         #[cfg(windows)]
-        apply_corner_preference(&window);
+        {
+          apply_corner_preference(&window);
+          configure_webview_zoom(&window);
+        }
       }
       Ok(())
     })
