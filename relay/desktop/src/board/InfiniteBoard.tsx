@@ -4,11 +4,18 @@ import {
   useQuickdrawStore,
   type QuickdrawRef,
 } from "@quickdrawjs/react";
+import type { Editor } from "@quickdrawjs/core";
 import "@quickdrawjs/core/quickdraw.css";
+import { BoardChrome } from "@relay-board-chrome";
+import { useAuth } from "../lib/auth";
 import { useBoardSync } from "../lib/useBoardSync";
+import { useBoardViewportInput } from "@relay-board/useBoardViewportInput";
+import { applyRelayBoardTheme, paintEditorCanvas, watchCanvasBackdropSampling } from "@relay-board/canvas-theme";
 import { parseQuickdrawSnapshot } from "../lib/boardSnapshot";
 import { useTheme } from "../theme/ThemeProvider";
 import type { BoardSnapshot } from "../lib/types";
+
+applyRelayBoardTheme();
 
 function useBoardTheme(): "light" | "dark" {
   const { mode } = useTheme();
@@ -52,8 +59,17 @@ export function InfiniteBoard({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const theme = useBoardTheme();
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const { token, user } = useAuth();
 
-  useBoardSync(store, syncRoomId, editable && Boolean(syncRoomId));
+  const { peers } = useBoardSync(store, editor, syncRoomId, {
+    enabled: Boolean(syncRoomId && token),
+    write: editable,
+    selfId: user?.id,
+    bearer: token,
+  });
+
+  useBoardViewportInput(editor, hostRef);
 
   const persist = useCallback(() => {
     if (!onChangeRef.current) return;
@@ -80,8 +96,13 @@ export function InfiniteBoard({
   }, [store, persist]);
 
   useEffect(() => {
+    applyRelayBoardTheme();
     ref.current?.editor?.setTheme(theme);
-  }, [theme]);
+    if (editor) {
+      editor.setTheme(theme);
+      paintEditorCanvas(editor, theme);
+    }
+  }, [theme, editor]);
 
   useEffect(() => {
     const el = hostRef.current;
@@ -90,24 +111,33 @@ export function InfiniteBoard({
     bump();
     const ro = new ResizeObserver(bump);
     ro.observe(el);
-    return () => ro.disconnect();
+    const stopWatch = watchCanvasBackdropSampling(el);
+    return () => {
+      ro.disconnect();
+      stopWatch();
+    };
   }, []);
 
   return (
-    <div className="relay-board" ref={hostRef}>
-      <Quickdraw
-        ref={ref}
-        store={store}
-        theme={theme}
-        grid="dots"
-        readonly={!editable}
-        watermark={false}
-        themeToggle={false}
-        autoFit
-        onMount={(editor) => {
-          editor.setTheme(theme);
-        }}
-      />
+    <div className="relay-board-host" ref={hostRef}>
+      <div className="relay-board">
+        <Quickdraw
+          ref={ref}
+          store={store}
+          theme={theme}
+          grid="dots"
+          readonly={!editable}
+          watermark={false}
+          themeToggle={false}
+          autoFit
+          onMount={(ed) => {
+            ed.setTheme(theme);
+            paintEditorCanvas(ed, theme);
+            setEditor(ed);
+          }}
+        />
+      </div>
+      {editor ? <BoardChrome editor={editor} peers={peers} dark={theme === "dark"} /> : null}
     </div>
   );
 }
