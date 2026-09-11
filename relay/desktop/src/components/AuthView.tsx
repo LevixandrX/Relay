@@ -5,6 +5,7 @@ import { ApiClientError, type OAuthProvider } from "../lib/api";
 import { GithubMark, GoogleMark, Spinner, YandexMark } from "./ProviderMarks";
 import { openExternal } from "../lib/open-external";
 import { useDialog } from "./DialogHost";
+import { AccountSettings } from "@relay-account";
 
 /** VK ID requires business/INN verification — kept out of UI until that exists. */
 const PROVIDERS: {
@@ -77,26 +78,56 @@ export function AuthView({ onDone }: { onDone: () => void }) {
             <h1>{t("accountTitle")}</h1>
             <p className="muted">{t("accountConnected")}</p>
           </div>
-          <div className="auth-account">
-            <strong>{auth.user!.name}</strong>
-            <span className="muted">{auth.user!.email}</span>
-            {auth.subscription && <span className="auth-plan">{planLabel()}</span>}
-            <button
-              type="button"
-              className="btn btn-accent"
-              onClick={() => {
-                void (async () => {
-                  const ok = await dialog.confirm({
-                    title: tc("logoutConfirm"),
-                    confirmLabel: tc("logout"),
-                  });
-                  if (ok) await auth.logout();
-                })();
-              }}
-            >
-              {tc("logout")}
-            </button>
-          </div>
+          {flow ? <p className="muted">{t("oauthBrowserHint")}</p> : null}
+          <AccountSettings
+            user={auth.user!}
+            planLabel={planLabel()}
+            busy={busy || Boolean(flow)}
+            error={error}
+            onSave={async (input) => {
+              setBusy(true);
+              setError(null);
+              try {
+                const body: { name: string; avatarUrl?: string | null } = { name: input.name };
+                if (input.avatarUrl !== undefined) body.avatarUrl = input.avatarUrl;
+                await auth.updateProfile(body);
+              } catch (err) {
+                setError(err instanceof ApiClientError ? err.message : t("oauthFailed"));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            onLink={(id) => {
+              setError(null);
+              void auth.signInWithProvider(id, { intent: "link" }).catch((err) => {
+                setError(
+                  err instanceof ApiClientError || err instanceof Error
+                    ? err.message
+                    : t("oauthFailed"),
+                );
+              });
+            }}
+            onUnlink={async (id) => {
+              setBusy(true);
+              setError(null);
+              try {
+                await auth.unlinkProvider(id);
+              } catch (err) {
+                setError(err instanceof ApiClientError ? err.message : t("oauthFailed"));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            onLogout={() => {
+              void (async () => {
+                const ok = await dialog.confirm({
+                  title: tc("logoutConfirm"),
+                  confirmLabel: tc("logout"),
+                });
+                if (ok) await auth.logout();
+              })();
+            }}
+          />
         </section>
       </div>
     );

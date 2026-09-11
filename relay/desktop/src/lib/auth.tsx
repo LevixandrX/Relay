@@ -18,6 +18,8 @@ export type CloudUser = {
   email: string;
   name: string;
   avatarUrl?: string | null;
+  providers?: string[];
+  hasPassword?: boolean;
 };
 
 export type CloudWorkspace = {
@@ -63,7 +65,9 @@ type AuthContextValue = {
   setToken: (token: string) => Promise<void>;
   refreshMe: () => Promise<void>;
   /** Resolves `true` when a token arrived, `false` if the user cancelled. */
-  signInWithProvider: (provider: OAuthProvider) => Promise<boolean>;
+  signInWithProvider: (provider: OAuthProvider, opts?: { intent?: "link" }) => Promise<boolean>;
+  unlinkProvider: (provider: OAuthProvider) => Promise<void>;
+  updateProfile: (input: { name: string; avatarUrl?: string | null }) => Promise<void>;
   cancelOAuth: () => void;
 };
 
@@ -185,11 +189,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithProvider = useCallback(
-    async (provider: OAuthProvider) => {
+    async (provider: OAuthProvider, opts?: { intent?: "link" }) => {
       cancelRef.current = false;
       setOauthFlow({ provider, stage: "opening" });
       try {
-        const { code, claimSecret, url } = await startPairing(provider);
+        const { code, claimSecret, url } = await startPairing(provider, {
+          intent: opts?.intent,
+          token: opts?.intent === "link" ? token : null,
+        });
         await openExternal(url);
         setOauthFlow({ provider, stage: "waiting", url });
 
@@ -217,7 +224,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    [setToken],
+    [setToken, token],
+  );
+
+  const unlinkProvider = useCallback(
+    async (provider: OAuthProvider) => {
+      if (!token) return;
+      await api(`/auth/me/providers/${provider}`, { method: "DELETE", token });
+      await refreshMe();
+    },
+    [token, refreshMe],
+  );
+
+  const updateProfile = useCallback(
+    async (input: { name: string; avatarUrl?: string | null }) => {
+      if (!token) return;
+      await api("/auth/me", {
+        method: "PATCH",
+        token,
+        body: JSON.stringify(input),
+      });
+      await refreshMe();
+    },
+    [token, refreshMe],
   );
 
   const value = useMemo(
@@ -234,6 +263,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken,
       refreshMe,
       signInWithProvider,
+      unlinkProvider,
+      updateProfile,
       cancelOAuth,
     }),
     [
@@ -249,6 +280,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken,
       refreshMe,
       signInWithProvider,
+      unlinkProvider,
+      updateProfile,
       cancelOAuth,
     ],
   );

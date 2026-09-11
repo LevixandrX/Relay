@@ -8,6 +8,7 @@ import {
   type OAuthProvider,
 } from "@/domain/auth/oauth";
 import { id } from "@/lib/ids";
+import { requireSession } from "@/lib/session";
 
 function parseClient(url: URL): OAuthClient {
   const c = url.searchParams.get("client");
@@ -28,6 +29,7 @@ export async function buildAuthorizeUrl(input: {
   client: OAuthClient;
   pair?: string;
   next?: string;
+  linkUserId?: string;
 }) {
   const state = await signOAuthState({
     provider: input.provider,
@@ -35,6 +37,7 @@ export async function buildAuthorizeUrl(input: {
     nonce: id.token(),
     pair: input.pair,
     next: input.next,
+    linkUserId: input.linkUserId,
   });
   return authorizeUrl(input.provider, state);
 }
@@ -50,7 +53,12 @@ export async function startOAuth(provider: OAuthProvider, req: Request) {
       rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")
         ? rawNext
         : undefined;
-    const dest = await buildAuthorizeUrl({ provider, client, pair, next });
+    let linkUserId: string | undefined;
+    if (url.searchParams.get("intent") === "link") {
+      const user = await requireSession();
+      linkUserId = user.id;
+    }
+    const dest = await buildAuthorizeUrl({ provider, client, pair, next, linkUserId });
     return NextResponse.redirect(dest);
   } catch (err) {
     if (err instanceof Error && err.message.includes("not set")) {

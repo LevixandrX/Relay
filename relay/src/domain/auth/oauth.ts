@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { createTrialSubscription } from "@/domain/billing/entitlements";
 import { id, now, slugify } from "@/lib/ids";
+import { ApiError } from "@/lib/errors";
 import { writeAudit } from "@/domain/audit";
 import { createPage } from "@/domain/pages/repo";
 import { paragraphs } from "@/domain/blocks/schema";
@@ -32,6 +33,8 @@ type OAuthState = {
   pair?: string;
   /** Relative path to return to after web OAuth (e.g. /invite/…). */
   next?: string;
+  /** Signed-in user attaching this provider (settings), not a new account. */
+  linkUserId?: string;
 };
 
 type OAuthProfile = {
@@ -77,6 +80,7 @@ export async function verifyOAuthState(token: string): Promise<OAuthState | null
       nonce: String(payload.nonce ?? ""),
       pair: typeof payload.pair === "string" ? payload.pair : undefined,
       next: typeof payload.next === "string" ? payload.next : undefined,
+      linkUserId: typeof payload.linkUserId === "string" ? payload.linkUserId : undefined,
     };
   } catch {
     return null;
@@ -486,6 +490,67 @@ export async function upsertOAuthUser(input: {
   }
 
   return createUserFromOAuth(input);
+}
+
+export async function linkOAuthToUser(
+  userId: string,
+  input: {
+    provider: OAuthProvider;
+    providerUserId: string;
+    email: string;
+    avatarUrl: string | null;
+  },
+) {
+  const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!userRows[0]) throw new ApiError(401, "unauthorized", "Sign in required");
+
+  const existing = await db
+    .select()
+    .from(oauthAccounts)
+    .where(
+      and(
+        eq(oauthAccounts.provider, input.provider),
+        eq(oauthAccounts.providerUserId, input.providerUserId),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0] && existing[0].userId !== userId) {
+    throw new ApiError(409, "already_linked", "Этот аккаунт уже привязан к другому пользователю");
+  }
+  if (!existing[0]) {
+    await db.insert(oauthAccounts).values({
+      id: `oa_${id.token().slice(0, 16)}`,
+      userId,
+      provider: input.provider,
+      providerUserId: input.providerUserId,
+      email: input.email,
+      createdAt: now(),
+    });
+  }
+  if (input.avatarUrl && !userRows[0].avatarUrl) {
+    await db.update(users).set({ avatarUrl: input.avatarUrl }).where(eq(users.id, userId));
+  }
+  return userId;
+}
+
+export async function unlinkOAuthProvider(userId: string, provider: OAuthProvider) {
+  const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const user = userRows[0];
+  if (!user) throw new ApiError(401, "unauthorized", "Sign in required");
+
+  const linked = await db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, userId));
+  const target = linked.find((row) => row.provider === provider);
+  if (!target) throw new ApiError(404, "not_found", "Провайдер не привязан");
+
+  const hasPassword = Boolean(user.passwordHash && user.passwordHash.length >= 20);
+  if (linked.length <= 1 && !hasPassword) {
+    throw new ApiError(400, "last_login_method", "Нельзя отвязать последний способ входа");
+  }
+
+  await db
+    .delete(oauthAccounts)
+    .where(and(eq(oauthAccounts.userId, userId), eq(oauthAccounts.provider, provider)));
 }
 
 export function desktopDoneUrl(provider: OAuthProvider, status: "ok" | "expired" | "nopair") {

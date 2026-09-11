@@ -46,12 +46,16 @@ export type PairingStatus =
   | { status: "expired" };
 
 /** Ask the server for a handshake code + provider URL to open in the system browser. */
-export function startPairing(provider: OAuthProvider) {
+export function startPairing(
+  provider: OAuthProvider,
+  opts?: { intent?: "link"; token?: string | null },
+) {
   return api<{ code: string; claimSecret: string; url: string; expiresInSec: number }>(
     "/auth/desktop/pair",
     {
       method: "POST",
-      body: JSON.stringify({ provider }),
+      token: opts?.token,
+      body: JSON.stringify({ provider, intent: opts?.intent }),
     },
   );
 }
