@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { InfiniteBoard } from "../board/InfiniteBoard";
 import { useWorkspace } from "../lib/workspace";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { WorkspacePresence } from "./WorkspacePresence";
-import { VersionHistory } from "@relay-history";
 import type { BoardSnapshot } from "../lib/types";
 
 export function BoardView() {
@@ -13,7 +12,24 @@ export function BoardView() {
   const { workspaceBoard, setWorkspaceBoard, mode, activeWorkspaceId } = useWorkspace();
   const auth = useAuth();
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
-  const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => {
+    if (mode !== "cloud" || !auth.token || !activeWorkspaceId) return;
+    void api(`/workspaces/${activeWorkspaceId}/views`, {
+      method: "POST",
+      token: auth.token,
+      body: JSON.stringify({ pageId: null }),
+    }).catch(() => undefined);
+  }, [mode, auth.token, activeWorkspaceId]);
+
+  useEffect(() => {
+    function onRestored(event: Event) {
+      const pageId = (event as CustomEvent<{ pageId?: string | null }>).detail?.pageId;
+      if (pageId) return;
+      window.location.reload();
+    }
+    window.addEventListener("relay:history-restored", onRestored);
+    return () => window.removeEventListener("relay:history-restored", onRestored);
+  }, []);
 
   function onChange(board: BoardSnapshot) {
     setSaveState("saving");
@@ -27,11 +43,6 @@ export function BoardView() {
           <h1>{ta("infiniteBoard")}</h1>
           <WorkspacePresence save={saveState} />
         </div>
-        {mode === "cloud" && activeWorkspaceId && auth.token ? (
-          <button type="button" className="btn" onClick={() => setHistoryOpen(true)}>
-            {ta("pageMenuHistory")}
-          </button>
-        ) : null}
       </div>
       <div className="board-wrap">
         <InfiniteBoard
@@ -41,27 +52,6 @@ export function BoardView() {
           onChange={onChange}
         />
       </div>
-      {mode === "cloud" && activeWorkspaceId && auth.token ? (
-        <VersionHistory
-          open={historyOpen}
-          title={ta("infiniteBoard")}
-          canRestore
-          client={{
-            list: () =>
-              api(`/workspaces/${activeWorkspaceId}/board/revisions`, { token: auth.token }),
-            get: (id) =>
-              api(`/workspaces/${activeWorkspaceId}/board/revisions/${id}`, { token: auth.token }),
-            restore: async (id) => {
-              await api(`/workspaces/${activeWorkspaceId}/board/revisions/${id}/restore`, {
-                method: "POST",
-                token: auth.token,
-              });
-            },
-          }}
-          onClose={() => setHistoryOpen(false)}
-          onRestored={() => window.location.reload()}
-        />
-      ) : null}
     </div>
   );
 }

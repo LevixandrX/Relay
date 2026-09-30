@@ -119,6 +119,14 @@ const statements = [
     created_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS audit_ws_created ON audit_logs(workspace_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS content_views (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    page_id TEXT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS content_views_ws ON content_views(workspace_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS user_checklist (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     edited_page INTEGER NOT NULL DEFAULT 0,

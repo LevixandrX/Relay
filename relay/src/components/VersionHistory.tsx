@@ -1,16 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "use-intl";
+import { OverlayScroll } from "../lib/board/CompactRailScroll";
+import { ContentModeSwitch } from "./ContentModeSwitch";
+
+export type HistorySpan = { t: string; m?: "add" | "del"; href?: string };
+
+export type HistoryBlock = {
+  type:
+    | "title"
+    | "heading"
+    | "quote"
+    | "code"
+    | "paragraph"
+    | "list"
+    | "todo"
+    | "callout"
+    | "image"
+    | "embed"
+    | "rule"
+    | "board";
+  level?: number;
+  language?: string | null;
+  ordered?: boolean;
+  checked?: boolean;
+  action?: "add" | "del" | "edit" | "move";
+  shape?: string;
+  count?: number;
+  spans?: HistorySpan[];
+  lines?: HistorySpan[][];
+  items?: HistorySpan[][];
+};
 
 export type RevisionSummary = {
   id: string;
+  restoreId: string | null;
   title: string;
   createdAt: string;
+  createdBy: string | null;
   createdByName: string | null;
-  kind: "text" | "board" | "both";
-  hasBoard: boolean;
+  createdByAvatar: string | null;
+  baseline: boolean;
+  blocks: HistoryBlock[];
+  more: number;
+  pageId?: string | null;
+  scope?: "page" | "board";
 };
 
 export type RevisionDetail = {
@@ -28,48 +64,119 @@ export type HistoryClient = {
   restore: (id: string) => Promise<void>;
 };
 
-type DocNode = {
-  type?: string;
-  text?: string;
-  content?: DocNode[];
+const LANG: Record<string, string> = {
+  javascript: "JavaScript",
+  typescript: "TypeScript",
+  python: "Python",
+  json: "JSON",
+  html: "HTML",
+  css: "CSS",
+  bash: "Bash",
+  markdown: "Markdown",
+  jsx: "JSX",
+  tsx: "TSX",
 };
 
-function plainFromDoc(doc: RevisionDetail["content"]) {
-  if (!doc || !Array.isArray(doc.content)) return "";
-  const out: string[] = [];
-  const walk = (nodes: DocNode[]) => {
-    for (const node of nodes) {
-      if (node.text) out.push(node.text);
-      if (node.content) walk(node.content);
-      if (node.type === "paragraph" || node.type === "heading" || node.type === "listItem") {
-        out.push("\n");
-      }
-    }
-  };
-  walk(doc.content as DocNode[]);
-  return out.join("").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function boardCount(board: unknown) {
-  if (!board || typeof board !== "object") return 0;
-  const rec = board as Record<string, unknown>;
-  for (const key of ["objects", "shapes", "elements", "nodes"]) {
-    const value = rec[key];
-    if (Array.isArray(value)) return value.length;
-    if (value && typeof value === "object") return Object.keys(value).length;
-  }
-  return 0;
-}
-
-function formatWhen(iso: string, locale: string) {
+function formatWhen(iso: string, locale: string, justNow: string) {
   const ts = Date.parse(iso);
   if (Number.isNaN(ts)) return iso;
+  const delta = Date.now() - ts;
+  if (delta >= 0 && delta < 10 * 60 * 1000) return justNow;
+  const date = new Date(ts);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(ts);
+    year: sameYear ? undefined : "numeric",
+  }).format(date);
+}
+
+function Avatar({ name, url }: { name: string; url?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const letter = name.trim().slice(0, 1).toUpperCase() || "?";
+  if (url && !failed) {
+    return (
+      <img className="vh-avatar" src={url} alt="" draggable={false} onError={() => setFailed(true)} />
+    );
+  }
+  return (
+    <span className="vh-avatar" aria-hidden>
+      {letter}
+    </span>
+  );
+}
+
+function Spans({ spans }: { spans?: HistorySpan[] }) {
+  if (!spans?.length) return null;
+  return (
+    <>
+      {spans.map((span, index) => {
+        const cls = [
+          span.m === "add" ? "vh-add" : "",
+          span.m === "del" ? "vh-del" : "",
+          span.href ? "vh-link" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return (
+          <span key={index} className={cls || undefined}>
+            {span.t}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+export function UpdateCard({
+  row,
+  title,
+  viewerId,
+  onViewVersion,
+}: {
+  row: RevisionSummary;
+  title: string;
+  viewerId?: string | null;
+  onViewVersion?: (row: RevisionSummary) => void;
+}) {
+  const t = useTranslations("app");
+  const locale = useLocale();
+  const you = Boolean(viewerId && row.createdBy === viewerId);
+  const pageTitle = row.title.trim() || title.trim() || t("untitled");
+  const who = row.baseline
+    ? t("historyEarlier")
+    : you
+      ? t("historyEditedYou", { title: pageTitle })
+      : t("historyEditedName", {
+          name: row.createdByName || t("historySomeone"),
+          title: pageTitle,
+        });
+  return (
+    <article className="version-history-item">
+      <Avatar name={row.createdByName || t("historySomeone")} url={row.createdByAvatar} />
+      <span className="vh-meta">
+        <span className="vh-who">{who}</span>
+        <span className="vh-when">{formatWhen(row.createdAt, locale, t("historyJustNow"))}</span>
+      </span>
+      {onViewVersion ? (
+        <button
+          type="button"
+          className="vh-view"
+          title={t("activityViewVersion")}
+          aria-label={t("activityViewVersion")}
+          onClick={() => onViewVersion(row)}
+        >
+          <ClockIcon />
+        </button>
+      ) : null}
+      <div className="vh-card">
+        {row.blocks.map((block, index) => (
+          <BlockView key={index} block={block} />
+        ))}
+        {row.more > 0 ? <span className="vh-more">{t("historyMore", { count: row.more })}</span> : null}
+      </div>
+    </article>
+  );
 }
 
 export function VersionHistory({
@@ -77,13 +184,20 @@ export function VersionHistory({
   title,
   canRestore,
   client,
+  initialId,
+  loadCurrent,
+  renderBoard,
   onClose,
   onRestored,
 }: {
   open: boolean;
   title: string;
   canRestore: boolean;
+  viewerId?: string | null;
   client: HistoryClient;
+  initialId?: string | null;
+  loadCurrent: () => Promise<{ title: string; content: unknown; board: unknown }>;
+  renderBoard?: (board: unknown) => ReactNode;
   onClose: () => void;
   onRestored?: () => void;
 }) {
@@ -91,43 +205,79 @@ export function VersionHistory({
   const locale = useLocale();
   const clientRef = useRef(client);
   clientRef.current = client;
+  const loadCurrentRef = useRef(loadCurrent);
+  loadCurrentRef.current = loadCurrent;
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [detail, setDetail] = useState<RevisionDetail | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<{ title: string; content: unknown; board: unknown } | null>(null);
+  const [mode, setMode] = useState<"text" | "board">("text");
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setError(null);
-    void clientRef.current.list().then((data) => {
-      if (cancelled) return;
-      setRevisions(data.revisions);
-      setSelected(data.revisions[0]?.id ?? null);
-    }).catch(() => {
-      if (!cancelled) setError(t("historyLoadFailed"));
-    });
+    setLoaded(false);
+    setSnapshot(null);
+    void clientRef.current
+      .list()
+      .then((data) => {
+        if (cancelled) return;
+        const rows = data.revisions ?? [];
+        setRevisions(rows);
+        const pick = rows.find((row) => row.id === initialId)?.id ?? rows[0]?.id ?? null;
+        setSelected(pick);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(t("historyLoadFailed"));
+          setLoaded(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, t]);
+  }, [open, initialId, t]);
+
+  const current = revisions.find((row) => row.id === selected) ?? null;
+  const modes = modesOf(current);
 
   useEffect(() => {
-    if (!open || !selected) {
-      setDetail(null);
+    if (!open || !current) {
+      setSnapshot(null);
       return;
     }
     let cancelled = false;
-    void clientRef.current.get(selected).then((row) => {
-      if (!cancelled) setDetail(row);
-    }).catch(() => {
-      if (!cancelled) setDetail(null);
-    });
+    // Quickdraw owns an internal store created from the initial snapshot. Clear
+    // the previous preview before loading another revision so the board is
+    // unmounted and rebuilt from the selected revision instead of reusing that
+    // store with new props.
+    setSnapshot(null);
+    const run = current.restoreId
+      ? clientRef.current.get(current.restoreId).then((row) => ({
+          title: row.title,
+          content: row.content,
+          board: row.board,
+        }))
+      : loadCurrentRef.current();
+    void run
+      .then((row) => {
+        if (!cancelled) setSnapshot(row);
+      })
+      .catch(() => {
+        if (!cancelled) setSnapshot(null);
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, selected]);
+  }, [open, current]);
+
+  useEffect(() => {
+    if (!modes.includes(mode)) setMode(modes[0] ?? "text");
+  }, [modes, mode]);
 
   useEffect(() => {
     if (!open) return;
@@ -142,32 +292,55 @@ export function VersionHistory({
 
   if (!open || typeof document === "undefined") return null;
 
-  const previewText = plainFromDoc(detail?.content ?? null);
-  const objects = boardCount(detail?.board);
-  const kindLabel = (kind: RevisionSummary["kind"]) =>
-    kind === "board" ? t("historyKindBoard") : kind === "both" ? t("historyKindBoth") : t("historyKindText");
+  const added = phrases(current, "add");
+  const removed = phrases(current, "del");
+  const showSwitcher = modes.length > 1;
 
   return createPortal(
-    <div className="version-history" role="dialog" aria-label={t("historyTitle")}>
-      <div className="version-history-preview">
-        <div className="version-history-preview-head">
-          <h2>{detail?.title || title || t("untitled")}</h2>
-          {detail ? (
-            <p>
-              {formatWhen(detail.createdAt, locale)}
-              {detail.createdByName ? ` · ${detail.createdByName}` : ""}
-            </p>
-          ) : null}
-        </div>
-        <div className="version-history-preview-body">
-          {previewText ? <pre>{previewText}</pre> : null}
-          {objects > 0 ? (
-            <p className="version-history-board">{t("historyBoardCount", { count: objects })}</p>
-          ) : null}
-          {!previewText && objects === 0 ? (
-            <p className="version-history-empty">{t("historyPreviewEmpty")}</p>
-          ) : null}
-        </div>
+    <>
+      <div className="version-history-backdrop" aria-hidden onPointerDown={onClose} />
+      <div className="version-history" role="dialog" aria-modal="true" aria-label={t("historyTitle")}>
+      <div className="version-stage" data-switcher={showSwitcher || undefined}>
+        {showSwitcher ? (
+          <div className="version-mode-bar">
+            <ContentModeSwitch
+              className="version-mode"
+              compact
+              value={mode}
+              onChange={setMode}
+              boardLabel={t("board")}
+              textLabel={t("text")}
+            />
+          </div>
+        ) : null}
+        {mode === "board" ? (
+          <div className="version-stage-body" data-mode="board">
+            <div className="version-stage-board">
+              {snapshot?.board && renderBoard ? (
+                <div className="version-stage-board-snapshot" key={selected}>
+                  {renderBoard(snapshot.board)}
+                </div>
+              ) : (
+                <p className="version-history-empty">{t("historyPreviewEmpty")}</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <OverlayScroll className="version-stage-scroll" contentClassName="version-stage-body">
+            <article className="version-doc">
+              <h1>{snapshot?.title || title || t("untitled")}</h1>
+              {removed.length > 0 ? (
+                <div className="version-deleted">
+                  <span>{t("activityDeleted")}</span>
+                  {removed.map((text) => (
+                    <p key={text}>{text}</p>
+                  ))}
+                </div>
+              ) : null}
+              <DocPreview content={snapshot?.content} added={added} />
+            </article>
+          </OverlayScroll>
+        )}
       </div>
       <aside className="version-history-side">
         <header className="version-history-side-head">
@@ -178,37 +351,37 @@ export function VersionHistory({
         </header>
         <div className="version-history-list">
           {error ? <p className="version-history-empty">{error}</p> : null}
-          {!error && revisions.length === 0 ? (
+          {loaded && !error && revisions.length === 0 ? (
             <p className="version-history-empty">{t("historyEmpty")}</p>
           ) : null}
           {revisions.map((row) => (
             <button
               key={row.id}
               type="button"
-              className="version-history-item"
+              className="version-row"
               data-active={row.id === selected || undefined}
               onClick={() => setSelected(row.id)}
             >
-              <span>{formatWhen(row.createdAt, locale)}</span>
-              <span>
-                {row.createdByName || t("historySomeone")} · {kindLabel(row.kind)}
-              </span>
+              <span>{formatVersionWhen(row.createdAt, locale, t("historyYesterday"))}</span>
+              <span>{row.createdByName || t("historySomeone")}</span>
             </button>
           ))}
         </div>
         <footer className="version-history-foot">
-          <span>{t("historyHint")}</span>
-          {canRestore && selected ? (
+          <span>{current && !current.restoreId ? t("historyCurrent") : t("historyHint")}</span>
+          {canRestore && current?.restoreId ? (
             <button
               type="button"
               className="btn btn-accent"
               disabled={busy}
               onClick={() => {
+                const restoreId = current.restoreId;
+                if (!restoreId) return;
                 void (async () => {
                   setBusy(true);
                   setError(null);
                   try {
-                    await clientRef.current.restore(selected);
+                    await clientRef.current.restore(restoreId);
                     onRestored?.();
                     onClose();
                   } catch {
@@ -224,7 +397,258 @@ export function VersionHistory({
           ) : null}
         </footer>
       </aside>
-    </div>,
+      </div>
+    </>,
     document.body,
   );
+}
+
+function modesOf(row: RevisionSummary | null): Array<"text" | "board"> {
+  if (!row) return ["text"];
+  const board = row.blocks.some((block) => block.type === "board");
+  const text = row.blocks.some((block) => block.type !== "board");
+  if (text && board) return ["text", "board"];
+  if (board) return ["board"];
+  return ["text"];
+}
+
+function phrases(row: RevisionSummary | null, mark: "add" | "del") {
+  if (!row) return [];
+  const found = new Set<string>();
+  const take = (spans?: HistorySpan[]) => {
+    for (const span of spans ?? []) {
+      if (span.m === mark && span.t.trim().length > 1) found.add(span.t.trim());
+    }
+  };
+  for (const block of row.blocks) {
+    take(block.spans);
+    for (const line of block.lines ?? []) take(line);
+    for (const item of block.items ?? []) take(item);
+  }
+  return [...found].slice(0, 8);
+}
+
+function formatVersionWhen(iso: string, locale: string, yesterday: string) {
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return iso;
+  const date = new Date(ts);
+  const time = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(date);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const prior = new Date(start);
+  prior.setDate(prior.getDate() - 1);
+  if (date >= start) return time;
+  if (date >= prior) return `${yesterday} · ${time}`;
+  const day = new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" }).format(date);
+  return `${day} · ${time}`;
+}
+
+function ClockIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.25" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 8.5V12l2.4 1.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DocPreview({ content, added }: { content: unknown; added: string[] }) {
+  const nodes = docNodes(content);
+  if (nodes.length === 0) return null;
+  return (
+    <div className="version-doc-body">
+      {nodes.map((node, index) => (
+        <DocBlock key={index} node={node} added={added} />
+      ))}
+    </div>
+  );
+}
+
+function docNodes(content: unknown): Record<string, unknown>[] {
+  if (!content || typeof content !== "object") return [];
+  const nodes = (content as { content?: unknown }).content;
+  if (!Array.isArray(nodes)) return [];
+  return nodes.filter((node) => node && typeof node === "object") as Record<string, unknown>[];
+}
+
+function nodeText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const record = node as { text?: string; content?: unknown[] };
+  if (typeof record.text === "string") return record.text;
+  return (record.content ?? []).map(nodeText).join("");
+}
+
+function isAdded(text: string, added: string[]) {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return added.some((phrase) => trimmed.includes(phrase) || phrase.includes(trimmed));
+}
+
+function DocBlock({ node, added }: { node: Record<string, unknown>; added: string[] }) {
+  const type = String(node.type ?? "");
+  const text = nodeText(node);
+  const marked = isAdded(text, added);
+  if (type === "heading") {
+    const level = Number((node.attrs as { level?: number } | undefined)?.level ?? 1);
+    const Tag = (level <= 1 ? "h2" : "h3") as "h2" | "h3";
+    return <Tag data-added={marked || undefined}>{text}</Tag>;
+  }
+  if (type === "blockquote") return <blockquote data-added={marked || undefined}>{text}</blockquote>;
+  if (type === "codeBlock") return <pre data-added={marked || undefined}>{text}</pre>;
+  if (type === "bulletList" || type === "orderedList" || type === "taskList") {
+    const items = Array.isArray(node.content) ? node.content : [];
+    const Tag = type === "orderedList" ? "ol" : "ul";
+    return (
+      <Tag>
+        {items.map((item, index) => {
+          const itemText = nodeText(item);
+          return (
+            <li key={index} data-added={isAdded(itemText, added) || undefined}>
+              {itemText}
+            </li>
+          );
+        })}
+      </Tag>
+    );
+  }
+  if (type === "horizontalRule") return <hr />;
+  if (!text.trim()) return null;
+  return <p data-added={marked || undefined}>{text}</p>;
+}
+
+function BlockView({ block }: { block: HistoryBlock }) {
+  const t = useTranslations("app");
+  if (block.type === "rule") return <span className="vh-rule" />;
+  if (block.type === "image") return <span className="vh-kicker">{t("historyImage")}</span>;
+  if (block.type === "code") {
+    const language = block.language ? LANG[block.language.toLowerCase()] ?? block.language : "";
+    return (
+      <div className="vh-block">
+        <span className="vh-kicker">
+          {language ? t("historyCodeLang", { language }) : t("historyCode")}
+        </span>
+        <code className="vh-code">
+          {(block.lines ?? []).map((line, index) => (
+            <span key={index} className="vh-line">
+              <Spans spans={line} />
+            </span>
+          ))}
+        </code>
+      </div>
+    );
+  }
+  if (block.type === "board") return <BoardBlock block={block} />;
+  if (block.type === "list") {
+    const Tag = block.ordered ? "ol" : "ul";
+    return (
+      <Tag className="vh-list">
+        {(block.items ?? []).map((item, index) => (
+          <li key={index}>
+            <Spans spans={item} />
+          </li>
+        ))}
+      </Tag>
+    );
+  }
+  if (block.type === "todo") {
+    return (
+      <div className="vh-todo">
+        <span className="vh-check" data-on={block.checked || undefined} />
+        <span className="vh-text">
+          <Spans spans={block.spans} />
+        </span>
+      </div>
+    );
+  }
+
+  const label =
+    block.type === "title"
+      ? t("historyTitleLabel")
+      : block.type === "heading"
+        ? t("historyHeading", { level: block.level ?? 1 })
+        : block.type === "quote"
+          ? t("historyQuote")
+          : block.type === "callout"
+            ? t("historyCallout")
+            : block.type === "embed"
+              ? t("historyEmbed")
+              : null;
+  const aa = block.type === "title" || block.type === "heading";
+
+  return (
+    <div className="vh-block">
+      {label ? (
+        <span className="vh-kicker">
+          {aa ? <span className="vh-aa">Aa</span> : null}
+          {label}
+        </span>
+      ) : null}
+      <span className="vh-text">
+        <Spans spans={block.spans} />
+      </span>
+    </div>
+  );
+}
+
+function BoardBlock({ block }: { block: HistoryBlock }) {
+  const t = useTranslations("app");
+  const many = (block.count ?? 1) > 1;
+  const label = shapeLabel(block.shape ?? "shape", many, t);
+  if (block.spans?.length) {
+    return (
+      <div className="vh-block">
+        <span className="vh-kicker">{cap(shapeLabel(block.shape ?? "shape", false, t))}</span>
+        <span className="vh-text">
+          <Spans spans={block.spans} />
+        </span>
+      </div>
+    );
+  }
+  const count = block.count ?? 1;
+  const line =
+    block.action === "del"
+      ? many
+        ? t("historyBoardDelCount", { count, label })
+        : t("historyBoardDel", { label })
+      : block.action === "move"
+        ? many
+          ? t("historyBoardMoveCount", { count, label })
+          : t("historyBoardMove", { label })
+        : block.action === "edit"
+          ? t("historyBoardEdit", { label })
+          : many
+            ? t("historyBoardAddCount", { count, label })
+            : t("historyBoardAdd", { label });
+  return <span className="vh-board-line">{line}</span>;
+}
+
+function cap(label: string) {
+  return label ? label.slice(0, 1).toLocaleUpperCase() + label.slice(1) : label;
+}
+
+function shapeLabel(
+  shape: string,
+  many: boolean,
+  t: ReturnType<typeof useTranslations<"app">>,
+) {
+  switch (shape) {
+    case "note":
+      return many ? t("historyNotes") : t("historyNote");
+    case "text":
+      return many ? t("historyTexts") : t("historyTextShape");
+    case "geo":
+      return many ? t("historyGeos") : t("historyGeo");
+    case "arrow":
+      return many ? t("historyArrows") : t("historyArrow");
+    case "draw":
+      return many ? t("historyDraws") : t("historyDraw");
+    case "image":
+      return many ? t("historyImages") : t("historyImageShape");
+    case "line":
+      return many ? t("historyLines") : t("historyLine");
+    case "frame":
+      return many ? t("historyFrames") : t("historyFrame");
+    default:
+      return many ? t("historyShapes") : t("historyShape");
+  }
 }

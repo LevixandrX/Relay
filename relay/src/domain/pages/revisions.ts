@@ -7,21 +7,7 @@ import { can } from "@/domain/access";
 import { writeAudit } from "@/domain/audit";
 import { getPageForUser, snapshotPageRevision } from "@/domain/pages/repo";
 import { docToPlainText, parseDoc, type Doc } from "@/domain/blocks/schema";
-
-export type RevisionKind = "text" | "board" | "both";
-
-function revisionKind(
-  prev: { title: string; content: string; board: string | null } | null,
-  cur: { title: string; content: string; board: string | null },
-): RevisionKind {
-  const textChanged = !prev || prev.title !== cur.title || prev.content !== cur.content;
-  const boardChanged = !prev
-    ? Boolean(cur.board)
-    : (prev.board ?? "") !== (cur.board ?? "");
-  if (textChanged && boardChanged) return "both";
-  if (boardChanged) return "board";
-  return "text";
-}
+import { historyEntries, parseStoredJson } from "@/domain/history/preview";
 
 export async function listPageRevisions(userId: string, pageId: string) {
   const found = await getPageForUser(userId, pageId);
@@ -34,7 +20,9 @@ export async function listPageRevisions(userId: string, pageId: string) {
       content: pageRevisions.content,
       board: pageRevisions.board,
       createdAt: pageRevisions.createdAt,
+      createdBy: pageRevisions.createdBy,
       createdByName: users.name,
+      createdByAvatar: users.avatarUrl,
     })
     .from(pageRevisions)
     .leftJoin(users, eq(users.id, pageRevisions.createdBy))
@@ -42,23 +30,23 @@ export async function listPageRevisions(userId: string, pageId: string) {
     .orderBy(desc(pageRevisions.createdAt))
     .limit(80);
 
-  return rows.map((row, i) => {
-    const older = rows[i + 1]
-      ? {
-          title: rows[i + 1].title,
-          content: rows[i + 1].content,
-          board: rows[i + 1].board,
-        }
-      : null;
-    return {
+  return historyEntries(
+    {
+      title: found.page.title,
+      content: parseStoredJson(found.page.content),
+      board: parseStoredJson(found.page.board),
+    },
+    rows.map((row) => ({
       id: row.id,
       title: row.title,
+      content: parseStoredJson(row.content),
+      board: parseStoredJson(row.board),
       createdAt: row.createdAt,
+      createdBy: row.createdBy,
       createdByName: row.createdByName,
-      kind: revisionKind(older, row),
-      hasBoard: Boolean(row.board),
-    };
-  });
+      createdByAvatar: row.createdByAvatar,
+    })),
+  );
 }
 
 export async function getPageRevision(userId: string, pageId: string, revisionId: string) {

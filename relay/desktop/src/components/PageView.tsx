@@ -9,7 +9,7 @@ import { emptyDoc, type BoardSnapshot, type Doc } from "../lib/types";
 import { publicAppOrigin } from "../lib/app-origin";
 import { WorkspacePresence } from "./WorkspacePresence";
 import { useDialog } from "./DialogHost";
-import { VersionHistory } from "@relay-history";
+import { ContentModeSwitch } from "@relay-mode-switch";
 
 type Mode = "text" | "board";
 
@@ -36,8 +36,32 @@ export function PageView({
   const [missing, setMissing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (wsMode !== "cloud" || !auth.token || !activeWorkspaceId) return;
+    void api(`/workspaces/${activeWorkspaceId}/views`, {
+      method: "POST",
+      token: auth.token,
+      body: JSON.stringify({ pageId }),
+    }).catch(() => undefined);
+  }, [wsMode, auth.token, activeWorkspaceId, pageId]);
+
+  useEffect(() => {
+    function onRestored(event: Event) {
+      const id = (event as CustomEvent<{ pageId?: string | null }>).detail?.pageId;
+      if (id !== pageId) return;
+      void loadPage(pageId).then((p) => {
+        if (!p) return;
+        setTitle(p.title);
+        setContent(p.content);
+        setBoard(p.board);
+        setSaveState("saved");
+      });
+    }
+    window.addEventListener("relay:history-restored", onRestored);
+    return () => window.removeEventListener("relay:history-restored", onRestored);
+  }, [pageId, loadPage]);
   const contentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -175,28 +199,12 @@ export function PageView({
           />
           <WorkspacePresence save={saveState} />
         </div>
-        <div className="tabs" role="tablist" aria-label={ta("mode")}>
-          <button
-            type="button"
-            className="tab"
-            role="tab"
-            data-active={mode === "board"}
-            aria-selected={mode === "board"}
-            onClick={() => setMode("board")}
-          >
-            {ta("board")}
-          </button>
-          <button
-            type="button"
-            className="tab"
-            role="tab"
-            data-active={mode === "text"}
-            aria-selected={mode === "text"}
-            onClick={() => setMode("text")}
-          >
-            {ta("text")}
-          </button>
-        </div>
+        <ContentModeSwitch
+          value={mode}
+          onChange={setMode}
+          boardLabel={ta("board")}
+          textLabel={ta("text")}
+        />
         <div className="page-menu" ref={menuRef}>
           <button
             type="button"
@@ -216,20 +224,6 @@ export function PageView({
                 </button>
               )}
               {pageUrl && <div className="page-menu-sep" role="separator" />}
-              {wsMode === "cloud" && (
-                <button
-                  type="button"
-                  className="page-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setHistoryOpen(true);
-                  }}
-                >
-                  {ta("pageMenuHistory")}
-                </button>
-              )}
-              {wsMode === "cloud" && <div className="page-menu-sep" role="separator" />}
               <button
                 type="button"
                 className="page-menu-item"
@@ -257,33 +251,6 @@ export function PageView({
             onChange={onBoardChange}
           />
         </div>
-      )}
-      {wsMode === "cloud" && auth.token && (
-        <VersionHistory
-          open={historyOpen}
-          title={title}
-          canRestore={!offline}
-          client={{
-            list: () => api(`/pages/${pageId}/revisions`, { token: auth.token }),
-            get: (id) => api(`/pages/${pageId}/revisions/${id}`, { token: auth.token }),
-            restore: async (id) => {
-              await api(`/pages/${pageId}/revisions/${id}/restore`, {
-                method: "POST",
-                token: auth.token,
-              });
-            },
-          }}
-          onClose={() => setHistoryOpen(false)}
-          onRestored={() => {
-            void loadPage(pageId).then((p) => {
-              if (!p) return;
-              setTitle(p.title);
-              setContent(p.content);
-              setBoard(p.board);
-              setSaveState("saved");
-            });
-          }}
-        />
       )}
     </div>
   );

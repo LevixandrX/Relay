@@ -87,6 +87,7 @@ html {
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
+  transition: background-color 0.14s ease, filter 0.12s ease;
 }
 
 *::-webkit-scrollbar-thumb:hover {
@@ -1779,6 +1780,27 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   box-shadow: var(--chrome-shadow);
   color: var(--text);
   animation: relay-activity-in 0.2s ease;
+  transition: top 0.14s ease;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  filter: brightness(0.72);
+}
+
+:root[data-chrome="zen"] .relay-activity-panel {
+  top: 0;
+}
+
+:root[data-chrome="zen"][data-peek-top="true"] .relay-activity-panel {
+  top: var(--titlebar);
+}
+
+:root:not([data-chrome="zen"]) .version-history {
+  top: calc(var(--titlebar) + 0.75rem);
+}
+
+:root[data-chrome="zen"] .version-history {
+  top: 0.75rem;
 }
 
 @keyframes relay-activity-in {
@@ -5293,11 +5315,11 @@ button.home-tile:active .home-tile-art {
 .relay-board-dock-bar,
 .relay-board-dock-map {
   border-radius: var(--radius-ui);
-  background: var(--chrome-bg);
+  background: var(--chrome-float-bg);
   border: 1px solid var(--line);
   box-shadow: var(--chrome-shadow);
-  backdrop-filter: blur(var(--chrome-blur)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(1.2);
+  backdrop-filter: blur(var(--chrome-blur)) saturate(1.45);
+  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(1.45);
   color: var(--ink);
 }
 
@@ -5474,16 +5496,35 @@ button.home-tile:active .home-tile-art {
 }
 
 .relay-board-dock-input {
-  width: 3.9rem;
+  width: 100%;
   height: 28px;
-  padding: 0 6px;
+  padding: 0 1rem 0 0.35rem;
   border: 1px solid var(--line);
   border-radius: calc(var(--radius-ui) - 4px);
-  background: var(--surface);
+  background: var(--chrome-overlay-bg);
+  backdrop-filter: blur(var(--chrome-blur)) saturate(1.45);
+  -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(1.45);
   color: var(--ink);
   font: 500 0.75rem/1 var(--font-ui, system-ui);
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.relay-board-dock-input-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 3.9rem;
+  height: 28px;
+}
+
+.relay-board-dock-input-suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.48rem;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font: 500 0.75rem/1 var(--font-ui, system-ui);
+  pointer-events: none;
 }
 
 .relay-board-menu {

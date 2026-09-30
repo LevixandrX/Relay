@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { Titlebar } from "./components/Titlebar";
 import { Sidebar } from "./components/Sidebar";
@@ -38,6 +38,16 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [zenTop, setZenTop] = useState(false);
 
+  useLayoutEffect(() => {
+    document.documentElement.dataset.chrome = chrome.mode;
+    if (zenTop) document.documentElement.dataset.peekTop = "true";
+    else delete document.documentElement.dataset.peekTop;
+    return () => {
+      delete document.documentElement.dataset.chrome;
+      delete document.documentElement.dataset.peekTop;
+    };
+  }, [chrome.mode, zenTop]);
+
   useEffect(() => {
     if (chrome.mode !== "zen") {
       setZenTop(false);
@@ -64,8 +74,16 @@ export function App() {
       }, 280);
     }
     function onMove(e: PointerEvent) {
+      const target = e.target as HTMLElement | null;
+      const overTransientPanel = Boolean(
+        target?.closest?.(".relay-activity-panel, .version-history"),
+      );
+      if (overTransientPanel) {
+        scheduleHide();
+        return;
+      }
       const overChrome = Boolean(
-        (e.target as HTMLElement | null)?.closest?.(".titlebar, .titlebar-slot, .win-btn"),
+        target?.closest?.(".titlebar, .titlebar-slot, .win-btn"),
       );
       // Hide only when the pointer is clearly in the content. Native snap /
       // caption overlays steal events without leaving the titlebar band.

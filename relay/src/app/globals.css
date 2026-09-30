@@ -127,12 +127,17 @@ html {
   border-radius: 999px;
   border: none;
   background-clip: padding-box;
+  transition: background-color 0.14s ease, filter 0.12s ease;
 }
 
 *::-webkit-scrollbar-thumb:hover {
   background-color: color-mix(in oklab, var(--ink) 58%, transparent);
   border: none;
   background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  filter: brightness(0.72);
 }
 
 *::-webkit-scrollbar-button,
@@ -1930,7 +1935,7 @@ kbd {
 .relay-board-dock-bar,
 .relay-board-dock-map {
   border-radius: var(--radius-ui);
-  background: var(--chrome-bg);
+  background: var(--chrome-float-bg);
   border: 1px solid var(--line);
   box-shadow: var(--chrome-shadow);
   backdrop-filter: var(--glass-filter);
@@ -2111,16 +2116,35 @@ kbd {
 }
 
 .relay-board-dock-input {
-  width: 3.9rem;
+  width: 100%;
   height: 28px;
-  padding: 0 6px;
+  padding: 0 1rem 0 0.35rem;
   border: 1px solid var(--line);
   border-radius: calc(var(--radius-ui) - 4px);
-  background: var(--surface);
+  background: var(--chrome-overlay-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   color: var(--ink);
   font: 500 0.75rem/1 var(--font-ui, system-ui);
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.relay-board-dock-input-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 3.9rem;
+  height: 28px;
+}
+
+.relay-board-dock-input-suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.48rem;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font: 500 0.75rem/1 var(--font-ui, system-ui);
+  pointer-events: none;
 }
 
 .relay-board-menu {

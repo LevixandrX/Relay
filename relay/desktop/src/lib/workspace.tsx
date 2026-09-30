@@ -20,6 +20,7 @@ import type { Doc } from "./types";
 import { emptyDoc } from "./types";
 import { useAuth } from "./auth";
 import { api, ApiClientError } from "./api";
+import { notifyActivityChanged } from "@relay-activity-refresh";
 
 export const GUEST_PAGE_LIMIT = 3;
 const ACTIVE_WS_KEY = "relay-desktop-active-ws-v1";
@@ -163,6 +164,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void refreshMembers();
   }, [refreshPages, refreshMembers]);
 
+  useEffect(() => {
+    function onRestored() {
+      void refreshPages();
+    }
+    window.addEventListener("relay:history-restored", onRestored);
+    return () => window.removeEventListener("relay:history-restored", onRestored);
+  }, [refreshPages]);
+
   const createPage = useCallback(
     async (title = "Новая страница") => {
       if (mode === "guest") {
@@ -274,9 +283,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           ...c,
           [id]: { ...next, updatedAt: res.updatedAt },
         }));
+        notifyActivityChanged({ workspaceId: activeWs?.id ?? null, pageId: id });
       });
     },
-    [mode, auth.token, pageCache, cloudPages],
+    [mode, auth.token, pageCache, cloudPages, activeWs?.id],
   );
 
   const setWorkspaceBoard = useCallback(
@@ -292,6 +302,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         token: auth.token,
         body: JSON.stringify({ board }),
       });
+      notifyActivityChanged({ workspaceId: activeWs.id, pageId: null });
     },
     [mode, auth.token, activeWs],
   );

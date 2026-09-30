@@ -14,8 +14,6 @@ import {
   setZoomLevel,
   viewportMinimapRect,
   zoomFit,
-  zoomIn,
-  zoomOut,
   zoomReset,
   type MinimapTransform,
 } from "../lib/board/board-navigator";
@@ -24,6 +22,10 @@ import { useHoldZoom } from "../lib/board/useBoardViewportInput";
 
 const MAP_W = 168;
 const MAP_H = 108;
+
+function formatZoomNumber(z: number) {
+  return String(Math.round(z * 100));
+}
 
 function IconMinus() {
   return (
@@ -91,13 +93,18 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
   const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   const [zoom, setZoom] = useState(() => editor.camera.z);
-  const [zoomDraft, setZoomDraft] = useState(() => formatZoom(editor.camera.z));
+  const [zoomDraft, setZoomDraft] = useState(() => formatZoomNumber(editor.camera.z));
   const [editingZoom, setEditingZoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
-  const holdIn = useHoldZoom(editor, "in");
-  const holdOut = useHoldZoom(editor, "out");
+  const syncZoomReadout = useCallback(() => {
+    setZoom(editor.camera.z);
+    setZoomDraft(formatZoomNumber(editor.camera.z));
+  }, [editor]);
+
+  const holdIn = useHoldZoom(editor, "in", syncZoomReadout);
+  const holdOut = useHoldZoom(editor, "out", syncZoomReadout);
 
   const repaintMinimap = useCallback(() => {
     const canvas = canvasRef.current;
@@ -112,7 +119,7 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
   useEffect(() => {
     const sync = () => {
       setZoom(editor.camera.z);
-      if (!editingZoom) setZoomDraft(formatZoom(editor.camera.z));
+      setZoomDraft(formatZoomNumber(editor.camera.z));
       repaintMinimap();
     };
     const offCam = editor.on("camera", sync);
@@ -122,7 +129,7 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
       offCam();
       offChange();
     };
-  }, [editor, editingZoom, repaintMinimap]);
+  }, [editor, repaintMinimap]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -146,7 +153,7 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
 
   const applyZoomDraft = () => {
     const z = parseZoomInput(zoomDraft);
-    if (z == null) setZoomDraft(formatZoom(editor.camera.z));
+    if (z == null) setZoomDraft(formatZoomNumber(editor.camera.z));
     else setZoomLevel(editor, z);
     setEditingZoom(false);
   };
@@ -194,7 +201,7 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
 
   return (
     <>
-      <div className="relay-board-dock" data-theme={dark ? "dark" : "light"} ref={dockRef}>
+      <div className="relay-board-dock" ref={dockRef}>
         {mapOpen ? (
           <div className="relay-board-dock-map">
             <canvas
@@ -241,30 +248,36 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
             className="relay-board-dock-icon"
             aria-label={t("zoomOut")}
             title={t("zoomOut")}
-            onClick={() => zoomOut(editor)}
             {...holdOut}
           >
             <IconMinus />
           </button>
 
           {editingZoom ? (
-            <input
-              className="relay-board-dock-input"
-              value={zoomDraft}
-              onChange={(ev) => setZoomDraft(ev.target.value)}
-              onBlur={applyZoomDraft}
-              onKeyDown={(ev) => {
-                if (ev.key === "Enter") applyZoomDraft();
-                if (ev.key === "Escape") {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                  setZoomDraft(formatZoom(editor.camera.z));
-                  setEditingZoom(false);
-                }
-              }}
-              autoFocus
-              aria-label={t("zoomEdit")}
-            />
+            <span className="relay-board-dock-input-wrap">
+              <input
+                className="relay-board-dock-input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={zoomDraft}
+                onChange={(ev) => setZoomDraft(ev.target.value.replace(/\D/g, "").slice(0, 4))}
+                onBlur={applyZoomDraft}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter") applyZoomDraft();
+                  if (ev.key === "Escape") {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    setZoomDraft(formatZoomNumber(editor.camera.z));
+                    setEditingZoom(false);
+                  }
+                }}
+                autoFocus
+                aria-label={t("zoomEdit")}
+              />
+              <span className="relay-board-dock-input-suffix" aria-hidden>%</span>
+            </span>
           ) : (
             <div className="relay-board-dock-zoom">
               <button
@@ -272,7 +285,7 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
                 className="relay-board-dock-pct"
                 onClick={() => {
                   setMenuOpen(false);
-                  setZoomDraft(formatZoom(editor.camera.z));
+                  setZoomDraft(formatZoomNumber(editor.camera.z));
                   setEditingZoom(true);
                 }}
                 title={t("zoomEdit")}
@@ -299,7 +312,6 @@ export function BoardChrome({ editor, peers, dark = false }: Props) {
             className="relay-board-dock-icon"
             aria-label={t("zoomIn")}
             title={t("zoomIn")}
-            onClick={() => zoomIn(editor)}
             {...holdIn}
           >
             <IconPlus />

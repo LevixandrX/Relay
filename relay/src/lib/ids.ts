@@ -7,6 +7,7 @@ export const id = {
   page: () => `pg_${nanoid(12)}`,
   invite: () => `inv_${nanoid(12)}`,
   revision: () => `rev_${nanoid(12)}`,
+  view: () => `view_${nanoid(12)}`,
   public: () => nanoid(21),
   token: () => nanoid(32),
 };

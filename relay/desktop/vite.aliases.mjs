@@ -17,6 +17,8 @@ export function relayDesktopAliases(fromDir) {
     "@relay-activity": path.resolve(shared, "components/ActivityDisclosure.tsx"),
     "@relay-search": path.resolve(shared, "components/SearchPalette.tsx"),
     "@relay-history": path.resolve(shared, "components/VersionHistory.tsx"),
+    "@relay-mode-switch": path.resolve(shared, "components/ContentModeSwitch.tsx"),
+    "@relay-activity-refresh": path.resolve(shared, "lib/activity-refresh.ts"),
     "@relay-account": path.resolve(shared, "components/AccountSettings.tsx"),
     "@relay-avatar": path.resolve(shared, "components/UserAvatar.tsx"),
   };

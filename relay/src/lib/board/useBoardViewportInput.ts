@@ -1,7 +1,7 @@
 import type { Editor } from "@quickdrawjs/core";
 import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
-import { clampZoom, zoomReset } from "./board-navigator";
+import { clampZoom, zoomFit, zoomReset } from "./board-navigator";
 import { physicalDigit } from "./physical-key";
 
 const ZOOM_GAIN = 0.011;
@@ -22,6 +22,11 @@ function pointOnBoard(editor: Editor, clientX: number, clientY: number) {
 function wheelOnOverlay(e: WheelEvent) {
   const target = e.target;
   if (!(target instanceof Element)) return false;
+  if (target.closest(".relay-board-dock, .relay-board-menu")) return true;
+  // A read-only board inside Version History is still a canvas: wheel pans it
+  // and trackpad pinch zooms it. Other parts of the modal remain isolated from
+  // the board's window-level input router.
+  if (target.closest(".version-stage-board")) return false;
   return Boolean(
     target.closest(
       [
@@ -33,8 +38,6 @@ function wheelOnOverlay(e: WheelEvent) {
         ".relay-page-list",
         ".relay-page-rail",
         ".relay-help",
-        ".relay-board-dock",
-        ".relay-board-menu",
         ".palette",
         ".palette-backdrop",
         ".relay-activity-panel",
@@ -98,9 +101,15 @@ export function useBoardViewportInput(
 
     const onKey = (e: KeyboardEvent) => {
       if (typingInField(e)) return;
-      if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && physicalDigit(e) === "0") {
-        e.preventDefault();
-        zoomReset(editor);
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const digit = physicalDigit(e);
+        if (digit === "1") {
+          e.preventDefault();
+          zoomFit(editor);
+        } else if (digit === "0") {
+          e.preventDefault();
+          zoomReset(editor);
+        }
       }
     };
 
@@ -114,7 +123,7 @@ export function useBoardViewportInput(
 }
 
 /** Hold +/- for smooth stepped zoom (Figma-style). */
-export function useHoldZoom(editor: Editor, direction: "in" | "out") {
+export function useHoldZoom(editor: Editor, direction: "in" | "out", onZoom?: () => void) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const tick = () => {
@@ -123,6 +132,7 @@ export function useHoldZoom(editor: Editor, direction: "in" | "out") {
     const next = clampZoom(editor.camera.z * mult);
     if (next === editor.camera.z) return;
     editor.zoomAt(w / 2, h / 2, mult);
+    onZoom?.();
   };
 
   const stop = () => {
@@ -147,5 +157,11 @@ export function useHoldZoom(editor: Editor, direction: "in" | "out") {
 
   const onPointerUp = () => stop();
 
-  return { onPointerDown, onPointerUp, onPointerLeave: onPointerUp };
+  const onClick = (e: React.MouseEvent) => {
+    // Pointer activation already zooms on pointerdown; keyboard activation has
+    // detail 0 and needs an explicit step.
+    if (e.detail === 0) tick();
+  };
+
+  return { onPointerDown, onPointerUp, onPointerLeave: onPointerUp, onClick };
 }

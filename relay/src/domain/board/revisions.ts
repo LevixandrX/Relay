@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/errors";
 import { id, now } from "@/lib/ids";
 import { requireWorkspaceAccess } from "@/domain/access";
 import { writeAudit } from "@/domain/audit";
+import { historyEntries, parseStoredJson } from "@/domain/history/preview";
 
 const MAX_REVISIONS = 80;
 
@@ -48,11 +49,19 @@ export async function snapshotWorkspaceBoard(input: {
 
 export async function listWorkspaceBoardRevisions(userId: string, workspaceId: string) {
   await requireWorkspaceAccess(userId, workspaceId, "read");
+  const current = await db
+    .select({ board: workspaces.board })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
   const rows = await db
     .select({
       id: workspaceRevisions.id,
+      board: workspaceRevisions.board,
       createdAt: workspaceRevisions.createdAt,
+      createdBy: workspaceRevisions.createdBy,
       createdByName: users.name,
+      createdByAvatar: users.avatarUrl,
     })
     .from(workspaceRevisions)
     .leftJoin(users, eq(users.id, workspaceRevisions.createdBy))
@@ -60,12 +69,19 @@ export async function listWorkspaceBoardRevisions(userId: string, workspaceId: s
     .orderBy(desc(workspaceRevisions.createdAt))
     .limit(MAX_REVISIONS);
 
-  return rows.map((row) => ({
-    ...row,
-    title: "",
-    kind: "board" as const,
-    hasBoard: true,
-  }));
+  return historyEntries(
+    { title: "", content: null, board: parseStoredJson(current[0]?.board) },
+    rows.map((row) => ({
+      id: row.id,
+      title: "",
+      content: null,
+      board: parseStoredJson(row.board),
+      createdAt: row.createdAt,
+      createdBy: row.createdBy,
+      createdByName: row.createdByName,
+      createdByAvatar: row.createdByAvatar,
+    })),
+  );
 }
 
 export async function getWorkspaceBoardRevision(

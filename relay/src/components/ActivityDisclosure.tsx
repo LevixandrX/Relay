@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "use-intl";
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
+import { subscribeActivityChanged } from "../lib/activity-refresh";
+import { ActivityPanel, type AnalyticsRange, type AnalyticsReport } from "./ActivityPanel";
+
+export type { AnalyticsRange, AnalyticsReport };
+import type { RevisionSummary } from "./VersionHistory";
 
 const OPEN_KEY = "relay.activity.open";
 const OPEN_PAGE = "relay:open-page";
@@ -95,6 +100,14 @@ export function ActivityDisclosure({
   onOpen,
   max = 8,
   variant = "sidebar",
+  scopeTitle = "",
+  viewerId,
+  seenId,
+  onSeen,
+  refreshKey = "",
+  listUpdates,
+  listAnalytics,
+  onViewVersion,
 }: {
   items: ActivityItem[];
   unread: boolean;
@@ -102,6 +115,14 @@ export function ActivityDisclosure({
   onOpen?: () => void;
   max?: number;
   variant?: "sidebar" | "chrome";
+  scopeTitle?: string;
+  viewerId?: string | null;
+  seenId?: string | null;
+  onSeen?: (id: string) => void;
+  refreshKey?: string;
+  listUpdates?: () => Promise<RevisionSummary[]>;
+  listAnalytics?: (range: AnalyticsRange) => Promise<AnalyticsReport>;
+  onViewVersion?: (row: RevisionSummary) => void;
 }) {
   const t = useTranslations("app");
   const tc = useTranslations("common");
@@ -118,6 +139,39 @@ export function ActivityDisclosure({
   const hoverHide = useRef<number | null>(null);
   const overChrome = useRef(false);
   const ignoreHoverUntil = useRef(0);
+  const listUpdatesRef = useRef(listUpdates);
+  listUpdatesRef.current = listUpdates;
+  const [updates, setUpdates] = useState<RevisionSummary[]>([]);
+  const [updatesLoaded, setUpdatesLoaded] = useState(false);
+  const [tab, setTab] = useState<"updates" | "analytics">("updates");
+  const [activityRevision, setActivityRevision] = useState(0);
+  const [, setRelativeRevision] = useState(0);
+
+  useEffect(() => subscribeActivityChanged(() => setActivityRevision((value) => value + 1)), []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRelativeRevision((value) => value + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (variant !== "chrome" || !listUpdatesRef.current) return;
+    let cancelled = false;
+    setUpdatesLoaded(false);
+    void listUpdatesRef.current()
+      .then((rows) => {
+        if (!cancelled) setUpdates(rows.filter((row) => !row.baseline));
+      })
+      .catch(() => {
+        if (!cancelled) setUpdates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setUpdatesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [variant, refreshKey, activityRevision]);
 
   useEffect(() => {
     if (variant === "chrome") return;
@@ -283,10 +337,15 @@ export function ActivityDisclosure({
   }
 
   if (variant === "chrome") {
+    const latestUpdate = updates[0];
     const latest = items[0];
-    const trigger = latest
-      ? `${labelAction(latest.action)} ${relative(latest.createdAt)}`
-      : t("pulse");
+    const updateUnread = Boolean(latestUpdate && latestUpdate.id !== seenId);
+    const trigger = latestUpdate
+      ? `${t("activityEditedShort")} ${relative(latestUpdate.createdAt)}`
+      : latest
+        ? `${labelAction(latest.action)} ${relative(latest.createdAt)}`
+        : t("pulse");
+    const dot = listUpdates ? updateUnread : unread;
 
     return (
       <div
@@ -310,7 +369,7 @@ export function ActivityDisclosure({
           ref={triggerRef}
           type="button"
           className="relay-activity-trigger"
-          data-unread={unread || undefined}
+          data-unread={dot || undefined}
           aria-expanded={panel}
           onPointerDown={(e) => {
             if (!panel) return;
@@ -324,6 +383,7 @@ export function ActivityDisclosure({
             setPanel(true);
             setHover(false);
             onOpen?.();
+            if (latestUpdate) onSeen?.(latestUpdate.id);
           }}
         >
           {trigger}
@@ -348,7 +408,20 @@ export function ActivityDisclosure({
                 }}
               >
                 <div className="relay-activity-hover-head">{t("pulse")}</div>
-                {compactList(5)}
+                {updates.length > 0 ? (
+                  <ul>
+                    {updates.slice(0, 5).map((row) => (
+                      <li key={row.id}>
+                        <span className="relay-activity-text">
+                          <strong>{row.createdByName || tc("someone")}</strong> {row.title || scopeTitle}
+                        </span>
+                        <span className="relay-activity-time">{relative(row.createdAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  compactList(5)
+                )}
               </div>,
               document.body,
             )
@@ -370,10 +443,7 @@ export function ActivityDisclosure({
                   aria-label={t("pulse")}
                 >
                   <div className="relay-activity-panel-head">
-                    <div>
-                      <strong>{t("pulse")}</strong>
-                      <p className="relay-activity-panel-lede">{t("pulseHint")}</p>
-                    </div>
+                    <strong>{t("pulse")}</strong>
                     <button
                       type="button"
                       className="relay-activity-panel-close"
@@ -383,7 +453,25 @@ export function ActivityDisclosure({
                       ×
                     </button>
                   </div>
-                  <OverlayScroll contentClassName="relay-activity-panel-body">{groupedPanel()}</OverlayScroll>
+                  <OverlayScroll contentClassName="relay-activity-panel-body">
+                    {listUpdates && listAnalytics && onViewVersion ? (
+                      <ActivityPanel
+                        tab={tab}
+                        onTab={setTab}
+                        updates={updates}
+                        loaded={updatesLoaded}
+                        scopeTitle={scopeTitle}
+                        viewerId={viewerId}
+                        onViewVersion={(row) => {
+                          closePanel();
+                          onViewVersion(row);
+                        }}
+                        listAnalytics={listAnalytics}
+                      />
+                    ) : (
+                      groupedPanel()
+                    )}
+                  </OverlayScroll>
                 </div>
               </>,
               document.body,

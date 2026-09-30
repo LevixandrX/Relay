@@ -153,6 +153,19 @@ export const workspaceRevisions = sqliteTable("workspace_revisions", {
   createdAt: text("created_at").notNull(),
 });
 
+export const contentViews = sqliteTable("content_views", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id),
+  /** null = the workspace board */
+  pageId: text("page_id"),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: text("created_at").notNull(),
+});
+
 export const auditLogs = sqliteTable("audit_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   workspaceId: text("workspace_id")

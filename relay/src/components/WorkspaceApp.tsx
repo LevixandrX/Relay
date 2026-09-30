@@ -25,8 +25,45 @@ import {
 import { shortcutHint, useModLabel } from "@/lib/board/mod-key";
 import { UserAvatar } from "@/components/UserAvatar";
 import { AccountSettings } from "@/components/AccountSettings";
-import { VersionHistory } from "@/components/VersionHistory";
+import { VersionHistory, type HistoryClient, type RevisionSummary } from "@/components/VersionHistory";
+import { ContentModeSwitch } from "@/components/ContentModeSwitch";
+import { notifyActivityChanged } from "@/lib/activity-refresh";
 import { CompactRailScroll, OverlayScroll } from "@/lib/board/CompactRailScroll";
+
+function historyClient(workspaceId: string, pageId: string | null): HistoryClient {
+  if (!pageId) {
+    return {
+      list: () => fetch(`/api/v1/workspaces/${workspaceId}/board/revisions`).then((r) => r.json()),
+      get: (id) => fetch(`/api/v1/workspaces/${workspaceId}/board/revisions/${id}`).then((r) => r.json()),
+      restore: async (id) => {
+        const res = await fetch(`/api/v1/workspaces/${workspaceId}/board/revisions/${id}/restore`, {
+          method: "POST",
+        });
+        if (!res.ok) throw new Error("restore");
+      },
+    };
+  }
+  return {
+    list: () => fetch(`/api/v1/pages/${pageId}/revisions`).then((r) => r.json()),
+    get: (id) => fetch(`/api/v1/pages/${pageId}/revisions/${id}`).then((r) => r.json()),
+    restore: async (id) => {
+      const res = await fetch(`/api/v1/pages/${pageId}/revisions/${id}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error("restore");
+    },
+  };
+}
+
+async function loadHistoryCurrent(workspaceId: string, pageId: string | null) {
+  if (!pageId) {
+    const res = await fetch(`/api/v1/workspaces/${workspaceId}/board`);
+    const data = await res.json().catch(() => ({}));
+    return { title: "", content: null, board: (data as { board?: unknown }).board ?? null };
+  }
+  const res = await fetch(`/api/v1/pages/${pageId}`);
+  const data = await res.json().catch(() => ({}));
+  const page = data as { title?: string; content?: unknown; board?: unknown };
+  return { title: page.title ?? "", content: page.content ?? null, board: page.board ?? null };
+}
 
 type PageMeta = {
   id: string;
@@ -42,16 +79,6 @@ type Checklist = {
   usedSlashOrPrompt: boolean;
   openedShare: boolean;
   dismissed: boolean;
-};
-
-type PulseEvent = {
-  id: number;
-  action: string;
-  actorName: string | null;
-  createdAt: string;
-  targetType?: string | null;
-  targetId?: string | null;
-  meta: { title?: string; email?: string; name?: string } | null;
 };
 
 type ViewMode = "board" | "text";
@@ -125,7 +152,6 @@ function WorkspaceAppInner({
   const [publicId, setPublicId] = useState(initialPage?.publicId ?? null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [checklist, setChecklist] = useState(initialChecklist);
-  const [pulse, setPulse] = useState<PulseEvent[]>([]);
   const [pulseSeen, setPulseSeen] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [compassOpen, setCompassOpen] = useState(false);
@@ -144,7 +170,9 @@ function WorkspaceAppInner({
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<{ pageId: string | null; entryId: string } | null>(
+    null,
+  );
   const [chrome, setChrome] = useState<"expanded" | "rail" | "focus">("expanded");
   const rail = chrome === "rail";
   const [peek, setPeek] = useState(false);
@@ -378,17 +406,17 @@ function WorkspaceAppInner({
     setPages(data.pages);
   }, [workspaceId]);
 
-  const refreshPulse = useCallback(async () => {
-    const q = pageId ? `?pageId=${encodeURIComponent(pageId)}` : "";
-    const res = await fetch(`/api/v1/workspaces/${workspaceId}/pulse${q}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    setPulse(data.events);
+  const bumpActivity = useCallback(() => {
+    notifyActivityChanged({ workspaceId, pageId: pageId ?? null });
   }, [workspaceId, pageId]);
 
   useEffect(() => {
-    void refreshPulse();
-  }, [refreshPulse, pageId]);
+    void fetch(`/api/v1/workspaces/${workspaceId}/views`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageId: pageId ?? null }),
+    });
+  }, [workspaceId, pageId]);
 
   useEffect(() => {
     const sync = () => setPulseSeen(readPulseSeen(workspaceId));
@@ -479,6 +507,7 @@ function WorkspaceAppInner({
       setSaveState("saved");
       void markChecklist("editedPage");
       setPages((prev) => prev.map((p) => (p.id === pageId ? { ...p, title } : p)));
+      bumpActivity();
     }, 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -509,6 +538,7 @@ function WorkspaceAppInner({
       setUpdatedAt(data.updatedAt);
       setSaveState("saved");
       setPages((prev) => prev.map((p) => (p.id === pageId ? { ...p, title } : p)));
+      bumpActivity();
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -538,7 +568,7 @@ function WorkspaceAppInner({
     setSaveState(res.ok ? "saved" : "error");
     if (res.ok) {
       void markChecklist("editedPage");
-      void refreshPulse();
+      bumpActivity();
     }
   }
 
@@ -563,6 +593,7 @@ function WorkspaceAppInner({
     setUpdatedAt(data.updatedAt);
     setSaveState("saved");
     void markChecklist("editedPage");
+    bumpActivity();
   }
 
   async function runPrompt(prompt: string) {
@@ -579,7 +610,7 @@ function WorkspaceAppInner({
     setContent(data.content);
     updatedAtRef.current = data.updatedAt;
     setUpdatedAt(data.updatedAt);
-    void refreshPulse();
+    bumpActivity();
   }
 
   async function togglePublish() {
@@ -593,7 +624,7 @@ function WorkspaceAppInner({
       if (res.ok) setPublicId(data.publicId);
     }
     void markChecklist("openedShare");
-    void refreshPulse();
+    bumpActivity();
   }
 
   async function deletePage(targetId: string, pageTitle: string) {
@@ -649,13 +680,9 @@ function WorkspaceAppInner({
     return map[action] ?? action;
   }
 
-  const latestPulseId = pulse[0] ? String(pulse[0].id) : null;
-  const pulseUnread = Boolean(latestPulseId && latestPulseId !== pulseSeen);
-
-  function markPulseSeen() {
-    if (!latestPulseId) return;
-    writePulseSeen(workspaceId, latestPulseId);
-    setPulseSeen(latestPulseId);
+  function markPulseSeen(id: string) {
+    writePulseSeen(workspaceId, id);
+    setPulseSeen(id);
   }
 
   const saveLabel =
@@ -720,26 +747,12 @@ function WorkspaceAppInner({
               </button>
             )}
             {!isWorkspaceBoard && (
-              <div className="relay-mode-switch" role="tablist" aria-label={t("mode")}>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "board"}
-                  data-active={mode === "board"}
-                  onClick={() => setMode("board")}
-                >
-                  {t("board")}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "text"}
-                  data-active={mode === "text"}
-                  onClick={() => setMode("text")}
-                >
-                  {t("text")}
-                </button>
-              </div>
+              <ContentModeSwitch
+                value={mode}
+                onChange={setMode}
+                boardLabel={t("board")}
+                textLabel={t("text")}
+              />
             )}
           </div>
 
@@ -764,15 +777,6 @@ function WorkspaceAppInner({
           </div>
 
           <div className="relay-topbar-actions">
-            {isWorkspaceBoard && (
-              <button
-                type="button"
-                className="relay-btn relay-btn-compact"
-                onClick={() => setHistoryOpen(true)}
-              >
-                {t("pageMenuHistory")}
-              </button>
-            )}
             <button
               type="button"
               className="relay-btn relay-btn-compact"
@@ -819,17 +823,6 @@ function WorkspaceAppInner({
                     )}
                     {canWrite && (
                       <>
-                        <button
-                          type="button"
-                          className="relay-page-menu-item"
-                          role="menuitem"
-                          onClick={() => {
-                            setPageMenuOpen(false);
-                            setHistoryOpen(true);
-                          }}
-                        >
-                          {t("pageMenuHistory")}
-                        </button>
                         <div className="relay-page-menu-sep" role="separator" />
                         <button
                           type="button"
@@ -849,10 +842,35 @@ function WorkspaceAppInner({
             <div className="relay-topbar-app">
               <ActivityDisclosure
                 variant="chrome"
-                items={pulse}
-                unread={pulseUnread}
+                items={[]}
+                unread={false}
                 labelAction={labelAction}
-                onOpen={markPulseSeen}
+                scopeTitle={isWorkspaceBoard ? t("infiniteBoard") : title}
+                viewerId={viewerId}
+                seenId={pulseSeen}
+                onSeen={markPulseSeen}
+                refreshKey={pageId ?? "board"}
+                listUpdates={async () => {
+                  const path = pageId
+                    ? `/api/v1/pages/${pageId}/revisions`
+                    : `/api/v1/workspaces/${workspaceId}/activity`;
+                  const res = await fetch(path, { cache: "no-store" });
+                  const data = await res.json().catch(() => ({ revisions: [] }));
+                  return (data.revisions ?? []) as RevisionSummary[];
+                }}
+                listAnalytics={async (range) => {
+                  const q = new URLSearchParams({ range });
+                  if (pageId) q.set("pageId", pageId);
+                  const res = await fetch(`/api/v1/workspaces/${workspaceId}/analytics?${q}`);
+                  if (!res.ok) throw new Error("analytics");
+                  return res.json();
+                }}
+                onViewVersion={(row) => {
+                  setHistoryTarget({
+                    pageId: row.scope === "board" ? null : (row.pageId ?? pageId),
+                    entryId: row.id,
+                  });
+                }}
               />
               <HelpButton />
               <LanguageToggle variant="toolbar" />
@@ -1202,36 +1220,26 @@ function WorkspaceAppInner({
       )}
 
       <VersionHistory
-        open={historyOpen}
-        title={isWorkspaceBoard ? t("infiniteBoard") : title}
-        canRestore={canWrite}
-        client={
-          isWorkspaceBoard
-            ? {
-                list: () =>
-                  fetch(`/api/v1/workspaces/${workspaceId}/board/revisions`).then((r) => r.json()),
-                get: (id) =>
-                  fetch(`/api/v1/workspaces/${workspaceId}/board/revisions/${id}`).then((r) => r.json()),
-                restore: async (id) => {
-                  const res = await fetch(
-                    `/api/v1/workspaces/${workspaceId}/board/revisions/${id}/restore`,
-                    { method: "POST" },
-                  );
-                  if (!res.ok) throw new Error("restore");
-                },
-              }
-            : {
-                list: () => fetch(`/api/v1/pages/${pageId}/revisions`).then((r) => r.json()),
-                get: (id) => fetch(`/api/v1/pages/${pageId}/revisions/${id}`).then((r) => r.json()),
-                restore: async (id) => {
-                  const res = await fetch(`/api/v1/pages/${pageId}/revisions/${id}/restore`, {
-                    method: "POST",
-                  });
-                  if (!res.ok) throw new Error("restore");
-                },
-              }
+        open={historyTarget !== null}
+        title={
+          historyTarget?.pageId === null
+            ? t("infiniteBoard")
+            : historyTarget?.pageId === pageId
+              ? title
+              : t("untitled")
         }
-        onClose={() => setHistoryOpen(false)}
+        canRestore={canWrite}
+        initialId={historyTarget?.entryId}
+        client={historyClient(workspaceId, historyTarget?.pageId ?? null)}
+        loadCurrent={() => loadHistoryCurrent(workspaceId, historyTarget?.pageId ?? null)}
+        renderBoard={(board) => (
+          <InfiniteBoard
+            key={historyTarget?.entryId ?? "board"}
+            initialSnapshot={board as BoardSnapshot}
+            editable={false}
+          />
+        )}
+        onClose={() => setHistoryTarget(null)}
         onRestored={() => window.location.reload()}
       />
     </div>

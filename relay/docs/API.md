@@ -46,7 +46,7 @@ JWT is never placed in URLs or deep links.
 | GET | `/workspaces/:wid/members` |
 | POST | `/workspaces/:wid/invites` `{ email, role }` | owner; gated by member limit |
 | GET/PUT | `/workspaces/:wid/board` | workspace canvas |
-| GET | `/workspaces/:wid/board/revisions` | |
+| GET | `/workspaces/:wid/board/revisions` | grouped session diffs, no raw snapshots |
 | GET | `/workspaces/:wid/board/revisions/:rid` | |
 | POST | `/workspaces/:wid/board/revisions/:rid/restore` | |
 
@@ -66,7 +66,7 @@ JWT is never placed in URLs or deep links.
 | GET | `/pages/:id` |
 | PATCH | `/pages/:id` | `{ title?, content?, board?, icon?, baseUpdatedAt }` |
 | DELETE | `/pages/:id` | soft delete |
-| GET | `/pages/:id/revisions` | version list (no heavy JSON) |
+| GET | `/pages/:id/revisions` | grouped session diffs (text + board), no raw snapshots |
 | GET | `/pages/:id/revisions/:rid` | snapshot: title + content + board |
 | POST | `/pages/:id/revisions/:rid/restore` | write; snapshots current first |
 | POST | `/pages/:id/publish` | plan limit |
@@ -79,6 +79,9 @@ JWT is never placed in URLs or deep links.
 |---|---|
 | GET | `/workspaces/:wid/search?q=` |
 | GET | `/workspaces/:wid/pulse` | recent audit events; `?pageId=` scopes to that page |
+| GET | `/workspaces/:wid/activity` | recent edit sessions across pages and the workspace board |
+| GET | `/workspaces/:wid/analytics` | `range` is `7d`, `30d`, `90d`, or `all`; `pageId` scopes to one page |
+| POST | `/workspaces/:wid/views` `{ pageId }` | record a view; `pageId: null` is the workspace board |
 
 ## Public
 

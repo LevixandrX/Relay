@@ -25,10 +25,15 @@ Unique `(workspace_id, user_id)`
 ### page_revisions
 `id`, `page_id`, `workspace_id`, `title`, `content`, `board?` (empty string = no board; NULL on old rows = board not captured), `created_by`, `created_at`
 
-Snapshots are taken of the **previous** state when a page is saved: at most every ~10 minutes, or after a 90s pause if text/board actually changed. Restore writes a forced snapshot of the current page first.
+Snapshots are taken of the **previous** state when a page is saved: at most every ~10 minutes, or after a 90s pause if text/board actually changed. The history list groups those snapshots by the same author while each gap stays under 10 minutes, and each entry is the diff of that session (text blocks and board shapes), not the raw snapshot. Restore writes a forced snapshot of the current page first.
 
 ### workspace_revisions
 `id`, `workspace_id`, `board`, `created_by`, `created_at` — same cadence as page board snapshots.
+
+### content_views
+`id`, `workspace_id`, `page_id?` (null = workspace board), `user_id`, `created_at`
+
+A view is recorded when a page or the workspace board is opened, and again only after 30 minutes for the same person and target. Analytics reads these rows plus edit actions from `audit_logs`.
 
 ### audit_logs
 `id`, `workspace_id`, `actor_id?`, `action`, `target_type?`, `target_id?`, `meta` (JSON), `created_at`
