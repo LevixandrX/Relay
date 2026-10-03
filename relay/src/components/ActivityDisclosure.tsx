@@ -8,7 +8,7 @@ import { subscribeActivityChanged } from "../lib/activity-refresh";
 import { ActivityPanel, type AnalyticsRange, type AnalyticsReport } from "./ActivityPanel";
 
 export type { AnalyticsRange, AnalyticsReport };
-import type { RevisionSummary } from "./VersionHistory";
+import type { HistoryBlock, RevisionSummary } from "./VersionHistory";
 
 const OPEN_KEY = "relay.activity.open";
 const OPEN_PAGE = "relay:open-page";
@@ -108,6 +108,7 @@ export function ActivityDisclosure({
   listUpdates,
   listAnalytics,
   onViewVersion,
+  onOpenUpdate,
 }: {
   items: ActivityItem[];
   unread: boolean;
@@ -123,6 +124,7 @@ export function ActivityDisclosure({
   listUpdates?: () => Promise<RevisionSummary[]>;
   listAnalytics?: (range: AnalyticsRange) => Promise<AnalyticsReport>;
   onViewVersion?: (row: RevisionSummary) => void;
+  onOpenUpdate?: (row: RevisionSummary, block: HistoryBlock) => void;
 }) {
   const t = useTranslations("app");
   const tc = useTranslations("common");
@@ -453,8 +455,8 @@ export function ActivityDisclosure({
                       ×
                     </button>
                   </div>
-                  <OverlayScroll contentClassName="relay-activity-panel-body">
-                    {listUpdates && listAnalytics && onViewVersion ? (
+                  <OverlayScroll arrows edge contentClassName="relay-activity-panel-body">
+                    {listUpdates && listAnalytics && onViewVersion && onOpenUpdate ? (
                       <ActivityPanel
                         tab={tab}
                         onTab={setTab}
@@ -465,6 +467,10 @@ export function ActivityDisclosure({
                         onViewVersion={(row) => {
                           closePanel();
                           onViewVersion(row);
+                        }}
+                        onOpenUpdate={(row, block) => {
+                          closePanel();
+                          onOpenUpdate(row, block);
                         }}
                         listAnalytics={listAnalytics}
                       />

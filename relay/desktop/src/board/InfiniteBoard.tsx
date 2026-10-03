@@ -14,6 +14,7 @@ import { applyRelayBoardTheme, paintEditorCanvas, watchCanvasBackdropSampling } 
 import { parseQuickdrawSnapshot } from "../lib/boardSnapshot";
 import { useTheme } from "../theme/ThemeProvider";
 import type { BoardSnapshot } from "../lib/types";
+import { useBoardActivityFocus } from "@relay-board/useBoardActivityFocus";
 
 applyRelayBoardTheme();
 
@@ -45,6 +46,7 @@ type Props = {
   initialSnapshot?: BoardSnapshot | null;
   onChange?: (snapshot: BoardSnapshot) => void;
   syncRoomId?: string;
+  focusShapeIds?: string[];
 };
 
 export function InfiniteBoard({
@@ -52,6 +54,7 @@ export function InfiniteBoard({
   initialSnapshot,
   onChange,
   syncRoomId,
+  focusShapeIds,
 }: Props) {
   const store = useQuickdrawStore(parseQuickdrawSnapshot(initialSnapshot));
   const ref = useRef<QuickdrawRef>(null);
@@ -60,6 +63,7 @@ export function InfiniteBoard({
   onChangeRef.current = onChange;
   const theme = useBoardTheme();
   const [editor, setEditor] = useState<Editor | null>(null);
+  const activityFocusRect = useBoardActivityFocus(editor, focusShapeIds);
   const { token, user } = useAuth();
 
   const { peers } = useBoardSync(store, editor, syncRoomId, {
@@ -137,6 +141,19 @@ export function InfiniteBoard({
           }}
         />
       </div>
+      {activityFocusRect ? (
+        <div
+          className="relay-board-activity-focus"
+          data-visible={activityFocusRect.visible || undefined}
+          style={{
+            left: activityFocusRect.left,
+            top: activityFocusRect.top,
+            width: activityFocusRect.width,
+            height: activityFocusRect.height,
+          }}
+          aria-hidden
+        />
+      ) : null}
       {editor ? <BoardChrome editor={editor} peers={peers} dark={theme === "dark"} /> : null}
     </div>
   );

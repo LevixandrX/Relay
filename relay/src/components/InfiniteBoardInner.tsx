@@ -28,6 +28,7 @@ import { useBoardViewportInput } from "@/lib/board/useBoardViewportInput";
 
 import { applyRelayBoardTheme, paintEditorCanvas, watchCanvasBackdropSampling } from "@/lib/board/canvas-theme";
 import { parseQuickdrawSnapshot } from "@/lib/board/snapshot";
+import { useBoardActivityFocus } from "@/lib/board/useBoardActivityFocus";
 
 import type { BoardSnapshot } from "./InfiniteBoard";
 
@@ -46,6 +47,7 @@ type Props = {
   syncRoomId?: string;
 
   viewerId?: string;
+  focusShapeIds?: string[];
 
 };
 
@@ -62,6 +64,7 @@ export default function InfiniteBoardInner({
   syncRoomId,
 
   viewerId,
+  focusShapeIds,
 
 }: Props) {
 
@@ -80,6 +83,8 @@ export default function InfiniteBoardInner({
   const theme = resolvedTheme === "dark" ? "dark" : "light";
 
   const [editor, setEditor] = useState<Editor | null>(null);
+
+  const activityFocusRect = useBoardActivityFocus(editor, focusShapeIds);
 
 
 
@@ -230,6 +235,20 @@ export default function InfiniteBoardInner({
         />
 
       </div>
+
+      {activityFocusRect ? (
+        <div
+          className="relay-board-activity-focus"
+          data-visible={activityFocusRect.visible || undefined}
+          style={{
+            left: activityFocusRect.left,
+            top: activityFocusRect.top,
+            width: activityFocusRect.width,
+            height: activityFocusRect.height,
+          }}
+          aria-hidden
+        />
+      ) : null}
 
       {editor ? (
 

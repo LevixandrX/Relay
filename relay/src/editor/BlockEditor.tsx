@@ -10,6 +10,11 @@ import { useEffect, useRef, useState } from "react";
 import { Callout, PromptBlock } from "./extensions";
 import type { Doc } from "@/domain/blocks/schema";
 import { SlashMenu } from "./slash-menu";
+import {
+  ActivityFocusExtension,
+  focusEditorActivity,
+  type ActivityTextBlockType,
+} from "./activity-focus";
 
 type Props = {
   content: Doc;
@@ -17,6 +22,9 @@ type Props = {
   onChange?: (doc: Doc) => void;
   onSlashUsed?: () => void;
   onRunPrompt?: (prompt: string) => Promise<void>;
+  focusPhrases?: string[];
+  focusBlockType?: ActivityTextBlockType;
+  onActivityFocusDismiss?: () => void;
 };
 
 export function BlockEditor({
@@ -25,11 +33,16 @@ export function BlockEditor({
   onChange,
   onSlashUsed,
   onRunPrompt,
+  focusPhrases,
+  focusBlockType,
+  onActivityFocusDismiss,
 }: Props) {
   const [slash, setSlash] = useState<{ top: number; left: number; query: string } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const onRunRef = useRef(onRunPrompt);
   onRunRef.current = onRunPrompt;
+  const onFocusDismissRef = useRef(onActivityFocusDismiss);
+  onFocusDismissRef.current = onActivityFocusDismiss;
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -48,6 +61,7 @@ export function BlockEditor({
       TaskItem.configure({ nested: true }),
       Link.configure({ openOnClick: false }),
       Callout,
+      ActivityFocusExtension,
       PromptBlock.configure({
         onRun: (prompt: string) => {
           void onRunRef.current?.(prompt);
@@ -87,6 +101,18 @@ export function BlockEditor({
       editor.commands.setContent(content as object);
     }
   }, [content, editor]);
+
+  useEffect(() => {
+    if (!editor || !focusPhrases?.length) return;
+    let dispose: () => void = () => {};
+    const frame = requestAnimationFrame(() => {
+      dispose = focusEditorActivity(editor, focusPhrases, focusBlockType, () => onFocusDismissRef.current?.());
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      dispose();
+    };
+  }, [content, editor, focusPhrases, focusBlockType]);
 
   if (!editor) return <div className="relay-editor-skeleton" />;
 

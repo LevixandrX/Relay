@@ -151,7 +151,7 @@ export function PagesView({
             </span>
           )}
         </div>
-        <OverlayScroll contentClassName="pages-body">
+        <OverlayScroll arrows contentClassName="pages-body">
           <PageList
             pages={sorted}
             activeId={sorted[active]?.id}

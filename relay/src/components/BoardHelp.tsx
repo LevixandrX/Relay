@@ -256,7 +256,7 @@ export function HelpPanel() {
         </button>
       </header>
 
-      <OverlayScroll contentClassName="relay-help-body">{tab === "keys" ? <KeysTab /> : <GuideTab />}</OverlayScroll>
+      <OverlayScroll arrows contentClassName="relay-help-body">{tab === "keys" ? <KeysTab /> : <GuideTab />}</OverlayScroll>
 
       <footer className="relay-help-foot">{t("hint")}</footer>
     </div>

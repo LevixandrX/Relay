@@ -1866,6 +1866,12 @@ kbd {
   overflow: auto;
 }
 
+.relay-page-scroll {
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
 .relay-title {
   width: 100%;
   border: none;

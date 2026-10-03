@@ -7,19 +7,36 @@ import Link from "@tiptap/extension-link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import type { Doc } from "../lib/types";
+import {
+  ActivityFocusExtension,
+  focusEditorActivity,
+  type ActivityTextBlockType,
+} from "@relay-editor-focus";
 
 type Props = {
   content: Doc;
   editable?: boolean;
   onChange?: (doc: Doc) => void;
+  focusPhrases?: string[];
+  focusBlockType?: ActivityTextBlockType;
+  onActivityFocusDismiss?: () => void;
 };
 
-export function BlockEditor({ content, editable = true, onChange }: Props) {
+export function BlockEditor({
+  content,
+  editable = true,
+  onChange,
+  focusPhrases,
+  focusBlockType,
+  onActivityFocusDismiss,
+}: Props) {
   const t = useTranslations("desktop");
   const [slash, setSlash] = useState<{ top: number; left: number; query: string } | null>(
     null,
   );
   const wrapRef = useRef<HTMLDivElement>(null);
+  const onFocusDismissRef = useRef(onActivityFocusDismiss);
+  onFocusDismissRef.current = onActivityFocusDismiss;
 
   const slashItems = useMemo(
     () =>
@@ -91,6 +108,7 @@ export function BlockEditor({ content, editable = true, onChange }: Props) {
       TaskList,
       TaskItem.configure({ nested: true }),
       Link.configure({ openOnClick: false }),
+      ActivityFocusExtension,
     ],
     content: content as object,
     onUpdate: ({ editor: ed }) => {
@@ -125,6 +143,18 @@ export function BlockEditor({ content, editable = true, onChange }: Props) {
       editor.commands.setContent(content as object);
     }
   }, [content, editor]);
+
+  useEffect(() => {
+    if (!editor || !focusPhrases?.length) return;
+    let dispose: () => void = () => {};
+    const frame = requestAnimationFrame(() => {
+      dispose = focusEditorActivity(editor, focusPhrases, focusBlockType, () => onFocusDismissRef.current?.());
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      dispose();
+    };
+  }, [content, editor, focusPhrases, focusBlockType]);
 
   if (!editor) return <div className="relay-editor-skeleton" />;
 

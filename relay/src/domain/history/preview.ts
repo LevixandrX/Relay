@@ -9,7 +9,6 @@
  */
 
 const GROUP_GAP_MS = 10 * 60 * 1000;
-const MAX_BLOCKS = 6;
 const MAX_SPAN = 360;
 
 export type HistorySpan = { t: string; m?: "add" | "del"; href?: string };
@@ -32,9 +31,11 @@ export type HistoryBlock = {
   language?: string | null;
   ordered?: boolean;
   checked?: boolean;
+  checks?: boolean[];
   action?: "add" | "del" | "edit" | "move";
   shape?: string;
   count?: number;
+  targetIds?: string[];
   spans?: HistorySpan[];
   lines?: HistorySpan[][];
   items?: HistorySpan[][];
@@ -80,7 +81,7 @@ type Flat = {
   pieces: Piece[];
   text: string;
   lines?: string[];
-  items?: { pieces: Piece[]; text: string }[];
+  items?: { pieces: Piece[]; text: string; checked?: boolean }[];
 };
 type DocState = { title: string; content: unknown; board: unknown };
 type More = { n: number };
@@ -221,9 +222,9 @@ function excerptState(state: DocState): { blocks: HistoryBlock[]; more: number }
   return { blocks, more: more.n };
 }
 
-function pushBlock(blocks: HistoryBlock[], block: HistoryBlock, more: More) {
-  if (blocks.length >= MAX_BLOCKS) more.n += 1;
-  else blocks.push(block);
+function pushBlock(blocks: HistoryBlock[], block: HistoryBlock, _more: More) {
+  // Keep every changed block; collapsing a session is a presentation concern
+  blocks.push(block);
 }
 
 function flattenDoc(content: unknown): Flat[] {
@@ -244,13 +245,22 @@ function flattenDoc(content: unknown): Flat[] {
     }
     if (type === "taskList") {
       const contentNodes = Array.isArray(node.content) ? node.content : [];
+      const items: { pieces: Piece[]; text: string; checked?: boolean }[] = [];
       for (const child of contentNodes) {
         if (!child || typeof child !== "object") continue;
         const task = child as Record<string, unknown>;
         const pieces: Piece[] = [];
         collectPieces(task, pieces);
         const checked = Boolean((task.attrs as { checked?: unknown } | undefined)?.checked);
-        out.push({ type: "todo", checked, pieces, text: piecesText(pieces) });
+        items.push({ pieces, text: piecesText(pieces), checked });
+      }
+      if (items.length > 0) {
+        out.push({
+          type: "todo",
+          pieces: [],
+          text: items.map((item) => item.text).join("\n"),
+          items,
+        });
       }
       continue;
     }
@@ -388,8 +398,15 @@ function sameFlat(a: Flat, b: Flat): boolean {
     a.language === b.language &&
     a.ordered === b.ordered &&
     a.checked === b.checked &&
+    sameChecks(a.items, b.items) &&
     a.text === b.text
   );
+}
+
+function sameChecks(a?: Flat["items"], b?: Flat["items"]) {
+  const left = a?.map((item) => Boolean(item.checked)) ?? [];
+  const right = b?.map((item) => Boolean(item.checked)) ?? [];
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function pairFlats(dels: Flat[], adds: Flat[], blocks: HistoryBlock[], more: More) {
@@ -447,8 +464,18 @@ function emitFlat(flat: Flat, mode: "add" | "del" | "keep", blocks: HistoryBlock
     if (flat.items.length > 6) more.n += flat.items.length - 6;
     return;
   }
-  if (flat.type === "todo") {
-    pushBlock(blocks, { type: "todo", checked: flat.checked, spans: piecesToSpans(flat.pieces, mark) }, more);
+  if (flat.type === "todo" && flat.items) {
+    const items = flat.items.slice(0, 6);
+    pushBlock(
+      blocks,
+      {
+        type: "todo",
+        items: items.map((item) => piecesToSpans(item.pieces, mark)),
+        checks: items.map((item) => Boolean(item.checked)),
+      },
+      more,
+    );
+    if (flat.items.length > 6) more.n += flat.items.length - 6;
     return;
   }
   const type = blockType(flat.type);
@@ -475,11 +502,19 @@ function emitEdit(before: Flat, after: Flat, blocks: HistoryBlock[], more: More)
     return;
   }
   if (after.type === "todo") {
-    const spans =
-      before.text === after.text
-        ? piecesToSpans(after.pieces)
-        : clipSpans(wordDiff(before.text, after.text));
-    pushBlock(blocks, { type: "todo", checked: after.checked, spans }, more);
+    const changedItems = diffTodoItems(before.items ?? [], after.items ?? []);
+    const items = changedItems.slice(0, 6);
+    if (items.length === 0) return;
+    pushBlock(
+      blocks,
+      {
+        type: "todo",
+        items: items.map((item) => item.spans),
+        checks: items.map((item) => item.checked),
+      },
+      more,
+    );
+    if (changedItems.length > 6) more.n += changedItems.length - 6;
     return;
   }
   const spans = clipSpans(linkedWordDiff(before, after));
@@ -566,6 +601,56 @@ function diffListItems(
   }
   flush();
   return out.filter((spans) => spans.length > 0);
+}
+
+function diffTodoItems(
+  before: { pieces: Piece[]; text: string; checked?: boolean }[],
+  after: { pieces: Piece[]; text: string; checked?: boolean }[],
+): { spans: HistorySpan[]; checked: boolean }[] {
+  const ops = lcsOps(
+    before,
+    after,
+    (a, b) => a.text === b.text && Boolean(a.checked) === Boolean(b.checked),
+  );
+  let dels: typeof before = [];
+  let adds: typeof after = [];
+  const out: { spans: HistorySpan[]; checked: boolean }[] = [];
+  const flush = () => {
+    const used = new Set<number>();
+    for (const item of dels) {
+      const index = adds.findIndex((_, i) => !used.has(i));
+      if (index === -1) {
+        out.push({ spans: piecesToSpans(item.pieces, "del"), checked: Boolean(item.checked) });
+        continue;
+      }
+      used.add(index);
+      const next = adds[index];
+      out.push({
+        spans:
+          item.text === next.text
+            ? piecesToSpans(next.pieces)
+            : clipSpans(wordDiff(item.text, next.text)),
+        checked: Boolean(next.checked),
+      });
+    }
+    adds.forEach((item, index) => {
+      if (!used.has(index)) {
+        out.push({ spans: piecesToSpans(item.pieces, "add"), checked: Boolean(item.checked) });
+      }
+    });
+    dels = [];
+    adds = [];
+  };
+  for (const op of ops) {
+    if (op.op === "same") {
+      flush();
+      continue;
+    }
+    if (op.op === "del" && op.i !== undefined) dels.push(before[op.i]);
+    if (op.op === "add" && op.j !== undefined) adds.push(after[op.j]);
+  }
+  flush();
+  return out.filter((item) => item.spans.length > 0);
 }
 
 function codeLines(before: string[], after: string[]): HistorySpan[][] {
@@ -697,7 +782,7 @@ function diffBoard(before: unknown, after: unknown, blocks: HistoryBlock[], more
   const older = boardShapes(before);
   const newer = boardShapes(after);
   const detailed: HistoryBlock[] = [];
-  const silent: { action: "add" | "del" | "move"; kind: string }[] = [];
+  const silent: { action: "add" | "del" | "move"; kind: string; id: string }[] = [];
 
   for (const [id, shape] of newer) {
     const prev = older.get(id);
@@ -707,9 +792,10 @@ function diffBoard(before: unknown, after: unknown, blocks: HistoryBlock[], more
           type: "board",
           action: "add",
           shape: shape.kind,
+          targetIds: [id],
           spans: clipSpans([{ t: shape.text, m: "add" }]),
         });
-      } else silent.push({ action: "add", kind: shape.kind });
+      } else silent.push({ action: "add", kind: shape.kind, id });
       continue;
     }
     if (shape.text !== prev.text) {
@@ -717,6 +803,7 @@ function diffBoard(before: unknown, after: unknown, blocks: HistoryBlock[], more
         type: "board",
         action: "edit",
         shape: shape.kind,
+        targetIds: [id],
         spans: clipSpans(wordDiff(prev.text, shape.text)),
       });
       continue;
@@ -728,12 +815,12 @@ function diffBoard(before: unknown, after: unknown, blocks: HistoryBlock[], more
     if (shape.look !== prev.look) {
       detailed.push(
         shape.text
-          ? { type: "board", action: "edit", shape: shape.kind, spans: clipSpans([{ t: shape.text }]) }
-          : { type: "board", action: "edit", shape: shape.kind },
+          ? { type: "board", action: "edit", shape: shape.kind, targetIds: [id], spans: clipSpans([{ t: shape.text }]) }
+          : { type: "board", action: "edit", shape: shape.kind, targetIds: [id] },
       );
       continue;
     }
-    if (moved) silent.push({ action: "move", kind: shape.kind });
+    if (moved) silent.push({ action: "move", kind: shape.kind, id });
   }
 
   for (const [id, shape] of older) {
@@ -745,16 +832,17 @@ function diffBoard(before: unknown, after: unknown, blocks: HistoryBlock[], more
         shape: shape.kind,
         spans: clipSpans([{ t: shape.text, m: "del" }]),
       });
-    } else silent.push({ action: "del", kind: shape.kind });
+    } else silent.push({ action: "del", kind: shape.kind, id });
   }
 
   for (const block of detailed) pushBlock(blocks, block, more);
 
-  const buckets = new Map<string, { action: "add" | "del" | "move"; kind: string; count: number }>();
+  const buckets = new Map<string, { action: "add" | "del" | "move"; kind: string; count: number; ids: string[] }>();
   for (const item of silent) {
     const key = `${item.action}:${item.kind}`;
-    const bucket = buckets.get(key) ?? { action: item.action, kind: item.kind, count: 0 };
+    const bucket = buckets.get(key) ?? { action: item.action, kind: item.kind, count: 0, ids: [] };
     bucket.count += 1;
+    bucket.ids.push(item.id);
     buckets.set(key, bucket);
   }
   for (const bucket of buckets.values()) {
@@ -765,6 +853,7 @@ function diffBoard(before: unknown, after: unknown, blocks: HistoryBlock[], more
         action: bucket.action,
         shape: bucket.kind,
         count: bucket.count > 1 ? bucket.count : undefined,
+        targetIds: bucket.action === "del" ? undefined : bucket.ids,
       },
       more,
     );
@@ -781,6 +870,7 @@ function excerptBoard(board: unknown, blocks: HistoryBlock[], more: More) {
       {
         type: "board",
         shape: shape.kind,
+        targetIds: [shape.id],
         spans: shape.text ? clipSpans([{ t: shape.text }]) : undefined,
       },
       more,

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "use-intl";
-import { UpdateCard, type RevisionSummary } from "./VersionHistory";
+import { UpdateCard, type HistoryBlock, type RevisionSummary } from "./VersionHistory";
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "all";
 
@@ -23,6 +23,7 @@ export function ActivityPanel({
   scopeTitle,
   viewerId,
   onViewVersion,
+  onOpenUpdate,
   listAnalytics,
 }: {
   tab: "updates" | "analytics";
@@ -32,6 +33,7 @@ export function ActivityPanel({
   scopeTitle: string;
   viewerId?: string | null;
   onViewVersion: (row: RevisionSummary) => void;
+  onOpenUpdate: (row: RevisionSummary, block: HistoryBlock) => void;
   listAnalytics: (range: AnalyticsRange) => Promise<AnalyticsReport>;
 }) {
   const t = useTranslations("app");
@@ -67,6 +69,7 @@ export function ActivityPanel({
               title={row.scope === "board" ? scopeTitle : row.title || scopeTitle}
               viewerId={viewerId}
               onViewVersion={onViewVersion}
+              onOpen={onOpenUpdate}
             />
           ))}
         </div>

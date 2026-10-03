@@ -21,5 +21,6 @@ export function relayDesktopAliases(fromDir) {
     "@relay-activity-refresh": path.resolve(shared, "lib/activity-refresh.ts"),
     "@relay-account": path.resolve(shared, "components/AccountSettings.tsx"),
     "@relay-avatar": path.resolve(shared, "components/UserAvatar.tsx"),
+    "@relay-editor-focus": path.resolve(shared, "editor/activity-focus.ts"),
   };
 }

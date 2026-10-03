@@ -6,6 +6,7 @@ import { formatRelative } from "../lib/store";
 import { useAppLocale } from "../i18n/LocaleProvider";
 import type { Doc, JSONContent } from "../lib/types";
 import { PageList } from "./PageList";
+import { OverlayScroll } from "@relay-board/CompactRailScroll";
 
 function docExcerpt(doc: Doc | undefined, max = 180): string {
   const parts: string[] = [];
@@ -52,7 +53,7 @@ export function HomeView({
   const state = pages.length === 0 ? "fresh" : recentList.length > 1 ? "full" : "continue";
 
   return (
-    <div className="page-frame home-stack">
+    <OverlayScroll arrows className="page-frame-scroll" contentClassName="page-frame home-stack">
       <header className="home-head">
         <div className="toprow">
           <div className="page-title">
@@ -192,7 +193,7 @@ export function HomeView({
           )}
         </div>
       </div>
-    </div>
+    </OverlayScroll>
   );
 }
 

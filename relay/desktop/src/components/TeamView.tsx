@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { ApiClientError } from "../lib/api";
 import { publicAppOrigin } from "../lib/app-origin";
+import { OverlayScroll } from "@relay-board/CompactRailScroll";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -48,7 +49,7 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
 
   if (ws.mode === "guest") {
     return (
-      <div className="page-frame">
+      <OverlayScroll arrows className="page-frame-scroll" contentClassName="page-frame">
       <section className="card surface-card">
         <div className="empty-state">
           <p className="empty-state-title">{t("teamGuestTitle")}</p>
@@ -60,7 +61,7 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
           </div>
         </div>
       </section>
-      </div>
+      </OverlayScroll>
     );
   }
 
@@ -104,7 +105,7 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
   }
 
   return (
-    <div className="page-frame">
+    <OverlayScroll arrows className="page-frame-scroll" contentClassName="page-frame">
       <div className="toprow">
         <div className="page-title">
           <h1>{t("teamTitle")}</h1>
@@ -224,6 +225,6 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
           </p>
         </section>
       )}
-    </div>
+    </OverlayScroll>
   );
 }

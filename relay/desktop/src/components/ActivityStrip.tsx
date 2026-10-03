@@ -9,6 +9,7 @@ import { useWorkspace } from "../lib/workspace";
 import { readPulseSeen, writePulseSeen } from "@relay-board/pulse-seen";
 import { labelPulseAction } from "../lib/useWorkspacePulse";
 import type { BoardSnapshot } from "../lib/types";
+import { focusFromRevision, stageActivityFocus } from "@relay-board/activity-focus";
 
 export function ActivityStrip({ pageId }: { pageId?: string | null }) {
   const t = useTranslations("app");
@@ -53,6 +54,16 @@ export function ActivityStrip({ pageId }: { pageId?: string | null }) {
             pageId: row.scope === "board" ? null : (row.pageId ?? pageId ?? null),
             entryId: row.id,
           });
+        }}
+        onOpenUpdate={(row, block) => {
+          const focus = focusFromRevision(row, block);
+          if (row.scope !== "board" && !focus.pageId) focus.pageId = pageId ?? null;
+          stageActivityFocus(focus);
+          if (focus.pageId) {
+            window.dispatchEvent(new CustomEvent("relay:open-page", { detail: focus.pageId }));
+          } else {
+            window.dispatchEvent(new CustomEvent("relay:open-board"));
+          }
         }}
       />
       <VersionHistory

@@ -10,6 +10,13 @@ import { publicAppOrigin } from "../lib/app-origin";
 import { WorkspacePresence } from "./WorkspacePresence";
 import { useDialog } from "./DialogHost";
 import { ContentModeSwitch } from "@relay-mode-switch";
+import { OverlayScroll } from "@relay-board/CompactRailScroll";
+import {
+  clearActivityFocus,
+  readActivityFocus,
+  subscribeActivityFocus,
+  type ActivityFocus,
+} from "@relay-board/activity-focus";
 
 type Mode = "text" | "board";
 
@@ -36,7 +43,39 @@ export function PageView({
   const [missing, setMissing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activityFocus, setActivityFocus] = useState<ActivityFocus | null>(null);
+  const activityFocusMode = useRef<Mode | null>(null);
+  const activityFocusTimer = useRef<number | null>(null);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const focus = readActivityFocus(pageId);
+    if (!focus) return;
+    setActivityFocus(focus);
+    activityFocusMode.current = focus.mode;
+    setMode(focus.mode);
+    clearActivityFocus();
+    if (activityFocusTimer.current !== null) window.clearTimeout(activityFocusTimer.current);
+    activityFocusTimer.current =
+      focus.mode === "board" ? window.setTimeout(() => setActivityFocus(null), 5000) : null;
+    return () => {
+      if (activityFocusTimer.current !== null) window.clearTimeout(activityFocusTimer.current);
+    };
+  }, [pageId]);
+
+  useEffect(
+    () =>
+      subscribeActivityFocus((focus) => {
+        if (focus.pageId !== pageId) return;
+        setActivityFocus(focus);
+        setMode(focus.mode);
+        clearActivityFocus();
+        if (activityFocusTimer.current !== null) window.clearTimeout(activityFocusTimer.current);
+        activityFocusTimer.current =
+          focus.mode === "board" ? window.setTimeout(() => setActivityFocus(null), 5000) : null;
+      }),
+    [pageId],
+  );
 
   useEffect(() => {
     if (wsMode !== "cloud" || !auth.token || !activeWorkspaceId) return;
@@ -100,7 +139,8 @@ export function PageView({
       setTitle(p.title);
       setContent(p.content);
       setBoard(p.board);
-      setMode("text");
+      setMode(activityFocusMode.current ?? "text");
+      activityFocusMode.current = null;
       setSaveState("saved");
     });
     return () => {
@@ -239,9 +279,15 @@ export function PageView({
       </div>
 
       {mode === "text" ? (
-        <section className="card editor-card">
-          <BlockEditor content={content} onChange={scheduleContent} />
-        </section>
+        <OverlayScroll arrows className="editor-card-scroll" contentClassName="card editor-card">
+          <BlockEditor
+            content={content}
+            onChange={scheduleContent}
+            focusPhrases={activityFocus?.phrases}
+            focusBlockType={activityFocus?.blockType}
+            onActivityFocusDismiss={() => setActivityFocus(null)}
+          />
+        </OverlayScroll>
       ) : (
         <div className="board-wrap">
           <InfiniteBoard
@@ -249,6 +295,7 @@ export function PageView({
             initialSnapshot={board}
             syncRoomId={!offline ? `pg-${pageId}` : undefined}
             onChange={onBoardChange}
+            focusShapeIds={activityFocus?.shapeIds}
           />
         </div>
       )}

@@ -15,6 +15,7 @@ type Props = {
   onChange?: (snapshot: BoardSnapshot) => void;
   syncRoomId?: string;
   viewerId?: string;
+  focusShapeIds?: string[];
 };
 
 /** Quickdraw on the client only — no SSR. */

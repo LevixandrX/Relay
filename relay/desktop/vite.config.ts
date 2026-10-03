@@ -11,6 +11,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: relayDesktopAliases(here),
+    dedupe: ["react", "react-dom", "@tiptap/core", "@tiptap/pm"],
   },
   clearScreen: false,
   server: {

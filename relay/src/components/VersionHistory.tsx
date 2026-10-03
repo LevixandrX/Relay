@@ -26,9 +26,11 @@ export type HistoryBlock = {
   language?: string | null;
   ordered?: boolean;
   checked?: boolean;
+  checks?: boolean[];
   action?: "add" | "del" | "edit" | "move";
   shape?: string;
   count?: number;
+  targetIds?: string[];
   spans?: HistorySpan[];
   lines?: HistorySpan[][];
   items?: HistorySpan[][];
@@ -133,14 +135,19 @@ export function UpdateCard({
   title,
   viewerId,
   onViewVersion,
+  onOpen,
 }: {
   row: RevisionSummary;
   title: string;
   viewerId?: string | null;
   onViewVersion?: (row: RevisionSummary) => void;
+  onOpen?: (row: RevisionSummary, block: HistoryBlock) => void;
 }) {
   const t = useTranslations("app");
   const locale = useLocale();
+  const [expanded, setExpanded] = useState(false);
+  const hiddenCount = Math.max(0, row.blocks.length - 6);
+  const visibleBlocks = expanded ? row.blocks : row.blocks.slice(0, 6);
   const you = Boolean(viewerId && row.createdBy === viewerId);
   const pageTitle = row.title.trim() || title.trim() || t("untitled");
   const who = row.baseline
@@ -164,15 +171,39 @@ export function UpdateCard({
           className="vh-view"
           title={t("activityViewVersion")}
           aria-label={t("activityViewVersion")}
-          onClick={() => onViewVersion(row)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onViewVersion(row);
+          }}
         >
           <ClockIcon />
         </button>
       ) : null}
       <div className="vh-card">
-        {row.blocks.map((block, index) => (
-          <BlockView key={index} block={block} />
+        {visibleBlocks.map((block, index) => (
+          <div
+            key={index}
+            className="vh-change"
+            data-type={block.type}
+            data-tone={block.action === "del" ? "del" : [...(block.spans ?? []), ...(block.lines ?? []).flat(), ...(block.items ?? []).flat()].some((span) => span.m === "add") ? "add" : undefined}
+            data-clickable={onOpen ? "true" : undefined}
+            role={onOpen ? "button" : undefined}
+            tabIndex={onOpen ? 0 : undefined}
+            onClick={() => onOpen?.(row, block)}
+            onKeyDown={(event) => {
+              if (!onOpen || (event.key !== "Enter" && event.key !== " ")) return;
+              event.preventDefault();
+              onOpen(row, block);
+            }}
+          >
+            <BlockView block={block} />
+          </div>
         ))}
+        {hiddenCount > 0 ? (
+          <button type="button" className="vh-expand" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+            {expanded ? t("historyShowLess") : t("historyViewMore", { count: hiddenCount })}
+          </button>
+        ) : null}
         {row.more > 0 ? <span className="vh-more">{t("historyMore", { count: row.more })}</span> : null}
       </div>
     </article>
@@ -326,7 +357,7 @@ export function VersionHistory({
             </div>
           </div>
         ) : (
-          <OverlayScroll className="version-stage-scroll" contentClassName="version-stage-body">
+          <OverlayScroll arrows className="version-stage-scroll" contentClassName="version-stage-body">
             <article className="version-doc">
               <h1>{snapshot?.title || title || t("untitled")}</h1>
               {removed.length > 0 ? (
@@ -349,7 +380,7 @@ export function VersionHistory({
             ×
           </button>
         </header>
-        <div className="version-history-list">
+        <OverlayScroll arrows className="version-history-list-scroll" contentClassName="version-history-list">
           {error ? <p className="version-history-empty">{error}</p> : null}
           {loaded && !error && revisions.length === 0 ? (
             <p className="version-history-empty">{t("historyEmpty")}</p>
@@ -366,7 +397,7 @@ export function VersionHistory({
               <span>{row.createdByName || t("historySomeone")}</span>
             </button>
           ))}
-        </div>
+        </OverlayScroll>
         <footer className="version-history-foot">
           <span>{current && !current.restoreId ? t("historyCurrent") : t("historyHint")}</span>
           {canRestore && current?.restoreId ? (
@@ -551,6 +582,20 @@ function BlockView({ block }: { block: HistoryBlock }) {
     );
   }
   if (block.type === "todo") {
+    if (block.items?.length) {
+      return (
+        <div className="vh-todo-list">
+          {block.items.map((item, index) => (
+            <div className="vh-todo" key={index}>
+              <span className="vh-check" data-on={block.checks?.[index] || undefined} />
+              <span className="vh-text">
+                <Spans spans={item} />
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
     return (
       <div className="vh-todo">
         <span className="vh-check" data-on={block.checked || undefined} />
@@ -592,8 +637,8 @@ function BlockView({ block }: { block: HistoryBlock }) {
 
 function BoardBlock({ block }: { block: HistoryBlock }) {
   const t = useTranslations("app");
-  const many = (block.count ?? 1) > 1;
-  const label = shapeLabel(block.shape ?? "shape", many, t);
+  const count = Math.max(1, block.count ?? 1);
+  const many = count > 1;
   if (block.spans?.length) {
     return (
       <div className="vh-block">
@@ -604,22 +649,75 @@ function BoardBlock({ block }: { block: HistoryBlock }) {
       </div>
     );
   }
-  const count = block.count ?? 1;
-  const line =
-    block.action === "del"
-      ? many
-        ? t("historyBoardDelCount", { count, label })
-        : t("historyBoardDel", { label })
-      : block.action === "move"
-        ? many
-          ? t("historyBoardMoveCount", { count, label })
-          : t("historyBoardMove", { label })
-        : block.action === "edit"
-          ? t("historyBoardEdit", { label })
-          : many
-            ? t("historyBoardAddCount", { count, label })
-            : t("historyBoardAdd", { label });
+  const countedLabel = shapeCountLabel(block.shape ?? "shape", count, t);
+  const singleLabel = shapeLabel(block.shape ?? "shape", false, t);
+  const verb = boardActionVerb(block.action ?? "add", block.shape ?? "shape", many, t);
+  const line = many ? `${verb} ${count} ${countedLabel}` : `${verb} ${singleLabel}`;
   return <span className="vh-board-line">{line}</span>;
+}
+
+function boardActionVerb(
+  action: NonNullable<HistoryBlock["action"]>,
+  shape: string,
+  many: boolean,
+  t: ReturnType<typeof useTranslations<"app">>,
+) {
+  if (many) {
+    if (action === "del") return t("historyBoardDelMany");
+    if (action === "move") return t("historyBoardMoveMany");
+    if (action === "edit") return t("historyBoardEditMany");
+    return t("historyBoardAddMany");
+  }
+  const gender =
+    shape === "note" || shape === "geo" || shape === "arrow" || shape === "line" || shape === "frame"
+      ? "Feminine"
+      : shape === "image"
+        ? "Neuter"
+        : "Masculine";
+  if (action === "del") {
+    if (gender === "Feminine") return t("historyBoardDelFeminine");
+    if (gender === "Neuter") return t("historyBoardDelNeuter");
+    return t("historyBoardDelMasculine");
+  }
+  if (action === "move") {
+    if (gender === "Feminine") return t("historyBoardMoveFeminine");
+    if (gender === "Neuter") return t("historyBoardMoveNeuter");
+    return t("historyBoardMoveMasculine");
+  }
+  if (action === "edit") {
+    if (gender === "Feminine") return t("historyBoardEditFeminine");
+    if (gender === "Neuter") return t("historyBoardEditNeuter");
+    return t("historyBoardEditMasculine");
+  }
+  if (gender === "Feminine") return t("historyBoardAddFeminine");
+  if (gender === "Neuter") return t("historyBoardAddNeuter");
+  return t("historyBoardAddMasculine");
+}
+
+function shapeCountLabel(
+  shape: string,
+  count: number,
+  t: ReturnType<typeof useTranslations<"app">>,
+) {
+  const key =
+    shape === "note"
+      ? "historyNoteCount"
+      : shape === "text"
+        ? "historyTextShapeCount"
+        : shape === "geo"
+          ? "historyGeoCount"
+          : shape === "arrow"
+            ? "historyArrowCount"
+            : shape === "draw"
+              ? "historyDrawCount"
+              : shape === "image"
+                ? "historyImageShapeCount"
+                : shape === "line"
+                  ? "historyLineCount"
+                  : shape === "frame"
+                    ? "historyFrameCount"
+                    : "historyShapeCount";
+  return t(key, { count });
 }
 
 function cap(label: string) {

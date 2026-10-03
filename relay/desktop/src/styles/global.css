@@ -2492,6 +2492,13 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   scrollbar-gutter: stable;
 }
 
+.page-frame-scroll,
+.editor-card-scroll {
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
 .page-frame > * {
   flex-shrink: 0;
 }
@@ -4638,7 +4645,7 @@ button.home-tile:active .home-tile-art {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0.45rem 0.7rem 0.2rem 0;
+  padding: 0.45rem 1.35rem 0.2rem 0;
   scrollbar-gutter: stable;
 }
 

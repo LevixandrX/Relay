@@ -14,6 +14,14 @@ import { WorkspaceShareModal } from "@/components/WorkspaceShareModal";
 import { DialogProvider, useDialog } from "@/components/DialogHost";
 import { HelpButton, HelpPanel } from "@/components/BoardHelp";
 import { ActivityDisclosure } from "@/components/ActivityDisclosure";
+import {
+  clearActivityFocus,
+  focusFromRevision,
+  readActivityFocus,
+  stageActivityFocus,
+  subscribeActivityFocus,
+  type ActivityFocus,
+} from "@/lib/board/activity-focus";
 import { SearchPalette } from "@/components/SearchPalette";
 import { useTranslations } from "next-intl";
 import { workspaceDisplayName } from "@/domain/workspaces/naming";
@@ -173,6 +181,8 @@ function WorkspaceAppInner({
   const [historyTarget, setHistoryTarget] = useState<{ pageId: string | null; entryId: string } | null>(
     null,
   );
+  const [activityFocus, setActivityFocus] = useState<ActivityFocus | null>(null);
+  const activityFocusTimer = useRef<number | null>(null);
   const [chrome, setChrome] = useState<"expanded" | "rail" | "focus">("expanded");
   const rail = chrome === "rail";
   const [peek, setPeek] = useState(false);
@@ -377,6 +387,35 @@ function WorkspaceAppInner({
     setPublicId(initialPage?.publicId ?? null);
     updatedAtRef.current = initialPage?.updatedAt ?? "";
   }, [pageId, initialPage, isWorkspaceBoard, defaultMode]);
+
+  useEffect(() => {
+    const focus = readActivityFocus(isWorkspaceBoard ? null : pageId ?? null);
+    if (!focus) return;
+    setActivityFocus(focus);
+    setMode(focus.mode);
+    clearActivityFocus();
+    if (activityFocusTimer.current !== null) window.clearTimeout(activityFocusTimer.current);
+    activityFocusTimer.current =
+      focus.mode === "board" ? window.setTimeout(() => setActivityFocus(null), 5000) : null;
+    return () => {
+      if (activityFocusTimer.current !== null) window.clearTimeout(activityFocusTimer.current);
+    };
+  }, [isWorkspaceBoard, pageId]);
+
+  useEffect(
+    () =>
+      subscribeActivityFocus((focus) => {
+        const currentPageId = isWorkspaceBoard ? null : pageId ?? null;
+        if (focus.pageId !== currentPageId) return;
+        setActivityFocus(focus);
+        setMode(focus.mode);
+        clearActivityFocus();
+        if (activityFocusTimer.current !== null) window.clearTimeout(activityFocusTimer.current);
+        activityFocusTimer.current =
+          focus.mode === "board" ? window.setTimeout(() => setActivityFocus(null), 5000) : null;
+      }),
+    [isWorkspaceBoard, pageId],
+  );
 
   const markChecklist = useCallback(
     async (key: "editedPage" | "usedSlashOrPrompt" | "openedShare" | "dismissed") => {
@@ -871,6 +910,16 @@ function WorkspaceAppInner({
                     entryId: row.id,
                   });
                 }}
+                onOpenUpdate={(row, block) => {
+                  const focus = focusFromRevision(row, block);
+                  if (row.scope !== "board" && !focus.pageId) focus.pageId = pageId ?? null;
+                  stageActivityFocus(focus);
+                  if (focus.pageId) {
+                    router.push(`/w/${workspaceId}/p/${focus.pageId}`);
+                  } else {
+                    router.push(`/w/${workspaceId}/board`);
+                  }
+                }}
               />
               <HelpButton />
               <LanguageToggle variant="toolbar" />
@@ -890,20 +939,24 @@ function WorkspaceAppInner({
               onChange={
                 isWorkspaceBoard ? saveWorkspaceBoardSnapshot : savePageBoardSnapshot
               }
+              focusShapeIds={activityFocus?.shapeIds}
             />
           </div>
         )}
 
         {!isWorkspaceBoard && mode === "text" && initialPage && (
-          <div className="relay-page">
+          <OverlayScroll arrows className="relay-page-scroll" contentClassName="relay-page">
             <BlockEditor
               content={content}
               editable={canWrite}
               onChange={setContent}
               onSlashUsed={() => void markChecklist("usedSlashOrPrompt")}
               onRunPrompt={runPrompt}
+              focusPhrases={activityFocus?.phrases}
+              focusBlockType={activityFocus?.blockType}
+              onActivityFocusDismiss={() => setActivityFocus(null)}
             />
-          </div>
+          </OverlayScroll>
         )}
       </main>
 

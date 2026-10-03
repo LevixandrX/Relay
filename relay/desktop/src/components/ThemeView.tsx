@@ -5,6 +5,7 @@ import { locales, type AppLocale } from "../i18n/config";
 import { useTranslations } from "use-intl";
 import type { ChromeMode } from "../lib/chrome";
 import { ColorField } from "./ColorField";
+import { OverlayScroll } from "@relay-board/CompactRailScroll";
 
 const SCHEME_KEYS = {
   midnight: "schemeMidnight",
@@ -97,7 +98,7 @@ export function ThemeView({
     )?.id ?? null;
 
   return (
-    <div className="page-frame theme-page">
+    <OverlayScroll arrows className="page-frame-scroll" contentClassName="page-frame theme-page">
       <div className="toprow">
         <div className="page-title">
           <h1>{t("themeTitle")}</h1>
@@ -350,7 +351,7 @@ export function ThemeView({
         </div>
       </section>
       </div>
-    </div>
+    </OverlayScroll>
   );
 }
 
