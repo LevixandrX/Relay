@@ -1,5 +1,6 @@
+import { guestCommentRequest } from "@relay-editor/guest-comments";
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "use-intl";
+import { useTranslations, useLocale } from "use-intl";
 import { BlockEditor } from "../editor/BlockEditor";
 import { InfiniteBoard } from "../board/InfiniteBoard";
 import { useWorkspace } from "../lib/workspace";
@@ -28,14 +29,16 @@ export function PageView({
   onBack: () => void;
 }) {
   const t = useTranslations("desktop");
+  const locale = useLocale();
   const tc = useTranslations("common");
   const ta = useTranslations("app");
-  const { loadPage, updatePage, deletePage, offline, mode: wsMode, activeWorkspaceId } = useWorkspace();
+  const { loadPage, updatePage, deletePage, offline, mode: wsMode, activeWorkspaceId, activeRole, pages } = useWorkspace();
   const auth = useAuth();
   const dialog = useDialog();
   const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<Doc>(emptyDoc());
+  const [contentPageId, setContentPageId] = useState<string | null>(null);
   const [board, setBoard] = useState<BoardSnapshot | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "loading" | "error">(
     "loading",
@@ -138,6 +141,7 @@ export function PageView({
       setMissing(false);
       setTitle(p.title);
       setContent(p.content);
+      setContentPageId(pageId);
       setBoard(p.board);
       setMode(activityFocusMode.current ?? "text");
       activityFocusMode.current = null;
@@ -280,13 +284,21 @@ export function PageView({
 
       {mode === "text" ? (
         <OverlayScroll arrows className="editor-card-scroll" contentClassName="card editor-card">
-          <BlockEditor
+          {contentPageId === pageId ? <BlockEditor
+            key={pageId}
             content={content}
+            editable={wsMode === "guest" || activeRole !== "viewer"}
+            comments={{
+              pageId, identity: wsMode === "guest" ? "guest" : auth.user?.id ?? "signed-out",
+              request: <T,>(suffix: string, init?: RequestInit) => wsMode === "guest" ? guestCommentRequest<T>(pageId, pages, { id: "guest", name: locale === "ru" ? "Гость" : "Guest" }, suffix, init) : api<T>(`/pages/${pageId}/comments${suffix}`, { ...init, token: auth.token }),
+              blockLink: (blockId, threadId) => wsMode === "cloud" ? `${publicAppOrigin()}/w/${activeWorkspaceId}/p/${pageId}?mode=text#${new URLSearchParams({ block: blockId, ...(threadId ? { comment: threadId } : {}) })}` : `${window.location.href.split("#")[0]}#${new URLSearchParams({ page: pageId, block: blockId, ...(threadId ? { comment: threadId } : {}) })}`,
+              openPage: (id) => window.dispatchEvent(new CustomEvent("relay:open-page", { detail: id })),
+            }}
             onChange={scheduleContent}
             focusPhrases={activityFocus?.phrases}
             focusBlockType={activityFocus?.blockType}
             onActivityFocusDismiss={() => setActivityFocus(null)}
-          />
+          /> : <div className="relay-editor-skeleton" />}
         </OverlayScroll>
       ) : (
         <div className="board-wrap">

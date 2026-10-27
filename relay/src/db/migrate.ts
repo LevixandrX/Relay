@@ -2,6 +2,19 @@ import "dotenv/config";
 import { client } from "./client";
 
 const statements = [
+  `CREATE TABLE IF NOT EXISTS custom_emojis (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, data TEXT NOT NULL, type TEXT NOT NULL, created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS custom_emoji_name ON custom_emojis(workspace_id, name)`,
+  `CREATE TABLE IF NOT EXISTS block_activity (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id), block_id TEXT NOT NULL, created_by TEXT REFERENCES users(id), created_at TEXT, edited_by TEXT NOT NULL REFERENCES users(id), edited_at TEXT NOT NULL)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS block_activity_page ON block_activity(page_id, block_id)`,
+  `CREATE TABLE IF NOT EXISTS comment_threads (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id), block_id TEXT NOT NULL, quote TEXT NOT NULL, anchor_offset INTEGER, resolved INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS comment_threads_page ON comment_threads(page_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS comments (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL REFERENCES comment_threads(id), author_id TEXT NOT NULL REFERENCES users(id), body TEXT NOT NULL, mentions TEXT NOT NULL DEFAULT '[]', page_links TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL, edited_at TEXT)`,
+  `CREATE INDEX IF NOT EXISTS comments_thread ON comments(thread_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS comment_files (id TEXT PRIMARY KEY, comment_id TEXT NOT NULL REFERENCES comments(id), name TEXT NOT NULL, type TEXT NOT NULL, size INTEGER NOT NULL, data TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS comment_reactions (id TEXT PRIMARY KEY, comment_id TEXT NOT NULL REFERENCES comments(id), user_id TEXT NOT NULL REFERENCES users(id), emoji TEXT NOT NULL)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS comment_reaction_user ON comment_reactions(comment_id, user_id, emoji)`,
+  `CREATE TABLE IF NOT EXISTS comment_states (id TEXT PRIMARY KEY, thread_id TEXT NOT NULL REFERENCES comment_threads(id), user_id TEXT NOT NULL REFERENCES users(id), read_at TEXT, muted INTEGER NOT NULL DEFAULT 0)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS comment_state_user ON comment_states(thread_id, user_id)`,
   `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -138,6 +151,7 @@ const statements = [
 ];
 
 const softAlters = [
+  `ALTER TABLE comments ADD COLUMN dates TEXT NOT NULL DEFAULT '[]'`,
   `ALTER TABLE workspaces ADD COLUMN board TEXT`,
   `ALTER TABLE pages ADD COLUMN board TEXT`,
   `ALTER TABLE auth_pairings ADD COLUMN claim_secret_hash TEXT NOT NULL DEFAULT ''`,

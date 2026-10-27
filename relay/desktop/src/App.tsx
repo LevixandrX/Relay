@@ -113,10 +113,13 @@ export function App() {
       const id = (e as CustomEvent<string>).detail;
       if (id) setRoute({ kind: "page", pageId: id });
     };
+    const onHash = () => { const id = new URLSearchParams(window.location.hash.slice(1)).get("page"); if (id) setRoute({ kind: "page", pageId: id }); };
+    onHash(); window.addEventListener("hashchange", onHash);
     const onBoard = () => setRoute({ kind: "board" });
     window.addEventListener("relay:open-page", onPage);
     window.addEventListener("relay:open-board", onBoard);
     return () => {
+      window.removeEventListener("hashchange", onHash);
       window.removeEventListener("relay:open-page", onPage);
       window.removeEventListener("relay:open-board", onBoard);
     };

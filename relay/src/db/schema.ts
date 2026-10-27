@@ -199,3 +199,42 @@ export type Page = typeof pages.$inferSelect;
 export type Role = "owner" | "editor" | "viewer";
 export type PlanId = "free" | "pro";
 export type SubStatus = "active" | "trialing" | "canceled" | "past_due";
+
+/** Comments are independent of document revisions and scoped through the page's membership. */
+export const commentThreads = sqliteTable("comment_threads", {
+  id: text("id").primaryKey(), pageId: text("page_id").notNull().references(() => pages.id),
+  blockId: text("block_id").notNull(), quote: text("quote").notNull(), anchorOffset: integer("anchor_offset"),
+  resolved: integer("resolved", { mode: "boolean" }).notNull().default(false),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+});
+export const comments = sqliteTable("comments", {
+  id: text("id").primaryKey(), threadId: text("thread_id").notNull().references(() => commentThreads.id),
+  authorId: text("author_id").notNull().references(() => users.id), body: text("body").notNull(),
+  mentions: text("mentions").notNull().default("[]"), pageLinks: text("page_links").notNull().default("[]"),
+  createdAt: text("created_at").notNull(), editedAt: text("edited_at"), dates: text("dates").notNull().default("[]"),
+});
+export const commentFiles = sqliteTable("comment_files", {
+  id: text("id").primaryKey(), commentId: text("comment_id").notNull().references(() => comments.id),
+  name: text("name").notNull(), type: text("type").notNull(), size: integer("size").notNull(), data: text("data").notNull(),
+});
+export const commentReactions = sqliteTable("comment_reactions", {
+  id: text("id").primaryKey(), commentId: text("comment_id").notNull().references(() => comments.id),
+  userId: text("user_id").notNull().references(() => users.id), emoji: text("emoji").notNull(),
+}, (t) => [uniqueIndex("comment_reaction_user").on(t.commentId, t.userId, t.emoji)]);
+export const commentStates = sqliteTable("comment_states", {
+  id: text("id").primaryKey(), threadId: text("thread_id").notNull().references(() => commentThreads.id),
+  userId: text("user_id").notNull().references(() => users.id), readAt: text("read_at"),
+  muted: integer("muted", { mode: "boolean" }).notNull().default(false),
+}, (t) => [uniqueIndex("comment_state_user").on(t.threadId, t.userId)]);
+
+export const customEmojis = sqliteTable("custom_emojis", {
+  id: text("id").primaryKey(), workspaceId: text("workspace_id").notNull().references(() => workspaces.id),
+  name: text("name").notNull(), data: text("data").notNull(), type: text("type").notNull(),
+  createdBy: text("created_by").notNull().references(() => users.id), createdAt: text("created_at").notNull(),
+}, (t) => [uniqueIndex("custom_emoji_name").on(t.workspaceId, t.name)]);
+export const blockActivity = sqliteTable("block_activity", {
+  id: text("id").primaryKey(), pageId: text("page_id").notNull().references(() => pages.id), blockId: text("block_id").notNull(),
+  createdBy: text("created_by").references(() => users.id), createdAt: text("created_at"),
+  editedBy: text("edited_by").notNull().references(() => users.id), editedAt: text("edited_at").notNull(),
+}, (t) => [uniqueIndex("block_activity_page").on(t.pageId, t.blockId)]);

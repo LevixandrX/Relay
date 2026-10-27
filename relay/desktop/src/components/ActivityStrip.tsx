@@ -30,6 +30,7 @@ export function ActivityStrip({ pageId }: { pageId?: string | null }) {
         unread={false}
         labelAction={(action) => labelPulseAction(action, t)}
         scopeTitle={pageId ? "" : t("infiniteBoard")}
+        scopePageId={pageId}
         viewerId={auth.user?.id}
         seenId={seenId ?? readPulseSeen(workspaceId)}
         onSeen={(id) => {

@@ -1,5 +1,7 @@
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import type { Doc, JSONContent } from "@/domain/blocks/schema";
+import {columnIndentBase} from '../domain/blocks/columns';
+import {ColumnRowView} from './ColumnRowView';
 
 function Inline({ nodes }: { nodes?: JSONContent[] }) {
   if (!nodes) return null;
@@ -29,7 +31,11 @@ function Inline({ nodes }: { nodes?: JSONContent[] }) {
 }
 
 function Block({ node }: { node: JSONContent }) {
+  const indent = Number(node.attrs?.blockIndent) || 0;
+  if (indent) return <div className="relay-indented-block" style={{'--block-indent':indent,marginInlineStart:`${indent*24}px`} as CSSProperties}><Block node={{ ...node, attrs: { ...node.attrs, blockIndent: 0 } }} /></div>;
   switch (node.type) {
+    case "columns": return <ColumnRowView start={typeof node.attrs?.layoutStart==='number'?node.attrs.layoutStart:null} end={typeof node.attrs?.layoutEnd==='number'?node.attrs.layoutEnd:null} count={node.content?.length??2}>{node.content?.map((child,i) => <Block key={i} node={child} />)}</ColumnRowView>;
+    case "column": return <div className="relay-column" style={{ flexGrow:(Number(node.attrs?.width)||1)*100,'--column-base-indent':columnIndentBase((node.content??[]).map(child=>Number(child.attrs?.blockIndent)||0)) } as CSSProperties}>{node.content?.map((child,i) => <Block key={i} node={child} />)}</div>;
     case "heading": {
       const level = Number(node.attrs?.level ?? 1);
       const Tag = (level === 1 ? "h1" : level === 2 ? "h2" : "h3") as "h1" | "h2" | "h3";

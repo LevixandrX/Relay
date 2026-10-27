@@ -1,4 +1,9 @@
 "use client";
+import { BlockColumns, BlockColumn } from "./block-columns";
+import { BlockAppearance } from "./block-appearance";
+import { CommentAnchors } from "./comment-anchor";
+import type { CommentContext } from "./comment-types";
+import { usePageResume } from "./use-page-resume";
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -6,10 +11,13 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
-import { useEffect, useRef, useState } from "react";
-import { Callout, PromptBlock } from "./extensions";
+import { useEffect, useRef } from "react";
+import { PromptBlock } from "./extensions";
 import type { Doc } from "@/domain/blocks/schema";
-import { SlashMenu } from "./slash-menu";
+import { BlockFilterExtension } from "./block-filter";
+import { EditorTools } from "./EditorTools";
+import { BlockCallout } from "./block-callout";
+import { useTranslations } from "use-intl";
 import {
   ActivityFocusExtension,
   focusEditorActivity,
@@ -18,6 +26,7 @@ import {
 
 type Props = {
   content: Doc;
+  comments?: CommentContext;
   editable?: boolean;
   onChange?: (doc: Doc) => void;
   onSlashUsed?: () => void;
@@ -29,6 +38,7 @@ type Props = {
 
 export function BlockEditor({
   content,
+  comments,
   editable = true,
   onChange,
   onSlashUsed,
@@ -37,7 +47,7 @@ export function BlockEditor({
   focusBlockType,
   onActivityFocusDismiss,
 }: Props) {
-  const [slash, setSlash] = useState<{ top: number; left: number; query: string } | null>(null);
+  const t = useTranslations("editorTools");
   const wrapRef = useRef<HTMLDivElement>(null);
   const onRunRef = useRef(onRunPrompt);
   onRunRef.current = onRunPrompt;
@@ -49,19 +59,21 @@ export function BlockEditor({
     editable,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        link: false, heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
-        placeholder: ({ node }) => {
-          if (node.type.name === "heading") return "Заголовок";
-          return "Пиши или нажми «/» для блоков…";
-        },
+        placeholder: ({ node }) => node.type.name === "heading" ? t("headingPlaceholder") : t("placeholder"),
       }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Link.configure({ openOnClick: false }),
-      Callout,
+      BlockCallout,
       ActivityFocusExtension,
+      BlockFilterExtension,
+      BlockColumns.configure({ resizeLabel: t("resizeColumns"),resizeStartLabel:t('resizeRowStart'),resizeEndLabel:t('resizeRowEnd') }),
+      BlockColumn,
+      BlockAppearance,
+      CommentAnchors,
       PromptBlock.configure({
         onRun: (prompt: string) => {
           void onRunRef.current?.(prompt);
@@ -69,23 +81,7 @@ export function BlockEditor({
       }),
     ],
     content: content as object,
-    onUpdate: ({ editor: ed }) => {
-      onChange?.(ed.getJSON() as Doc);
-      const { from } = ed.state.selection;
-      const textBefore = ed.state.doc.textBetween(Math.max(0, from - 40), from, "\n", "\n");
-      const match = textBefore.match(/(?:^|\n)\/([^\s/]*)$/);
-      if (match && editable) {
-        const coords = ed.view.coordsAtPos(from);
-        const rect = wrapRef.current?.getBoundingClientRect();
-        setSlash({
-          top: coords.bottom - (rect?.top ?? 0) + 8,
-          left: coords.left - (rect?.left ?? 0),
-          query: match[1] ?? "",
-        });
-      } else {
-        setSlash(null);
-      }
-    },
+    onUpdate: ({ editor: ed }) => { onChange?.(ed.getJSON() as Doc); },
   });
 
   useEffect(() => {
@@ -95,9 +91,9 @@ export function BlockEditor({
 
   useEffect(() => {
     if (!editor) return;
-    const current = JSON.stringify(editor.getJSON());
-    const next = JSON.stringify(content);
-    if (current !== next) {
+    // Normalize schema defaults before comparing, so an equivalent document
+    // doesn't reset the selection immediately after restoring it.
+    if (!editor.state.doc.eq(editor.schema.nodeFromJSON(content))) {
       editor.commands.setContent(content as object);
     }
   }, [content, editor]);
@@ -114,34 +110,14 @@ export function BlockEditor({
     };
   }, [content, editor, focusPhrases, focusBlockType]);
 
+  usePageResume(editor, comments, Boolean(focusPhrases?.length));
+
   if (!editor) return <div className="relay-editor-skeleton" />;
 
   return (
-    <div className="relay-editor" ref={wrapRef}>
+    <div className="relay-editor" data-block-tools={editable} ref={wrapRef}>
+      <EditorTools editor={editor} container={wrapRef} editable={editable} comments={comments} onSlashUsed={onSlashUsed} allowPrompt={Boolean(onRunPrompt)} />
       <EditorContent editor={editor} />
-      {slash && (
-        <SlashMenu
-          top={slash.top}
-          left={slash.left}
-          query={slash.query}
-          onClose={() => setSlash(null)}
-          onPick={(command) => {
-            onSlashUsed?.();
-            const { from } = editor.state.selection;
-            const textBefore = editor.state.doc.textBetween(Math.max(0, from - 40), from, "\n", "\n");
-            const match = textBefore.match(/(?:^|\n)(\/[^\s/]*)$/);
-            if (match) {
-              editor
-                .chain()
-                .focus()
-                .deleteRange({ from: from - match[1].length, to: from })
-                .run();
-            }
-            command(editor);
-            setSlash(null);
-          }}
-        />
-      )}
     </div>
   );
 }

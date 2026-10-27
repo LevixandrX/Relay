@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {commentTime} from '../src/editor/comment-time';
+const now=new Date('2026-10-13T12:00:00Z').getTime();
+const ago=(seconds:number)=>new Date(now-seconds*1000).toISOString();
+assert.equal(commentTime(ago(20),'en','Just now',now),'Just now');
+assert.equal(commentTime(ago(60),'en','Just now',now),'1m');
+assert.equal(commentTime(ago(6*3600),'en','Just now',now),'6h');
+assert.equal(commentTime(ago(5*86400),'en','Just now',now),'5d');
+assert.equal(commentTime(ago(7*86400),'en','Just now',now),'7d');
+assert.equal(commentTime(ago(8*86400),'en','Just now',now),'Oct 5');
+assert.equal(commentTime(ago(90),'ru','Только что',now),'1м');
+assert.equal(commentTime(ago(6*3600),'ru','Только что',now),'6ч');
+assert.equal(commentTime(ago(5*86400),'ru','Только что',now),'5д');
+assert.equal(commentTime(ago(-10),'en','Just now',now),'Just now');
+assert.equal(commentTime('bad date','en','Just now',now),'');
+assert.match(commentTime('2025-10-01T12:00:00Z','en','Just now',now),/2025/);
+console.log('Comment timestamps: compact EN/RU, week boundary, previous year and invalid values passed');

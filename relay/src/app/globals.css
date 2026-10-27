@@ -2538,60 +2538,6 @@ kbd {
   color: var(--muted);
 }
 
-.relay-slash {
-  position: absolute;
-  z-index: 30;
-  width: 280px;
-  background: var(--chrome-overlay-bg);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow-lg);
-  padding: 0.4rem;
-}
-
-.relay-slash-title {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  padding: 0.35rem 0.55rem;
-  font-weight: 800;
-}
-
-.relay-slash-item {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  padding: 0.5rem 0.55rem;
-  cursor: pointer;
-  text-align: left;
-}
-
-.relay-slash-item:hover {
-  background: var(--hover);
-}
-
-.relay-slash-hint {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.relay-slash-cancel,
-.relay-slash-empty {
-  font-size: 0.75rem;
-  color: var(--muted);
-  padding: 0.35rem 0.55rem;
-  border: none;
-  background: transparent;
-}
-
 .relay-modal-backdrop {
   position: fixed;
   inset: 0;

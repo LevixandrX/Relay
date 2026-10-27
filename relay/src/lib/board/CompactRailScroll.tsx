@@ -28,13 +28,14 @@ export function CompactRailScroll({
   const repeatIntervalRef = useRef<number | null>(null);
   const [metrics, setMetrics] = useState({ top: 0, height: 0, show: false });
   const [nativeArrows, setNativeArrows] = useState(false);
+  const frame=useRef(0);
   const showArrows = arrows && nativeArrows;
 
   useEffect(() => {
     setNativeArrows(/Windows NT/i.test(window.navigator.userAgent));
   }, []);
 
-  const measure = useCallback(() => {
+  const measureNow = useCallback(() => {
     const el = target.current;
     if (!el) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
@@ -42,7 +43,7 @@ export function CompactRailScroll({
     if (!overflow) {
       const next = { top: 0, height: 0, show: false };
       metricsRef.current = next;
-      setMetrics(next);
+      setMetrics(old=>old.show?next:old);
       return;
     }
     const inset = showArrows ? 18 : 0;
@@ -52,8 +53,9 @@ export function CompactRailScroll({
     const top = inset + (scrollTop / Math.max(1, scrollHeight - clientHeight)) * travel;
     const next = { top, height, show: true };
     metricsRef.current = next;
-    setMetrics(next);
+    setMetrics(old=>old.show===next.show&&Math.abs(old.top-next.top)<.1&&Math.abs(old.height-next.height)<.1?old:next);
   }, [showArrows, target]);
+  const measure=useCallback(()=>{if(!frame.current)frame.current=requestAnimationFrame(()=>{frame.current=0;measureNow();});},[measureNow]);
 
   useEffect(() => {
     const el = target.current;
@@ -65,6 +67,7 @@ export function CompactRailScroll({
     const mo = new MutationObserver(measure);
     mo.observe(el, { childList: true, subtree: true, characterData: true });
     return () => {
+      cancelAnimationFrame(frame.current);frame.current=0;
       el.removeEventListener("scroll", measure);
       ro.disconnect();
       mo.disconnect();
@@ -197,6 +200,23 @@ export function OverlayScroll({
   edge?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const port=ref.current;
+    if(!port)return;
+    const observed=new Set<Element>();
+    const measure=()=>{
+      for(const child of observed)if(child.parentElement!==port){observer.unobserve(child);observed.delete(child);}
+      for(const child of port.children)if(!observed.has(child)){observed.add(child);observer.observe(child);}
+      const value=String(port.scrollHeight-port.clientHeight>2);if(port.dataset.scrollable!==value)port.dataset.scrollable=value;if(port.scrollLeft)port.scrollLeft=0;
+    };
+    // These are vertical rails. Trackpad drift must not pan clipped content sideways.
+    const wheel=(event:WheelEvent)=>{if(!event.ctrlKey&&Math.abs(event.deltaX)>Math.abs(event.deltaY))event.preventDefault();};
+    const observer=new ResizeObserver(measure);observer.observe(port);
+    const mutation=new MutationObserver(measure);mutation.observe(port,{childList:true,subtree:true,characterData:true});
+    const resetHorizontal=()=>{if(port.scrollLeft)port.scrollLeft=0;};
+    port.addEventListener('scroll',resetHorizontal,{passive:true});port.addEventListener('wheel',wheel,{passive:false});measure();
+    return()=>{observer.disconnect();mutation.disconnect();port.removeEventListener('scroll',resetHorizontal);port.removeEventListener('wheel',wheel);};
+  },[]);
   return (
     <div className={["overlay-scroll", className].filter(Boolean).join(" ")}>
       <div

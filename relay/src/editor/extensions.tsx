@@ -52,7 +52,7 @@ export const Callout = Node.create({
     ];
   },
   addNodeView() {
-    return ReactNodeViewRenderer(CalloutView);
+    return ReactNodeViewRenderer(CalloutView, { attrs: ({ HTMLAttributes }) => HTMLAttributes });
   },
 });
 
@@ -116,6 +116,6 @@ export const PromptBlock = Node.create({
     return ["div", mergeAttributes(HTMLAttributes, { "data-type": "promptBlock" })];
   },
   addNodeView() {
-    return ReactNodeViewRenderer(PromptView);
+    return ReactNodeViewRenderer(PromptView, { attrs: ({ HTMLAttributes }) => HTMLAttributes });
   },
 });

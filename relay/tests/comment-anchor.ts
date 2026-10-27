@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {Schema} from '@tiptap/pm/model';
+import type {Editor} from '@tiptap/core';
+import type {CommentThread} from '../src/editor/comment-types';
+import {commentThreadAt} from '../src/editor/comment-anchor';
+const schema=new Schema({nodes:{doc:{content:'paragraph+'},paragraph:{content:'text*',attrs:{blockId:{default:null}}},text:{}}});
+const editor=(text:string)=>({state:{doc:schema.node('doc',null,[schema.node('paragraph',{blockId:'block'},[schema.text(text)])])}} as Editor);
+const thread=(id:string,quote:string,anchorOffset:number|null)=>({id,blockId:'block',quote,anchorOffset,resolved:false,messages:[]} as unknown as CommentThread);
+const threads=[thread('first','alpha',0),thread('second','alpha',11),thread('beta','beta',6),thread('whole','alpha beta alpha',0)];
+assert.equal(commentThreadAt(editor('alpha beta alpha'),threads,'block',3)?.id,'first');
+assert.equal(commentThreadAt(editor('alpha beta alpha'),threads,'block',8)?.id,'beta');
+assert.equal(commentThreadAt(editor('alpha beta alpha'),threads,'block',14)?.id,'second');
+assert.equal(commentThreadAt(editor('prefix alpha beta alpha'),threads,'block',15)?.id,'beta');
+assert.equal(commentThreadAt(editor('alpha beta alpha'),threads,'another-block',8),null);
+console.log('Comment text clicks: specific overlapping quotes, repeated saved ranges and relocation after edits passed');

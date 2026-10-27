@@ -103,3 +103,27 @@ Stripe Checkout — next step; schema is `subscriptions`.
 | Method | Path |
 |---|---|
 | PATCH | `/me/checklist` | `{ key: "edited_page" \| … }` |
+
+## Block comments
+
+- `GET /pages/:id/comments` returns threads, messages, reaction counts, file metadata, workspace mention choices, workspace custom emoji, and the current author. Access requires page membership. Resolved discussions are retained.
+- `POST /pages/:id/comments` accepts the discriminated `action`: `create`, `reply`, `edit`, `deleteMessage`, `resolve`, `react`, `unread`, `mute`, or `createEmoji`. Content changes require owner/editor; viewers may read and update their own read/mute state. Only the author edits a message; the workspace owner may also delete it.
+- `GET /pages/:id/comments?fileId=:fileId` returns an attachment's base64 payload after checking its thread belongs to this page. Files have no public URL.
+- `GET /pages/:id/comments?previewPage=:linkedPageId` returns a short page preview within the same workspace.
+- `GET /pages/:id/comments?blockActivity=:blockId` returns the saved creator/editor names and timestamps, or `null` if no block activity has been recorded yet. Page membership is checked before looking up the block. Moving an unchanged block preserves its last editor. Older content starts recording metadata on its next meaningful edit; historical authors are not inferred.
+- `create` / `reply` accept `dates` (up to 30 valid ISO calendar dates) alongside member mentions and page IDs. The shared composer inserts all three through the same `@` menu.
+- `createEmoji` accepts `{ name, data, type: "image/png" }`: a unique workspace name of 1–40 letters/numbers/underscore/hyphen and a base64 PNG up to 32 KiB and 64×64 pixels. Owner/editor permission is required. Limit: 64 custom emoji/workspace. `react.emoji` accepts catalog Unicode emoji or `custom:<uuid>` belonging to this workspace.
+- Limit: 200 threads/page, 100 messages/thread, 10,000 characters/message, 3 attachments/message of up to 2 MiB each, and 20 MiB attachments/page. Request bodies are bounded to 9 MiB, including chunked requests.
+- Anchors use stable `blockId` values in document attributes. Block movement/conversion preserves IDs; duplication creates new IDs. Deleted anchors keep their discussion in the comments list. Comments are stored independently from page revisions.
+- Mentions refer to workspace members; page links are validated within that workspace. Muting hides the local unread indicator for that discussion. Updates are polled while the app is visible; this does not send email or push notifications.
+- Desktop cloud uses this same API with Bearer auth. Desktop guest discussions are persisted locally.
+- Comment people/authors include their current workspace `role` when they are members. Hover cards do not infer other people's time zones or roles.
+
+After pulling this change, run `npm run db:migrate` before starting the API.
+Check comment storage and authorization with `node node_modules/tsx/dist/cli.mjs tests/comments-domain.ts` (uses an isolated temporary DB).
+
+## Text layout
+
+Page content accepts `columns` (2–500 `column` children, matching the document's per-node child limit), with each column containing blocks and a positive relative `width` (0.01–100). Resize previews update at display cadence and commit once on release, keeping widths within the same API bounds and producing one undo step. `blockIndent` is an integer from 0 to 8, rendered in 24px steps. Web, desktop and public pages share these layout semantics. Moves and resizing preserve block IDs and save through the existing page endpoint.
+
+`columns.attrs.layoutStart` / `layoutEnd` optionally store outer row edges as workspace fractions from 0 to 1; `null` follows the normal text edge. When both exist, start must be less than end. Rendering enforces a readable minimum width and bounds the row to its workspace. Column rows and individual columns have stable block IDs and may own discussions, colors and block selections.

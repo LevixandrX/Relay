@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "use-intl";
 import { UpdateCard, type HistoryBlock, type RevisionSummary } from "./VersionHistory";
+import { activityTime } from '../lib/display-time';
+import { DateLabel } from './DateLabel';
+import { CommentAvatar } from '../editor/CommentAvatar';
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "all";
 
@@ -24,6 +27,7 @@ export function ActivityPanel({
   viewerId,
   onViewVersion,
   onOpenUpdate,
+  onOpenPage,
   listAnalytics,
 }: {
   tab: "updates" | "analytics";
@@ -34,6 +38,7 @@ export function ActivityPanel({
   viewerId?: string | null;
   onViewVersion: (row: RevisionSummary) => void;
   onOpenUpdate: (row: RevisionSummary, block: HistoryBlock) => void;
+  onOpenPage?: (row: RevisionSummary) => void;
   listAnalytics: (range: AnalyticsRange) => Promise<AnalyticsReport>;
 }) {
   const t = useTranslations("app");
@@ -70,6 +75,7 @@ export function ActivityPanel({
               viewerId={viewerId}
               onViewVersion={onViewVersion}
               onOpen={onOpenUpdate}
+              onOpenPage={onOpenPage}
             />
           ))}
         </div>
@@ -104,15 +110,7 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
   }, [range]);
 
   const relative = (iso?: string | null) => {
-    if (!iso) return "";
-    const ts = Date.parse(iso);
-    if (Number.isNaN(ts)) return "";
-    const minutes = Math.max(0, Math.round((Date.now() - ts) / 60000));
-    if (minutes < 1) return t("relativeJustNow");
-    if (minutes < 60) return t("relativeMinutes", { count: minutes });
-    const hours = Math.round(minutes / 60);
-    if (hours < 24) return t("relativeHours", { count: hours });
-    return t("relativeDays", { count: Math.round(hours / 24) });
+    return iso?activityTime(iso,locale,t('relativeJustNow'),'long'):'';
   };
 
   return (
@@ -154,6 +152,7 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
             name={person.name || t("historySomeone")}
             url={person.avatarUrl}
             when={relative(person.seenAt)}
+            at={person.seenAt}
           />
         ))}
       </section>
@@ -168,6 +167,7 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
               when={new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(
                 new Date(report.createdBy.at),
               )}
+              at={report.createdBy.at}
             />
           </>
         ) : null}
@@ -180,6 +180,7 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
             name={person.name || t("historySomeone")}
             url={person.avatarUrl}
             when={relative(person.at)}
+            at={person.at}
           />
         ))}
       </section>
@@ -187,13 +188,12 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
   );
 }
 
-function Person({ name, url, when }: { name: string; url?: string | null; when: string }) {
-  const letter = name.trim().slice(0, 1).toUpperCase() || "?";
+function Person({ name, url, when, at }: { name: string; url?: string | null; when: string; at:string }) {
   return (
     <div className="activity-person">
-      {url ? <img className="vh-avatar" src={url} alt="" /> : <span className="vh-avatar">{letter}</span>}
+      <CommentAvatar className="vh-profile-avatar" person={{id:`activity:${name}`,name,avatarUrl:url}} me=""/>
       <span>{name}</span>
-      <span>{when}</span>
+      <DateLabel value={at}>{when}</DateLabel>
     </div>
   );
 }

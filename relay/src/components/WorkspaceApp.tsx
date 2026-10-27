@@ -152,6 +152,7 @@ function WorkspaceAppInner({
   const [content, setContent] = useState<Doc>(
     initialPage?.content ?? { type: "doc", content: [{ type: "paragraph" }] },
   );
+  const [contentPageId, setContentPageId] = useState(pageId);
   const [pageBoard, setPageBoard] = useState<BoardSnapshot | null>(
     initialPage?.board ?? null,
   );
@@ -270,12 +271,15 @@ function WorkspaceAppInner({
   }
 
   function showSidebarPeek() {
+    if(document.documentElement.classList.contains('editor-block-menu-open'))return;
     if (peekHideTimer.current) {
       clearTimeout(peekHideTimer.current);
       peekHideTimer.current = null;
     }
     setPeek(true);
   }
+
+  useEffect(()=>{const menu=(event:Event)=>{if((event as CustomEvent<{open:boolean}>).detail.open)setPeek(false);};window.addEventListener('relay:editor-menu-state',menu);return()=>window.removeEventListener('relay:editor-menu-state',menu);},[]);
 
   function scheduleHideSidebarPeek() {
     if (peekHideTimer.current) clearTimeout(peekHideTimer.current);
@@ -382,6 +386,7 @@ function WorkspaceAppInner({
     setMode(isWorkspaceBoard ? "board" : defaultMode);
     setTitle(initialPage?.title ?? "");
     setContent(initialPage?.content ?? { type: "doc", content: [{ type: "paragraph" }] });
+    setContentPageId(pageId);
     setPageBoard(initialPage?.board ?? null);
     setUpdatedAt(initialPage?.updatedAt ?? "");
     setPublicId(initialPage?.publicId ?? null);
@@ -885,6 +890,7 @@ function WorkspaceAppInner({
                 unread={false}
                 labelAction={labelAction}
                 scopeTitle={isWorkspaceBoard ? t("infiniteBoard") : title}
+                scopePageId={pageId}
                 viewerId={viewerId}
                 seenId={pulseSeen}
                 onSeen={markPulseSeen}
@@ -946,8 +952,19 @@ function WorkspaceAppInner({
 
         {!isWorkspaceBoard && mode === "text" && initialPage && (
           <OverlayScroll arrows className="relay-page-scroll" contentClassName="relay-page">
-            <BlockEditor
+            {contentPageId === pageId ? <BlockEditor
+              key={pageId}
               content={content}
+              comments={pageId ? {
+                pageId, identity: viewerId,
+                request: async <T,>(suffix: string, init?: RequestInit): Promise<T> => {
+                  const res = await fetch(`/api/v1/pages/${pageId}/comments${suffix}`, init);
+                  if (!res.ok) throw new Error("comments");
+                  return res.json() as Promise<T>;
+                },
+                blockLink: (blockId, threadId) => `${window.location.origin}/w/${workspaceId}/p/${pageId}?mode=text#${new URLSearchParams({ block: blockId, ...(threadId ? { comment: threadId } : {}) })}`,
+                openPage: (id) => router.push(`/w/${workspaceId}/p/${id}?mode=text`),
+              } : undefined}
               editable={canWrite}
               onChange={setContent}
               onSlashUsed={() => void markChecklist("usedSlashOrPrompt")}
@@ -955,7 +972,7 @@ function WorkspaceAppInner({
               focusPhrases={activityFocus?.phrases}
               focusBlockType={activityFocus?.blockType}
               onActivityFocusDismiss={() => setActivityFocus(null)}
-            />
+            /> : <div className="relay-editor-skeleton" />}
           </OverlayScroll>
         )}
       </main>

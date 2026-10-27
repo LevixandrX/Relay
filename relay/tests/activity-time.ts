@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {activityTime,exactTime} from '../src/lib/display-time';
+const now=new Date('2026-10-13T12:00:00Z').getTime();
+const ago=(s:number)=>new Date(now-s*1000).toISOString();
+assert.equal(activityTime(ago(28*60),'en','Just now','compact',now),'28m ago');
+assert.equal(activityTime(ago(21*3600),'ru','Только что','compact',now),'21ч назад');
+assert.equal(activityTime(ago(28*60),'en','Just now','long',now),'28 minutes ago');
+assert.equal(activityTime(ago(21*60),'ru','Только что','long',now),'21 минуту назад');
+assert.equal(activityTime(ago(8*86400),'en','Just now','compact',now),'Oct 5');
+assert.equal(activityTime(ago(8*86400),'en','Just now','long',now),'October 5');
+assert.equal(activityTime('bad','en','Just now','long',now),'');
+assert.equal(exactTime('bad','ru'),'');
+assert.ok(exactTime(ago(0),'ru').includes('2026'));
+console.log('Activity timestamps: compact/long EN/RU, dates and invalid values passed');

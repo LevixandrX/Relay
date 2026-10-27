@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {MAX_COLUMNS, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH} from './columns';
 
 const EMBED_HOSTS = new Set([
   "www.youtube.com",
@@ -51,7 +52,25 @@ export const blockNode: z.ZodType<JSONContent> = z.lazy(() =>
       marks: z.array(markSchema).optional(),
     })
     .superRefine((node, ctx) => {
+      for (const attr of ["textColor", "blockBackground"]) {
+        const value = node.attrs?.[attr];
+        if (value != null && (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value))) ctx.addIssue({ code: "custom", message: "Invalid block color" });
+      }
+      if (node.attrs?.blockId != null && (typeof node.attrs.blockId !== "string" || !/^blk_[a-zA-Z0-9-]{8,80}$/.test(node.attrs.blockId))) ctx.addIssue({ code: "custom", message: "Invalid block ID" });
+      const indent = node.attrs?.blockIndent;
+      if (indent != null && (typeof indent !== "number" || !Number.isInteger(indent) || indent < 0 || indent > 8)) ctx.addIssue({ code: "custom", message: "Invalid block indent" });
+      if (node.type === "columns" && (!node.content || node.content.length < 2 || node.content.length > MAX_COLUMNS || node.content.some((child) => child.type !== "column"))) ctx.addIssue({ code: "custom", message: `Columns require 2–${MAX_COLUMNS} column nodes` });
+      if(node.type==='columns'){
+        for(const attr of ['layoutStart','layoutEnd']){const value=node.attrs?.[attr];if(value!=null&&(typeof value!=='number'||!Number.isFinite(value)||value<0||value>1))ctx.addIssue({code:'custom',message:'Invalid row edge'});}
+        if(typeof node.attrs?.layoutStart==='number'&&typeof node.attrs?.layoutEnd==='number'&&node.attrs.layoutStart>=node.attrs.layoutEnd)ctx.addIssue({code:'custom',message:'Row edges must not cross'});
+      }
+      if (node.type === "column") {
+        const width = node.attrs?.width;
+        if (width != null && (typeof width !== "number" || !Number.isFinite(width) || width < MIN_COLUMN_WIDTH || width > MAX_COLUMN_WIDTH)) ctx.addIssue({ code: "custom", message: "Invalid column width" });
+        if (!node.content?.length || node.content.some((child) => ["text","hardBreak","column","listItem","taskItem"].includes(child.type))) ctx.addIssue({ code: "custom", message: "Column requires blocks" });
+      }
       const allowed = new Set([
+        "columns", "column",
         "paragraph",
         "heading",
         "bulletList",
@@ -104,7 +123,13 @@ export function parseDoc(input: unknown): Doc {
   if (raw.length > 500_000) {
     throw new Error("Document too large");
   }
-  return docSchema.parse(input);
+  const doc = docSchema.parse(input);
+  const checkLayout = (node: JSONContent, parent: string) => {
+    if (node.type === "column" && parent !== "columns") throw new Error("Column must belong to columns");
+    node.content?.forEach((child) => checkLayout(child,node.type));
+  };
+  doc.content?.forEach((node) => checkLayout(node,"doc"));
+  return doc;
 }
 
 export function emptyDoc(): Doc {

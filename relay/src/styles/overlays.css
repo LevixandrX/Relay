@@ -1,3 +1,5 @@
+@import "../editor/tools.css";
+
 .version-history-backdrop {
   position: fixed;
   inset: 0;
@@ -460,6 +462,7 @@
   column-gap: 0.65rem;
   row-gap: 0.55rem;
   width: 100%;
+  box-sizing: border-box;
   border: none;
   border-bottom: 1px solid var(--line);
   background: transparent;
@@ -486,7 +489,7 @@
 .relay-editor .tiptap .relay-activity-focus-block {
   position: relative;
   z-index: 0;
-  border-radius: var(--activity-radius);
+  border-radius: var(--block-highlight-radius, var(--activity-radius));
   background: transparent;
   box-shadow: none;
 }
@@ -495,10 +498,10 @@
 .relay-activity-focus-block::after {
   content: "";
   position: absolute;
-  inset: -4px -10px;
+  inset: var(--block-highlight-inset, -4px -10px);
   z-index: -1;
   pointer-events: none;
-  border-radius: var(--activity-radius);
+  border-radius: var(--block-highlight-radius, var(--activity-radius));
   background: var(--activity-fill);
   backdrop-filter: var(--activity-filter);
   -webkit-backdrop-filter: var(--activity-filter);
@@ -515,7 +518,7 @@
   pointer-events: none;
   box-sizing: border-box;
   border: 1.5px solid var(--accent);
-  border-radius: var(--activity-radius);
+  border-radius: var(--block-highlight-radius, var(--activity-radius));
   background: transparent;
   transform-origin: center;
   opacity: 0;
@@ -531,7 +534,7 @@
   position: absolute;
   inset: -5px;
   padding: 5px;
-  border-radius: var(--activity-radius);
+  border-radius: var(--block-highlight-radius, var(--activity-radius));
   background: var(--activity-fill);
   backdrop-filter: var(--activity-filter);
   -webkit-backdrop-filter: var(--activity-filter);
@@ -571,7 +574,15 @@
   font-size: 0.84rem;
   font-weight: 650;
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
+
+.vh-page-link { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .16s ease; }
+.vh-page-link:hover, .vh-page-link:focus-visible { text-decoration-color: currentColor; }
+.editor-comment-author-avatar.vh-profile-avatar { width: 30px; height: 30px; border-radius: 50%; }
+.vh-profile-avatar :is(img,.editor-comment-avatar) { width: 30px; height: 30px; object-fit: cover; border-radius: 50%; }
+.relay-activity-panel .relay-activity-panel-body { padding-right: 12px; box-sizing: border-box; }
+.vh-card { overflow-wrap: anywhere; }
 
 .vh-when {
   color: var(--muted);
@@ -880,6 +891,7 @@
   min-width: 0;
   min-height: 0;
   flex: 1 1 0;
+  isolation: isolate;
 }
 
 .overlay-scroll-target {
@@ -892,6 +904,14 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+.overlay-scroll-target[data-scrollable="false"] { overflow-y: hidden; overscroll-behavior: auto; }
+
+.relay-date-tooltip { position: fixed; z-index: 160; display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 7px 10px; box-sizing: border-box; border: 1px solid var(--line); border-radius: var(--radius-ui, 10px); background: var(--chrome-overlay-bg, var(--surface)); color: var(--text, var(--ink)); backdrop-filter: blur(var(--chrome-blur, 0px)); box-shadow: var(--chrome-shadow, 0 4px 16px #0003); font: 12px/1.45 var(--font-body, system-ui); animation: relay-date-in .16s ease both; }
+.relay-date-tooltip svg { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.relay-date-tooltip span { overflow-wrap: anywhere; }
+@keyframes relay-date-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .relay-date-tooltip { animation: none; } }
 
 .overlay-scroll-target::-webkit-scrollbar {
   width: 0;
@@ -964,7 +984,7 @@
 .vh-change {
   min-width: 0;
   padding: 0.4rem 0.55rem;
-  border-radius: var(--activity-radius);
+  border-radius: var(--block-highlight-radius, var(--activity-radius));
   outline: none;
   backdrop-filter: var(--activity-filter);
   -webkit-backdrop-filter: var(--activity-filter);

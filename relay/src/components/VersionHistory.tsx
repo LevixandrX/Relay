@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "use-intl";
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
 import { ContentModeSwitch } from "./ContentModeSwitch";
+import { DateLabel } from './DateLabel';
+import { activityTime } from '../lib/display-time';
+import { CommentAvatar } from '../editor/CommentAvatar';
 
 export type HistorySpan = { t: string; m?: "add" | "del"; href?: string };
 
@@ -79,35 +82,6 @@ const LANG: Record<string, string> = {
   tsx: "TSX",
 };
 
-function formatWhen(iso: string, locale: string, justNow: string) {
-  const ts = Date.parse(iso);
-  if (Number.isNaN(ts)) return iso;
-  const delta = Date.now() - ts;
-  if (delta >= 0 && delta < 10 * 60 * 1000) return justNow;
-  const date = new Date(ts);
-  const sameYear = date.getFullYear() === new Date().getFullYear();
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: sameYear ? undefined : "numeric",
-  }).format(date);
-}
-
-function Avatar({ name, url }: { name: string; url?: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const letter = name.trim().slice(0, 1).toUpperCase() || "?";
-  if (url && !failed) {
-    return (
-      <img className="vh-avatar" src={url} alt="" draggable={false} onError={() => setFailed(true)} />
-    );
-  }
-  return (
-    <span className="vh-avatar" aria-hidden>
-      {letter}
-    </span>
-  );
-}
-
 function Spans({ spans }: { spans?: HistorySpan[] }) {
   if (!spans?.length) return null;
   return (
@@ -136,12 +110,14 @@ export function UpdateCard({
   viewerId,
   onViewVersion,
   onOpen,
+  onOpenPage,
 }: {
   row: RevisionSummary;
   title: string;
   viewerId?: string | null;
   onViewVersion?: (row: RevisionSummary) => void;
   onOpen?: (row: RevisionSummary, block: HistoryBlock) => void;
+  onOpenPage?: (row: RevisionSummary) => void;
 }) {
   const t = useTranslations("app");
   const locale = useLocale();
@@ -160,10 +136,10 @@ export function UpdateCard({
         });
   return (
     <article className="version-history-item">
-      <Avatar name={row.createdByName || t("historySomeone")} url={row.createdByAvatar} />
+      <CommentAvatar className="vh-profile-avatar" person={{id:row.createdBy??'unknown',name:row.createdByName||t('historySomeone'),avatarUrl:row.createdByAvatar}} me={viewerId??''}/>
       <span className="vh-meta">
-        <span className="vh-who">{who}</span>
-        <span className="vh-when">{formatWhen(row.createdAt, locale, t("historyJustNow"))}</span>
+        <span className="vh-who">{row.baseline?who:<>{you?t('historyEditedYou',{title:''}).trim():t('historyEditedName',{name:row.createdByName||t('historySomeone'),title:''}).trim()}{' '}{onOpenPage&&(row.pageId||row.scope==='board')?<button type="button" className="vh-page-link" onClick={()=>onOpenPage(row)}>{pageTitle}</button>:pageTitle}</>}</span>
+        <DateLabel className="vh-when" value={row.createdAt}>{activityTime(row.createdAt,locale,t('historyJustNow'),'long')}</DateLabel>
       </span>
       {onViewVersion ? (
         <button

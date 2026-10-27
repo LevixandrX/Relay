@@ -1,5 +1,5 @@
 import { Extension, type Editor } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 export type ActivityTextBlockType =
@@ -47,7 +47,16 @@ export const ActivityFocusExtension = Extension.create({
         },
         props: {
           decorations(state) {
-            return activityFocusKey.getState(state) ?? null;
+            const activity = activityFocusKey.getState(state) ?? DecorationSet.empty;
+            const selection = state.selection;
+            if (!(selection instanceof NodeSelection) || !selection.node.isBlock) return activity;
+            const item=['listItem','taskItem'].includes(selection.$from.parent.type.name)&&selection.node.isTextblock;
+            const rowClass=item?' relay-list-row-selected':'';
+            return DecorationSet.create(state.doc, [Decoration.node(selection.from, selection.to, {
+              class: `relay-activity-focus-block${rowClass}`,
+              "data-block-selected": "true",
+              ...(item?{'data-list-row':selection.$from.parent.type.name}:{}),
+            }),...(item?[Decoration.node(selection.$from.before(),selection.$from.after(),{'data-list-row-owner':'true'})]:[])]);
           },
         },
       }),

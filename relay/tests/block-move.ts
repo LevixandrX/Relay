@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {getSchema,type Editor} from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';import TaskList from '@tiptap/extension-task-list';import TaskItem from '@tiptap/extension-task-item';
+import {EditorState} from '@tiptap/pm/state';import {history,undo} from '@tiptap/pm/history';
+import {BlockAppearance} from '../src/editor/block-appearance';import {BlockColumn,BlockColumns} from '../src/editor/block-columns';
+import {actOnBlock,blockAt,canMoveBlock} from '../src/editor/block-commands';import {parseDoc} from '../src/domain/blocks/schema';
+const schema=getSchema([StarterKit,TaskList,TaskItem.configure({nested:true}),BlockAppearance,BlockColumn,BlockColumns]);
+let state!:EditorState;const editor={schema,get state(){return state;},view:{dispatch(tr:Parameters<EditorState['apply']>[0]){state=state.apply(tr);}},commands:{focus(){}}} as unknown as Editor;
+const p=(name:string)=>schema.nodes.paragraph.create({blockId:'blk_text-'+name},schema.text(name));
+const target=(id:string)=>{let found=-1;state.doc.descendants((n,pos)=>{if(n.attrs.blockId===id)found=pos;});assert.ok(found>=0,id);return blockAt(editor,found,true)!;};
+let checks=0;
+for(const type of ['bulletList','orderedList','taskList']){
+ const itemType=type==='taskList'?'taskItem':'listItem';
+ const list=(nodes:ReturnType<typeof p>[],id='root0000')=>schema.nodes[type].create({blockId:'blk_list-'+id},nodes);
+ const item=(name:string,nested?:ReturnType<typeof p>[])=>schema.nodes[itemType].create({blockId:'blk_item-'+name},[p(name),...(nested?[list(nested,'nested'+name)]:[])]);
+ const root=list([item('Alpha',[item('Delta')]),item('Bravo',[item('Echo')]),item('Charlie')]);
+ const reset=(doc=schema.nodes.doc.create(null,[p('Before'),root,p('After')]))=>{state=EditorState.create({schema,doc,plugins:[history()]});};
+ const ids=()=>{const r=target('blk_list-root0000').node;return Array.from({length:r.childCount},(_,i)=>r.child(i).attrs.blockId);};
+ const move=(id:string,direction:'up'|'down')=>{const before=state.doc;assert.ok(canMoveBlock(editor,target(id),direction));actOnBlock(editor,target(id),direction);state.doc.check();parseDoc(state.doc.toJSON());const after=state.doc;assert.ok(!after.eq(before));assert.ok(undo(state,editor.view.dispatch));assert.ok(state.doc.eq(before));state=EditorState.create({schema,doc:after,plugins:[history()]});checks++;};
+ reset();move('blk_item-Bravo','down');assert.deepEqual(ids(),['blk_item-Alpha','blk_item-Charlie','blk_item-Bravo']);assert.equal(target('blk_item-Bravo').node.childCount,2);
+ reset();move('blk_item-Bravo','up');assert.deepEqual(ids(),['blk_item-Bravo','blk_item-Alpha','blk_item-Charlie']);
+ reset();move('blk_text-Bravo','down');assert.deepEqual(ids(),['blk_item-Alpha','blk_item-Echo','blk_item-Charlie','blk_item-Bravo']);assert.equal(target('blk_item-Bravo').node.childCount,1);assert.equal(state.doc.childCount,3);
+ reset();move('blk_item-Delta','up');assert.deepEqual(ids(),['blk_item-Delta','blk_item-Alpha','blk_item-Bravo','blk_item-Charlie']);assert.equal(target('blk_item-Alpha').node.childCount,1);
+ reset();move('blk_item-Delta','down');assert.deepEqual(ids(),['blk_item-Alpha','blk_item-Delta','blk_item-Bravo','blk_item-Charlie']);
+ reset();move('blk_item-Charlie','down');assert.equal(state.doc.child(2).type.name,'paragraph');assert.equal(state.doc.child(2).textContent,'Charlie');assert.equal(target('blk_list-root0000').node.childCount,2);
+ reset();move('blk_text-Alpha','up');assert.equal(state.doc.child(1).textContent,'Alpha');assert.equal(state.doc.child(1).type.name,'paragraph');assert.deepEqual(ids(),['blk_item-Delta','blk_item-Bravo','blk_item-Charlie']);
+ reset();move('blk_list-root0000','up');assert.equal(state.doc.firstChild!.attrs.blockId,'blk_list-root0000');
+ reset();move('blk_list-root0000','down');assert.equal(state.doc.lastChild!.attrs.blockId,'blk_list-root0000');
+ reset(schema.nodes.doc.create(null,root));assert.equal(canMoveBlock(editor,target('blk_list-root0000'),'up'),false);assert.equal(canMoveBlock(editor,target('blk_list-root0000'),'down'),false);checks+=2;
+}
+console.log(`${checks} structural move checks passed: siblings, own row, nested boundaries, root exits, whole lists, schema and undo`);

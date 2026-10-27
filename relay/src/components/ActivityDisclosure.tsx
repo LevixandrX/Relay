@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTranslations } from "use-intl";
+import { useLocale, useTranslations } from "use-intl";
+import { activityTime, compactTime } from '../lib/display-time';
+import { DateLabel } from './DateLabel';
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
 import { subscribeActivityChanged } from "../lib/activity-refresh";
 import { ActivityPanel, type AnalyticsRange, type AnalyticsReport } from "./ActivityPanel";
@@ -42,16 +44,9 @@ export type ActivityItem = {
 
 function useRelativeTime() {
   const t = useTranslations("app");
+  const locale = useLocale();
   return (iso?: string | null) => {
-    if (!iso) return "";
-    const ts = Date.parse(iso);
-    if (Number.isNaN(ts)) return "";
-    const minutes = Math.max(0, Math.round((Date.now() - ts) / 60000));
-    if (minutes < 1) return t("relativeJustNow");
-    if (minutes < 60) return t("relativeMinutes", { count: minutes });
-    const hours = Math.round(minutes / 60);
-    if (hours < 24) return t("relativeHours", { count: hours });
-    return t("relativeDays", { count: Math.round(hours / 24) });
+    return iso ? activityTime(iso,locale,t('relativeJustNow'),'long') : '';
   };
 }
 
@@ -101,6 +96,7 @@ export function ActivityDisclosure({
   max = 8,
   variant = "sidebar",
   scopeTitle = "",
+  scopePageId,
   viewerId,
   seenId,
   onSeen,
@@ -117,6 +113,7 @@ export function ActivityDisclosure({
   max?: number;
   variant?: "sidebar" | "chrome";
   scopeTitle?: string;
+  scopePageId?: string | null;
   viewerId?: string | null;
   seenId?: string | null;
   onSeen?: (id: string) => void;
@@ -128,7 +125,9 @@ export function ActivityDisclosure({
 }) {
   const t = useTranslations("app");
   const tc = useTranslations("common");
+  const locale=useLocale();
   const relative = useRelativeTime();
+  const compact=(iso?:string|null)=>iso?compactTime(iso,locale,t('relativeJustNow')):'';
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState(false);
   const [hover, setHover] = useState(false);
@@ -162,7 +161,7 @@ export function ActivityDisclosure({
     setUpdatesLoaded(false);
     void listUpdatesRef.current()
       .then((rows) => {
-        if (!cancelled) setUpdates(rows.filter((row) => !row.baseline));
+        if (!cancelled) setUpdates(rows.filter((row) => !row.baseline).map(row=>scopePageId&&row.scope!=='board'?{...row,pageId:row.pageId??scopePageId,scope:row.scope??'page'}:row));
       })
       .catch(() => {
         if (!cancelled) setUpdates([]);
@@ -173,7 +172,7 @@ export function ActivityDisclosure({
     return () => {
       cancelled = true;
     };
-  }, [variant, refreshKey, activityRevision]);
+  }, [variant, refreshKey, scopePageId, activityRevision]);
 
   useEffect(() => {
     if (variant === "chrome") return;
@@ -231,7 +230,7 @@ export function ActivityDisclosure({
     if (!panel) return;
     function onDown(e: PointerEvent) {
       const node = e.target as Node;
-      if (rootRef.current?.contains(node) || panelRef.current?.contains(node)) return;
+      if (rootRef.current?.contains(node) || panelRef.current?.contains(node) || node instanceof Element && node.closest('.editor-comment-profile,.relay-date-tooltip')) return;
       closePanel();
     }
     function onKey(e: KeyboardEvent) {
@@ -264,7 +263,7 @@ export function ActivityDisclosure({
                 <strong>{who}</strong> {what}
                 {extra ? <span> · {extra}</span> : null}
               </span>
-              <span className="relay-activity-time">{relative(ev.createdAt)}</span>
+              {ev.createdAt?<DateLabel className="relay-activity-time" value={ev.createdAt}>{compact(ev.createdAt)}</DateLabel>:null}
             </li>
           );
         })}
@@ -327,7 +326,7 @@ export function ActivityDisclosure({
                       </span>
                       {extra ? <span className="relay-activity-target">{extra}</span> : null}
                     </span>
-                    <span className="relay-activity-time">{relative(ev.createdAt)}</span>
+                    {ev.createdAt?<DateLabel className="relay-activity-time" value={ev.createdAt}>{relative(ev.createdAt)}</DateLabel>:null}
                   </button>
                 );
               })}
@@ -343,9 +342,9 @@ export function ActivityDisclosure({
     const latest = items[0];
     const updateUnread = Boolean(latestUpdate && latestUpdate.id !== seenId);
     const trigger = latestUpdate
-      ? `${t("activityEditedShort")} ${relative(latestUpdate.createdAt)}`
+      ? `${t("activityEditedShort")} ${activityTime(latestUpdate.createdAt,locale,t('relativeJustNow'),'compact')}`
       : latest
-        ? `${labelAction(latest.action)} ${relative(latest.createdAt)}`
+        ? `${labelAction(latest.action)} ${latest.createdAt?activityTime(latest.createdAt,locale,t('relativeJustNow'),'compact'):''}`
         : t("pulse");
     const dot = listUpdates ? updateUnread : unread;
 
@@ -417,7 +416,7 @@ export function ActivityDisclosure({
                         <span className="relay-activity-text">
                           <strong>{row.createdByName || tc("someone")}</strong> {row.title || scopeTitle}
                         </span>
-                        <span className="relay-activity-time">{relative(row.createdAt)}</span>
+                        <DateLabel className="relay-activity-time" value={row.createdAt}>{compact(row.createdAt)}</DateLabel>
                       </li>
                     ))}
                   </ul>
@@ -464,6 +463,7 @@ export function ActivityDisclosure({
                         loaded={updatesLoaded}
                         scopeTitle={scopeTitle}
                         viewerId={viewerId}
+                        onOpenPage={(row)=>{closePanel();if(row.scope==='board')window.dispatchEvent(new CustomEvent(OPEN_BOARD));else if(row.pageId)window.dispatchEvent(new CustomEvent(OPEN_PAGE,{detail:row.pageId}));}}
                         onViewVersion={(row) => {
                           closePanel();
                           onViewVersion(row);

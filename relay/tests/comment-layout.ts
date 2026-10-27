@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {packCommentStacks,commentRevealDelta} from '../src/editor/comment-layout';
+const groups=[{desired:100,items:[{key:'a',height:90},{key:'b',height:60},{key:'draft',height:42}]},{desired:160,items:[{key:'next',height:80}]}];
+assert.deepEqual(packCommentStacks(groups,null),[{key:'a',top:100},{key:'b',top:202},{key:'draft',top:274},{key:'next',top:328}]);
+const active=packCommentStacks(groups,'draft');
+assert.ok(active[0].top>=0);assert.ok(active[2].top>=active[1].top+60+12);assert.ok(active[3].top>=active[2].top+42+12);
+const expanded=packCommentStacks([{desired:400,items:[{key:'a',height:90},{key:'b',height:520},{key:'c',height:88}]}],'b');
+assert.equal(expanded[1].top,400);assert.equal(expanded[0].top,298);assert.equal(expanded[2].top,932);
+assert.deepEqual(packCommentStacks([],null),[]);
+assert.equal(commentRevealDelta(150,200,100,600),0);
+assert.equal(commentRevealDelta(530,200,100,600),142);
+assert.equal(commentRevealDelta(50,200,100,600),-62);
+assert.equal(commentRevealDelta(150,700,100,600),38);
+console.log('Comment packing and reveal checks passed');

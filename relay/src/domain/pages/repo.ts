@@ -1,3 +1,4 @@
+import { recordBlockActivity } from "@/domain/blocks/activity";
 import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { memberships, pages, pageRevisions, type Role } from "@/db/schema";
@@ -154,6 +155,7 @@ export async function createPage(input: {
     createdAt: ts,
     updatedAt: ts,
   });
+  await recordBlockActivity(db, pageId, input.userId, { type: "doc" }, content, ts);
   await writeAudit({
     workspaceId: input.workspaceId,
     actorId: input.userId,
@@ -209,17 +211,20 @@ export async function updatePage(input: {
     userId: input.userId,
   });
 
-  await db
-    .update(pages)
-    .set({
-      title: input.title ?? found.page.title,
-      icon: input.icon === undefined ? found.page.icon : input.icon,
-      content: contentJson ?? found.page.content,
-      board: boardJson ?? found.page.board,
-      plainText: plainText ?? found.page.plainText,
-      updatedAt: ts,
-    })
-    .where(eq(pages.id, found.page.id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(pages)
+      .set({
+        title: input.title ?? found.page.title,
+        icon: input.icon === undefined ? found.page.icon : input.icon,
+        content: contentJson ?? found.page.content,
+        board: boardJson ?? found.page.board,
+        plainText: plainText ?? found.page.plainText,
+        updatedAt: ts,
+      })
+      .where(eq(pages.id, found.page.id));
+    if (contentJson !== undefined) await recordBlockActivity(tx, found.page.id, input.userId, JSON.parse(found.page.content), JSON.parse(contentJson), ts);
+  });
 
   await writeAudit({
     workspaceId: found.page.workspaceId,

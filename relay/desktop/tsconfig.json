@@ -32,6 +32,7 @@
       "@relay-activity-refresh": ["../src/lib/activity-refresh.ts"],
       "@relay-account": ["../src/components/AccountSettings.tsx"],
       "@relay-avatar": ["../src/components/UserAvatar.tsx"],
+      "@relay-editor/*": ["../src/editor/*"],
       "@relay-editor-focus": ["../src/editor/activity-focus.ts"]
     }
   },
