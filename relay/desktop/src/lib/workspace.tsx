@@ -1,3 +1,4 @@
+import {PageSaveQueue} from '../../../src/lib/page-save-queue';
 import {
   createContext,
   useCallback,
@@ -20,6 +21,9 @@ import type { Doc } from "./types";
 import { emptyDoc } from "./types";
 import { useAuth } from "./auth";
 import { api, ApiClientError } from "./api";
+import {prepareBlockMove,referencedAssets} from '../../../src/domain/blocks/move-content';
+import {copyGuestAssets} from '@relay-editor/guest-resources';
+import {stageGuestComments} from '@relay-editor/guest-move-comments';
 import { notifyActivityChanged } from "@relay-activity-refresh";
 
 export const GUEST_PAGE_LIMIT = 3;
@@ -50,6 +54,7 @@ type WorkspaceContextValue = {
     id: string,
     patch: Partial<Pick<PageRecord, "title" | "content" | "board" | "icon">>,
   ) => Promise<void>;
+  movePageBlock:(sourceId:string,targetId:string,blockId:string,content:Doc)=>Promise<Doc>;
   setWorkspaceBoard: (board: BoardSnapshot | null) => Promise<void>;
   getPage: (id: string) => PageRecord | undefined;
   loadPage: (id: string) => Promise<PageRecord | null>;
@@ -85,6 +90,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [offline, setOffline] = useState(false);
   const [pageCache, setPageCache] = useState<Record<string, PageRecord>>({});
+  const saves=useRef(new PageSaveQueue());
   const pageCacheRef = useRef(pageCache);
   pageCacheRef.current = pageCache;
 
@@ -261,14 +267,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const next: PageRecord = {
         ...current,
         ...patch,
-        updatedAt: new Date().toISOString(),
+        updatedAt: current.updatedAt,
       };
       setPageCache((c) => ({ ...c, [id]: next }));
       setCloudPages((prev) =>
         prev.map((p) => (p.id === id ? { ...p, title: next.title, icon: next.icon, updatedAt: next.updatedAt } : p)),
       );
 
-      await api<{ updatedAt: string }>(`/pages/${id}`, {
+      await saves.current.save(id,current.updatedAt,base=>api<{ updatedAt: string }>(`/pages/${id}`, {
         method: "PATCH",
         token: auth.token,
         body: JSON.stringify({
@@ -276,12 +282,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           icon: patch.icon,
           content: patch.content,
           board: patch.board,
-          baseUpdatedAt: current.updatedAt,
+          baseUpdatedAt: base,
         }),
-      }).then((res) => {
+      })).then((res) => {
         setPageCache((c) => ({
           ...c,
-          [id]: { ...next, updatedAt: res.updatedAt },
+          [id]: { ...(c[id]??next), updatedAt: res.updatedAt },
         }));
         notifyActivityChanged({ workspaceId: activeWs?.id ?? null, pageId: id });
       });
@@ -340,6 +346,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           updatedAt: full.updatedAt,
           createdAt: full.createdAt,
         };
+        saves.current.seed(id,page.updatedAt);
         setPageCache((c) => ({ ...c, [id]: page }));
         setOffline(false);
         return page;
@@ -372,6 +379,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const pages = mode === "guest" ? local.pages : cloudPages;
   const board = mode === "guest" ? local.workspaceBoard : workspaceBoard;
 
+  const moveLocal=useRef(local);moveLocal.current=local;
+  const movePageBlock=useCallback(async(sourceId:string,targetId:string,blockId:string,content:Doc)=>{
+    if(sourceId===targetId)throw new Error('Same page');
+    if(mode==='guest'){
+      const initial=moveLocal.current.pages.find(page=>page.id===targetId);if(!initial)throw new Error('Page not found');
+      const prepared=prepareBlockMove(content,initial.content,blockId),assets=await copyGuestAssets(sourceId,targetId,referencedAssets(prepared.moving));
+      const current=moveLocal.current,target=current.pages.find(page=>page.id===targetId);if(!target||target.updatedAt!==initial.updatedAt)throw new Error('Destination changed');
+      const result=prepareBlockMove(content,target.content,blockId,assets),staged=stageGuestComments(sourceId,targetId,result.blockIds),updatedAt=new Date().toISOString();
+      try{const next=persistLocal({...current,pages:current.pages.map(page=>page.id===sourceId?{...page,content:result.source,updatedAt}:page.id===targetId?{...page,content:result.destination,updatedAt}:page)});moveLocal.current=next;setLocal(next);}catch(error){staged.rollback();throw error;}staged.commit();return result.source;
+    }
+    const result=await api<{sourceContent:Doc;updatedAt:string}>(`/pages/${sourceId}/tools`,{method:'POST',token:auth.token,body:JSON.stringify({action:'moveBlock',targetPageId:targetId,blockId,content})});
+    await Promise.all([loadPage(sourceId),loadPage(targetId)]);notifyActivityChanged({workspaceId:activeWs?.id??null,pageId:sourceId});return result.sourceContent;
+  },[mode,auth.token,loadPage,activeWs?.id]);
   const value = useMemo(
     () => ({
       mode,
@@ -385,6 +405,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       createPage,
       deletePage,
       updatePage,
+      movePageBlock,
       setWorkspaceBoard,
       getPage,
       loadPage,
@@ -403,6 +424,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       createPage,
       deletePage,
       updatePage,
+      movePageBlock,
       setWorkspaceBoard,
       getPage,
       loadPage,

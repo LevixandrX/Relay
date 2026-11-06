@@ -5,6 +5,18 @@ JSON request/response. Errors: `{ "error": "code", "message": "..." }` (402 `pla
 
 CORS: origins from `CORS_ORIGINS` (desktop Vite `:1420` included by default).
 
+## Editor resources
+
+`GET /pages/:id/tools` lists linkable workspace pages. `GET /pages/:id/tools?assetId=...` returns `{id,name,type,size,data}` with base64 bytes after the page membership check. Desktop uses the normal Bearer header; the editor creates a temporary blob URL and revokes it on replacement/unmount.
+
+`POST /pages/:id/tools` accepts `{action:"upload",name,type,size,data}`. Writers only; up to 20 MiB/file and 200 MiB/page, checked in a transaction. The body is bounded even without Content-Length and decoded bytes must match `size`. The response contains metadata without bytes. Documents store asset IDs. Assets remain available for undo/history; deleting a block does not immediately delete its file.
+
+The same endpoint accepts `{action:"moveBlock",targetPageId,blockId,content}` for two writable pages in the same workspace. The supplied document must match the saved source (409 while saving or after a conflicting edit). One transaction updates both pages, retains their previous revisions, copies referenced page assets including callout icons, and transfers comments/block activity with remapped IDs. Destination file quota still applies; failures roll back both documents. Returns `{sourceContent,updatedAt,targetPageId}`. Guest mode performs the equivalent transfer in local workspace storage and IndexedDB.
+
+Next's proxy body buffer is 32 MiB to accommodate base64 encoding of the 20 MiB upload; route-specific limits remain in force.
+
+`GET /public/:publicId/assets/:assetId` serves binary bytes only while the page is published and its current document refers to that page-owned asset. Unpublishing/removing the reference revokes access. Responses use no-store, nosniff and restrictive content disposition/CSP; only supported image/media/PDF MIME types render inline. Other files download as octet-stream.
+
 ## Auth
 
 | Method | Path | Notes |

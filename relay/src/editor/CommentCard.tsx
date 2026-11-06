@@ -7,9 +7,10 @@ import { useTranslations } from "use-intl";
 import {focusCommentInput} from './comment-composer-focus';
 import {revealCommentCaret} from './composer-layout';
 import {annotationSource} from './annotation-source';
-export function CommentCard({ id, first, active, expanded = false, latest, latestFromMe = false, hovered, left, top, width, ready, onActivate, onHover, onMeasure, children, composer }: {
+import {suppressEditorPlaceholder} from './EditorOverlay';
+export function CommentCard({ id, first, active, expanded = false, reveal = true, latest, latestFromMe = false, hovered, left, top, width, ready, onActivate, onHover, onMeasure, children, composer }: {
   id: string; first: boolean; active: boolean; hovered: boolean; left: number; top: number; width: number; ready: boolean;
-  expanded?: boolean; latest?: string; latestFromMe?: boolean;
+  expanded?: boolean; reveal?:boolean; latest?: string; latestFromMe?: boolean;
   onActivate: () => void; onHover: (value: boolean) => void; onMeasure: () => void; children: ReactNode; composer?: ReactNode;
 }) {
   const ref = useRef<HTMLElement>(null), content = useRef<HTMLDivElement>(null), previous = useRef<{ height: number; width: number } | null>(null);
@@ -20,6 +21,7 @@ export function CommentCard({ id, first, active, expanded = false, latest, lates
   const [showJump,setShowJump]=useState(false);
   const stopScroll=useRef<(()=>void)|null>(null);
   measure.current = onMeasure;
+  useLayoutEffect(()=>{if(active&&ref.current)return suppressEditorPlaceholder(ref.current);},[active]);
   // Commit document positions once; interpolate visual movement on the compositor.
   useLayoutEffect(()=>{
     const element=ref.current;if(!element||!ready)return;
@@ -28,7 +30,7 @@ export function CommentCard({ id, first, active, expanded = false, latest, lates
     if(!old||(old.left===left&&old.top===top))return;
     const dx=old.left-left+(translate[0]||0),dy=old.top-top+(translate[1]||0);
     move.current?.cancel();
-    if(!matchMedia('(prefers-reduced-motion: reduce)').matches)move.current=element.animate([{translate:`${dx}px ${dy}px`},{translate:'0px 0px'}],{duration:320,easing:'cubic-bezier(.2,.8,.2,1)'});
+    if(!annotationSource(element)?.dataset.editorScrolling&&!matchMedia('(prefers-reduced-motion: reduce)').matches)move.current=element.animate([{translate:`${dx}px ${dy}px`},{translate:'0px 0px'}],{duration:320,easing:'cubic-bezier(.2,.8,.2,1)'});
   },[left,top,ready]);
   useLayoutEffect(()=>{
     const port=ref.current?.querySelector<HTMLElement>('.editor-comment-thread-scroll > .overlay-scroll-target');
@@ -105,17 +107,17 @@ export function CommentCard({ id, first, active, expanded = false, latest, lates
   },[]);
   useEffect(()=>{if(!active||!expanded)stopScroll.current?.();},[active,expanded]);
   useEffect(() => {
-    if (!active || !ready || !ref.current) return;
+    if (!active || !reveal || !ready || !ref.current) return;
     const frame = requestAnimationFrame(() => { if (ref.current) revealCommentCard(ref.current); });
     return () => cancelAnimationFrame(frame);
-  }, [active, ready]);
+  }, [active, ready, reveal]);
   const activate = () => {
     onActivate();
     requestAnimationFrame(() => {const input=ref.current?.querySelector<HTMLTextAreaElement>('.editor-comment-composer textarea');if(input)focusCommentInput(input);});
   };
   return <section ref={ref} className="editor-comment-card" data-comment-card={id} data-draft={first} data-focused={active} data-hovered={hovered}
     tabIndex={first ? -1 : 0} data-expanded={expanded} style={{ left, top, width, visibility: ready ? "visible" : "hidden" }}
-    onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)}
+    onPointerEnter={() => {if(!ref.current||!annotationSource(ref.current)?.dataset.editorScrolling)onHover(true);}} onPointerMove={()=>{if(!hovered&&ref.current&&!annotationSource(ref.current)?.dataset.editorScrolling)onHover(true);}} onPointerLeave={() => onHover(false)}
     onClick={(e) => { if (!(e.target instanceof Element) || !e.target.closest("button,a,input,textarea,[data-comment-passive]")) activate(); }}
     onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); activate(); } }}
     onFocusCapture={(e) => { if (!(e.target instanceof Element) || !e.target.closest('button,a,[data-comment-passive],.editor-comment-edit')) onActivate(); }}>

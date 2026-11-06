@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { ensureBlockId } from "./block-appearance";
 import { editorCanvas } from "./use-editor-canvas";
-import {editorControlZone,editorControlBridge,BLOCK_CONTROL_GAP,BLOCK_CONTROLS_WIDTH} from './editor-control-zones';
+import {editorControlZone,editorControlBridge,editorHoverRow,BLOCK_CONTROL_GAP,BLOCK_CONTROLS_WIDTH} from './editor-control-zones';
 import {MAX_COLUMNS} from '../domain/blocks/columns';
 import {editorControlsBlocked,editorControlsCovered} from './use-editor-controls';
 import { sideDropAt } from "./drop-zones";
 import type { DropLine } from "./DropIndicator";
 import type { Editor } from "@tiptap/core";
 import { NodeSelection, type Transaction } from "@tiptap/pm/state";
-import { blockAt, moveBlock, moveBlockBeside, listRowTarget, type BlockTarget } from "./block-commands";
+import { blockAt, blockHandleTarget, moveBlock, moveBlockBeside, listRowTarget, type BlockTarget } from "./block-commands";
 
 type Point = { x: number; y: number };
 type Line = DropLine;
@@ -44,16 +44,22 @@ export function editorClipRect(editor: Editor) {
 export function blockGeometry(editor: Editor, target: BlockTarget) {
   const dom = editor.view.nodeDOM(target.pos);
   if (!(dom instanceof HTMLElement)) return null;
-  const rect = dom.getBoundingClientRect();
-  const lineElement = dom.matches("p,h1,h2,h3") ? dom : dom.querySelector<HTMLElement>("p,h1,h2,h3") ?? dom;
+  const table=target.node.type.name==='table'?dom.querySelector('table'):null;
+  const media=dom.querySelector<HTMLElement>(':scope > .rich-media');
+  const frame=table??media??dom;
+  const rect = frame.getBoundingClientRect();
+  const lineElement = media??(dom.matches("p,h1,h2,h3,h4") ? dom : dom.querySelector<HTMLElement>("[data-toggle-title],p,h1,h2,h3,h4") ?? dom);
   const line = lineElement.getBoundingClientRect();
   const style = getComputedStyle(lineElement);
   const padding = parseFloat(style.paddingTop) + parseFloat(style.borderTopWidth);
   const lineHeight = Math.min(Math.max(0, line.height - padding), parseFloat(style.lineHeight) || 26);
   const center = line.top + padding + lineHeight / 2;
-  const paintInset=parseFloat(getComputedStyle(dom,'::after').left)||0;
-  const hitRect=isItem(target)?new DOMRect(rect.x,rect.y,rect.width,Math.max(24,line.bottom-rect.top)):rect;
-  const paintLeft=rect.left+paintInset,left=Math.max(editorClipRect(editor).left+2,paintLeft-BLOCK_CONTROLS_WIDTH-BLOCK_CONTROL_GAP);
+  const afterInset=parseFloat(getComputedStyle(dom,'::after').left);
+  const paintInset=table||media?0:Number.isFinite(afterInset)?afterInset:-(parseFloat(getComputedStyle(dom).getPropertyValue('--column-paint-pad'))||10);
+  const ownsFirstLine=isItem(target)||['callout','blockquote','toggle'].includes(target.node.type.name);
+  const hitRect=ownsFirstLine?new DOMRect(rect.x,rect.y,rect.width,Math.max(24,line.bottom-rect.top)):rect;
+  const outset=table?0:parseFloat(getComputedStyle(dom).getPropertyValue('--block-selection-outset'))||0;
+  const paintLeft=rect.left+paintInset-outset,rawLeft=paintLeft-BLOCK_CONTROLS_WIDTH-BLOCK_CONTROL_GAP-(table?14:0),left=table?rawLeft:Math.max(editorClipRect(editor).left+2,rawLeft);
   return { rect:hitRect, left, gap:Math.max(0,paintLeft-left-BLOCK_CONTROLS_WIDTH), top: center - 15 };
 }
 
@@ -61,7 +67,11 @@ function targets(editor: Editor, items: boolean) {
   const result: { target: BlockTarget; rect: DOMRect }[] = [];
   editor.state.doc.descendants((node, pos, parent) => {
     const item = ["listItem", "taskItem"].includes(node.type.name);
-    if (!["doc","column"].includes(parent?.type.name ?? "") && !(items && item)) return !node.isTextblock;
+    // The callout's first line is the callout handle; later children own theirs.
+    if(parent?.type.name==='callout'&&parent.firstChild===node)return !node.isTextblock;
+    if (!["doc","column","toggleContent","callout","blockquote"].includes(parent?.type.name ?? "") && !(items && item)) return !node.isTextblock;
+    if(blockHandleTarget(editor,{pos,node}).pos!==pos)return !node.isTextblock;
+    if(node.type.name==='table') {const dom=editor.view.nodeDOM(pos);if(dom instanceof HTMLElement)result.push({target:{pos,node,parentType:parent?.type.name},rect:dom.getBoundingClientRect()});return false;}
     const dom = editor.view.nodeDOM(pos);
     if (dom instanceof HTMLElement) result.push({ target: { pos, node, parentType: parent?.type.name }, rect: dom.getBoundingClientRect() });
     return !node.isTextblock;
@@ -70,6 +80,7 @@ function targets(editor: Editor, items: boolean) {
 }
 
 function nearest(editor: Editor, point: Point, items: boolean, drop = false) {
+  if(!drop){const rows=targets(editor,items).filter(row=>!['columns','bulletList','orderedList','taskList'].includes(row.target.node.type.name)).flatMap(row=>{const geometry=blockGeometry(editor,row.target);return geometry?[{...row,rect:geometry.rect,handleLeft:geometry.left}]:[];});return editorHoverRow(rows,point.x,point.y);}
   const rows = targets(editor, items).map(row=>{
     if(drop||!isItem(row.target))return row;
     const dom=editor.view.nodeDOM(row.target.pos),line=dom instanceof HTMLElement?dom.querySelector('p,h1,h2,h3')?.getBoundingClientRect():null;
@@ -85,6 +96,15 @@ function nearest(editor: Editor, point: Point, items: boolean, drop = false) {
     }
   }
   return best;
+}
+
+/** Shared geometric targeting also works when approaching a comment from its gutter. */
+export function blockHoverRows(editor:Editor){
+  const proseRight=editor.view.dom.getBoundingClientRect().right;
+  return targets(editor,true).filter(row=>!['columns','bulletList','orderedList','taskList'].includes(row.target.node.type.name)).flatMap(row=>{const geometry=blockGeometry(editor,row.target);return geometry?[{...row,rect:geometry.rect,handleLeft:geometry.left,commentRight:Math.max(proseRight,geometry.rect.right)+48}]:[];});
+}
+export function hoverBlockAt(editor:Editor,point:Point,zone:'block'|'comment'='block',rows=blockHoverRows(editor)){
+  return editorHoverRow(rows,point.x,point.y,zone)?.target??null;
 }
 
 export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElement | null>, handles: RefObject<HTMLDivElement | null>, editable: boolean, locked: boolean, onOpen: (target: BlockTarget) => void, onDrag: () => void) {
@@ -107,7 +127,7 @@ export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElem
 
   useEffect(() => {
     if (!editable) { selectTarget(null); return; }
-    let hideTimer = 0, frame = 0, lastTime = 0;
+    let hideTimer = 0, frame = 0, lastTime = 0, hoverRows:ReturnType<typeof blockHoverRows>|null=null;
     let hoveredColumns: HTMLElement | null = null;
     const controlHover = (active: BlockTarget | null) => {
       const dom=active?editor.view.nodeDOM(active.pos):null;
@@ -248,11 +268,12 @@ export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElem
       if (!wrapper || event.clientX < wrapper.left || event.clientX > wrapper.right || event.clientY < wrapper.top || event.clientY > wrapper.bottom) { hide(); return; }
       if (element && element !== editor.view.dom && !["UL", "OL"].includes(element.tagName) && editor.view.dom.contains(element)) {
         try {
-          const next = blockAt(editor, editor.view.posAtDOM(element, 0));
-          if (next) { const geometry=blockGeometry(editor,next);cancelHide();selectTarget(geometry&&editorControlZone(geometry.rect,event.clientX,event.clientY,geometry.left,geometry.rect.right+48)==='block'?next:null);return; }
+          const found = blockAt(editor, editor.view.posAtDOM(element, 0));
+          const next=found?blockHandleTarget(editor,found):null;
+          if (next) { const geometry=blockGeometry(editor,next);if(geometry&&editorControlZone(geometry.rect,event.clientX,event.clientY,geometry.left,geometry.rect.right+48)==='block'){cancelHide();selectTarget(next);return;} }
         } catch { /* The gutter can have no document position */ }
       }
-      const next = nearest(editor, { x: event.clientX, y: event.clientY }, true);
+      const next = editorHoverRow(hoverRows??=blockHoverRows(editor),event.clientX,event.clientY);
       const geometry=next?blockGeometry(editor,next.target):null;
       if (next&&geometry&&editorControlZone(geometry.rect,event.clientX,event.clientY,geometry.left,geometry.rect.right+48)==='block') { cancelHide(); selectTarget(next.target); }
       else if(next&&geometry){cancelHide();selectTarget(null);}
@@ -262,6 +283,7 @@ export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElem
     const cancel = () => finish(false);
     const escape = (event: KeyboardEvent) => { if (press.current && event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); finish(false); } };
     const refresh = ({ transaction }: { transaction: Transaction }) => {
+      if(transaction.docChanged)hoverRows=null;
       const selection=editor.state.selection;
       if (targetRef.current) {
         const mapped = transaction.mapping.mapResult(targetRef.current.pos);
@@ -275,10 +297,14 @@ export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElem
       }
     };
     const layout = (event:Event) => {
+      hoverRows=null;
       // Scrolling a menu or a discussion does not move the document handles.
-      if(event.type==='scroll'&&event.target instanceof Element&&!event.target.contains(editor.view.dom))return;
+      if(event.type==='scroll'&&event.target instanceof Element&&!event.target.contains(editor.view.dom)&&!event.target.matches('.rich-table-scrollport'))return;
+      if(event.type==='scroll'&&!press.current?.started&&!callbacks.current.locked&&targetRef.current?.node.type.name!=='table'){selectTarget(null);return;}
       reposition((n) => n + 1); updateDrop();
     };
+    const resized=new ResizeObserver(()=>{hoverRows=null;});resized.observe(editor.view.dom);
+    editor.view.dom.addEventListener('relay:row-layout',layout);
     document.addEventListener("pointermove", moved);
     document.addEventListener("pointerup", up, true);
     document.addEventListener("pointercancel", cancel);
@@ -288,6 +314,7 @@ export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElem
     window.addEventListener("resize", layout);
     editor.on("transaction", refresh);
     return () => {
+      resized.disconnect();editor.view.dom.removeEventListener('relay:row-layout',layout);
       cancelHide(); controlHover(null); finish(false);
       document.removeEventListener("pointermove", moved); document.removeEventListener("pointerup", up, true);
       document.removeEventListener("pointercancel", cancel); document.removeEventListener("keydown", escape, true);

@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "use-intl";
 import type { CommentPerson } from "./comment-types";
 import {OverlayPresence,OverlaySurface} from './EditorOverlay';
 
-export function CommentAvatar({ person, me, className = '' }: { person: CommentPerson; me: string; className?:string }) {
+export function CommentAvatar({ person, me, className = '',showName=false,owner }: { person: CommentPerson; me: string; className?:string;showName?:boolean;owner?:string }) {
   const t = useTranslations("editorTools.comments"), locale = useLocale(), id = useId();
   const ref = useRef<HTMLButtonElement>(null), timer = useRef(0), [open, setOpen] = useState(false);
   const popup=useRef<HTMLDivElement>(null);
@@ -26,8 +26,8 @@ export function CommentAvatar({ person, me, className = '' }: { person: CommentP
   const top = rect ? Math.max(12, Math.min(rect.top - 18, window.innerHeight - 116)) : 12;
   return <>
     <button ref={ref} type="button" className={`editor-comment-author-avatar ${className}`} aria-label={t("profile", { name: person.name })} aria-describedby={open ? id : undefined}
-      onPointerEnter={enter} onPointerLeave={leave} onFocus={() => { cancel(); setOpen(true); }} onBlur={leave} onClick={() => setOpen(true)}>{image}</button>
-    <OverlayPresence visible={open}>{open ? createPortal(<OverlaySurface surfaceRef={popup} id={id} role="tooltip" className="editor-comment-profile" style={{ left, top, width }} onPointerEnter={cancel} onPointerLeave={leave}>
+      onPointerEnter={enter} onPointerLeave={leave} onFocus={() => { cancel(); setOpen(true); }} onBlur={leave} onClick={() => setOpen(true)}>{image}{showName?<span>{person.name}</span>:null}</button>
+    <OverlayPresence visible={open}>{open ? createPortal(<OverlaySurface surfaceRef={popup} id={id} role="tooltip" className="editor-comment-profile" data-editor-menu-owner={owner} style={{ left, top, width }} onPointerEnter={cancel} onPointerLeave={leave}>
       <div className="editor-comment-profile-avatar">{image}</div>
       <div><strong>{person.name}{person.id === me ? ` (${t("you")})` : ""}</strong>
         <span>{t(`roles.${person.role ?? (person.id === "guest" ? "guest" : "member")}`)}</span>

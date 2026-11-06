@@ -238,3 +238,9 @@ export const blockActivity = sqliteTable("block_activity", {
   createdBy: text("created_by").references(() => users.id), createdAt: text("created_at"),
   editedBy: text("edited_by").notNull().references(() => users.id), editedAt: text("edited_at").notNull(),
 }, (t) => [uniqueIndex("block_activity_page").on(t.pageId, t.blockId)]);
+
+export const pageAssets = sqliteTable('page_assets', {
+  id: text('id').primaryKey(), pageId: text('page_id').notNull().references(() => pages.id),
+  name: text('name').notNull(), type: text('type').notNull(), size: integer('size').notNull(), data: text('data').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id), createdAt: text('created_at').notNull(),
+});

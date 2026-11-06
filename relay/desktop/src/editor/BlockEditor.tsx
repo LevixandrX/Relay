@@ -1,8 +1,12 @@
+import {editorPlaceholder} from '@relay-editor/editor-placeholder';
 import { BlockColumns, BlockColumn } from "@relay-editor/block-columns";
 import { BlockAppearance } from "@relay-editor/block-appearance";
 import { CommentAnchors } from "@relay-editor/comment-anchor";
 import type { CommentContext } from "@relay-editor/comment-types";
 import { usePageResume } from "@relay-editor/use-page-resume";
+import {richExtensions} from '@relay-editor/rich-blocks';
+import {CodeBlock} from '@relay-editor/code-block';
+import type {EditorResources} from '@relay-editor/rich-blocks';
 import { BlockFilterExtension } from "@relay-editor/block-filter";
 import { EditorTools } from "@relay-editor/EditorTools";
 import { BlockCallout } from "@relay-editor/block-callout";
@@ -24,6 +28,7 @@ import {
 type Props = {
   content: Doc;
   comments?: CommentContext;
+  resources?: EditorResources;
   editable?: boolean;
   onChange?: (doc: Doc) => void;
   focusPhrases?: string[];
@@ -34,6 +39,7 @@ type Props = {
 export function BlockEditor({
   content,
   comments,
+  resources,
   editable = true,
   onChange,
   focusPhrases,
@@ -42,6 +48,8 @@ export function BlockEditor({
 }: Props) {
   const t = useTranslations("editorTools");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const resourcesRef=useRef(resources);resourcesRef.current=resources;
+  const commentsRef=useRef(comments);commentsRef.current=comments;
   const onFocusDismissRef = useRef(onActivityFocusDismiss);
   onFocusDismissRef.current = onActivityFocusDismiss;
 
@@ -49,13 +57,10 @@ export function BlockEditor({
     immediatelyRender: false,
     editable,
     extensions: [
-      StarterKit.configure({ link: false, heading: { levels: [1, 2, 3] } }),
-      Placeholder.configure({
-        placeholder: ({ node }) => {
-          if (node.type.name === "heading") return t("headingPlaceholder");
-          return t("placeholder");
-        },
-      }),
+      StarterKit.configure({ link: false, codeBlock:false, heading: { levels: [1, 2, 3, 4] } }),
+      CodeBlock,
+      ...richExtensions(()=>resourcesRef.current),
+      Placeholder.configure({showOnlyCurrent:false,includeChildren:true,placeholder:args=>editorPlaceholder(args,t)}),
       TaskList,
       TaskItem.configure({ nested: true }),
       Link.configure({ openOnClick: false }),
@@ -65,7 +70,7 @@ export function BlockEditor({
       BlockColumn,
       BlockAppearance,
       CommentAnchors,
-      BlockCallout,
+      BlockCallout.configure({getResources:()=>resourcesRef.current,getComments:()=>commentsRef.current}),
     ],
     content: content as object,
     onUpdate: ({ editor: ed }) => { onChange?.(ed.getJSON() as Doc); },
@@ -78,9 +83,11 @@ export function BlockEditor({
 
   useEffect(() => {
     if (!editor) return;
-    if (!editor.state.doc.eq(editor.schema.nodeFromJSON(content))) {
-      editor.commands.setContent(content as object);
-    }
+    const next=editor.schema.nodeFromJSON(content);
+    if(editor.state.doc.eq(next))return;
+    // React node views mount with flushSync; update them after React's commit.
+    const frame=requestAnimationFrame(()=>{if(!editor.isDestroyed&&!editor.state.doc.eq(next))editor.commands.setContent(content as object);});
+    return()=>cancelAnimationFrame(frame);
   }, [content, editor]);
 
   useEffect(() => {
@@ -101,7 +108,7 @@ export function BlockEditor({
 
   return (
     <div className="relay-editor" data-block-tools={editable} ref={wrapRef}>
-      <EditorTools editor={editor} container={wrapRef} editable={editable} comments={comments} />
+      <EditorTools editor={editor} container={wrapRef} editable={editable} comments={comments} resources={resources} />
       <EditorContent editor={editor} />
     </div>
   );

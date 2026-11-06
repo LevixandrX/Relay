@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {railDrag} from '../src/lib/board/rail-drag';
+let nextId=0;const frames=new Map<number,()=>void>(),values:number[]=[];
+const drag=railDrag(value=>values.push(value),fn=>{frames.set(++nextId,fn);return nextId;},id=>{frames.delete(id);});
+const tick=()=>{const queued=[...frames.values()];frames.clear();queued.forEach(fn=>fn());};
+drag.start(10,100,1000,200);
+for(let point=11;point<=110;point++)drag.move(point);
+assert.equal(frames.size,1);assert.equal(values.length,0);tick();assert.deepEqual(values,[600]);
+drag.move(120);drag.finish();assert.equal(frames.size,0);assert.deepEqual(values,[600,650]);
+drag.move(150);assert.equal(frames.size,0);
+drag.start(0,0,1000,200);drag.move(-30);tick();assert.equal(values.at(-1),0);drag.move(500);tick();assert.equal(values.at(-1),1000);drag.finish();
+drag.start(0,0,100,50);drag.move(10);drag.cancel();tick();assert.equal(values.at(-1),1000);
+console.log('Rail drag: one write per frame, latest pointer, final release, bounds and cancellation passed');

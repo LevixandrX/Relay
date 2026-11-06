@@ -2,6 +2,8 @@ import "dotenv/config";
 import { client } from "./client";
 
 const statements = [
+  `CREATE TABLE IF NOT EXISTS page_assets (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id), name TEXT NOT NULL, type TEXT NOT NULL, size INTEGER NOT NULL, data TEXT NOT NULL, created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS page_assets_page ON page_assets(page_id)`,
   `CREATE TABLE IF NOT EXISTS custom_emojis (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, data TEXT NOT NULL, type TEXT NOT NULL, created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS custom_emoji_name ON custom_emojis(workspace_id, name)`,
   `CREATE TABLE IF NOT EXISTS block_activity (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id), block_id TEXT NOT NULL, created_by TEXT REFERENCES users(id), created_at TEXT, edited_by TEXT NOT NULL REFERENCES users(id), edited_at TEXT NOT NULL)`,

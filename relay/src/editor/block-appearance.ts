@@ -1,3 +1,4 @@
+import {BLOCK_ID_TYPES as types} from '../domain/blocks/identity';
 import { Extension, type Editor } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { closeHistory } from "@tiptap/pm/history";
@@ -7,19 +8,20 @@ import {indentEditorSelection} from './block-indent';
 export const COLOR_NAMES = ["default", "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"] as const;
 export const COLOR_VALUES: Record<string, string | null> = { default: null, gray: "#969696", brown: "#ae8061", orange: "#e59443", yellow: "#d5b44b", green: "#69ac83", blue: "#6aabe4", purple: "#ac88d4", pink: "#d582ac", red: "#e17676" };
 export const validColor = (value: unknown): value is string => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
-const types = ["columns", "column", "paragraph", "heading", "bulletList", "orderedList", "taskList", "listItem", "taskItem", "blockquote", "callout", "codeBlock", "horizontalRule", "promptBlock"];
+export const LIST_STYLES=['disc','circle','square','decimal','lower-alpha','upper-alpha','lower-roman','upper-roman'] as const;
 export const BlockAppearance = Extension.create({
   name: "blockAppearance",
   priority:1000,
+  onCreate(){if(this.editor.isEditable)this.editor.view.dispatch(this.editor.state.tr.setMeta('relay:initialize-identities',true).setMeta('addToHistory',false));},
   addKeyboardShortcuts(){return {Tab:()=>indentEditorSelection(this.editor,1),'Shift-Tab':()=>indentEditorSelection(this.editor,-1)};},
   addGlobalAttributes() { return [{ types, attributes: {
     blockIndent: { default: 0, parseHTML: (el) => Math.max(0, Math.min(8, Number(el.getAttribute("data-block-indent")) || 0)), renderHTML: (attrs) => attrs.blockIndent ? { "data-block-indent": attrs.blockIndent, style: `--block-indent: ${attrs.blockIndent}` } : {} },
     blockId: { default: null, parseHTML: (el) => /^blk_[a-zA-Z0-9-]{8,80}$/.test(el.getAttribute("data-block-id") ?? "") ? el.getAttribute("data-block-id") : null, renderHTML: (attrs) => attrs.blockId ? { "data-block-id": attrs.blockId, id: attrs.blockId } : {} },
     textColor: { default: null, parseHTML: (el) => validColor(el.getAttribute("data-text-color")) ? el.getAttribute("data-text-color") : null, renderHTML: (attrs) => validColor(attrs.textColor) ? { "data-text-color": attrs.textColor, style: `--block-text: ${attrs.textColor}` } : {} },
     blockBackground: { default: null, parseHTML: (el) => validColor(el.getAttribute("data-block-background")) ? el.getAttribute("data-block-background") : null, renderHTML: (attrs) => validColor(attrs.blockBackground) ? { "data-block-background": attrs.blockBackground, style: `--block-bg: ${attrs.blockBackground}` } : {} },
-  } }]; },
+  } },{types:['tableCell','tableHeader'],attributes:{cellTextColor:{default:null,parseHTML:el=>validColor(el.getAttribute('data-cell-text-color'))?el.getAttribute('data-cell-text-color'):null,renderHTML:a=>validColor(a.cellTextColor)?{'data-cell-text-color':a.cellTextColor,style:`color:${a.cellTextColor}`}:{}} ,cellBackground:{default:null,parseHTML:el=>validColor(el.getAttribute('data-cell-background'))?el.getAttribute('data-cell-background'):null,renderHTML:a=>validColor(a.cellBackground)?{'data-cell-background':a.cellBackground,style:`background-color:${a.cellBackground}`}:{}}}},{types:['bulletList','orderedList'],attributes:{listStyle:{default:null,parseHTML:element=>LIST_STYLES.includes(element.getAttribute('data-list-style') as never)?element.getAttribute('data-list-style'):null,renderHTML:attributes=>LIST_STYLES.includes(attributes.listStyle)?{'data-list-style':attributes.listStyle,style:`list-style-type:${attributes.listStyle}`}:{}}}}]; },
   addProseMirrorPlugins() { return [new Plugin({ key: new PluginKey("blockIdentity"), appendTransaction(transactions, _old, state) {
-    if (!transactions.some((t) => t.docChanged)) return null;
+    if (!transactions.some((t) => t.docChanged||t.getMeta('relay:initialize-identities'))) return null;
     const seen = new Set<string>(), tr = state.tr;
     state.doc.descendants((node, pos) => {
       if (!types.includes(node.type.name)) return;
@@ -32,6 +34,7 @@ export const BlockAppearance = Extension.create({
     const decorations:Decoration[]=[];
     const walk=(node:typeof state.doc,pos:number,paint:string|null,bulletDepth=0,orderedDepth=0)=>{
       const own=node.attrs.blockBackground as string|null;
+      if(node.type.name==='taskItem'){const color=node.firstChild?.attrs.textColor??node.attrs.textColor;if(validColor(color))decorations.push(Decoration.node(pos,pos+node.nodeSize,{style:`--task-color:${color}`}));}
       if(own&&own===paint)decorations.push(Decoration.node(pos,pos+node.nodeSize,{'data-block-paint-duplicate':'true'}));
       if(node.type.name==='bulletList'||node.type.name==='orderedList')decorations.push(Decoration.node(pos,pos+node.nodeSize,{'data-list-level':String((node.type.name==='bulletList'?bulletDepth:orderedDepth)%3)}));
       node.forEach((child,offset)=>{if(!child.isText)walk(child,pos+1+offset,own||paint,bulletDepth+(node.type.name==='bulletList'?1:0),orderedDepth+(node.type.name==='orderedList'?1:0));});

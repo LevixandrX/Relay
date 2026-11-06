@@ -1,16 +1,10 @@
+import {CALLOUT_ICON_NAMES} from './callout-icons';
 import { z } from "zod";
 import {MAX_COLUMNS, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH} from './columns';
-
-const EMBED_HOSTS = new Set([
-  "www.youtube.com",
-  "youtube.com",
-  "www.figma.com",
-  "www.loom.com",
-  "loom.com",
-]);
+import { MEDIA_TYPES, webUrl, embedUrl, RICH_BLOCKS, validTable } from './rich-content';
 
 const markSchema = z.object({
-  type: z.enum(["bold", "italic", "code", "strike", "link"]),
+  type: z.enum(["bold", "italic", "code", "strike", "link", "underline", "textStyle"]),
   attrs: z
     .object({
       href: z.string().max(2000).optional(),
@@ -18,7 +12,7 @@ const markSchema = z.object({
       rel: z.string().optional(),
       class: z.string().optional(),
     })
-    .passthrough()
+    .passthrough().superRefine((attrs,ctx)=>{for(const key of ['color','backgroundColor']){const value=attrs[key];if(value!=null&&(typeof value!=='string'||!/^#[0-9a-f]{6}$/i.test(value)))ctx.addIssue({code:'custom',message:'Invalid inline color'});}})
     .optional(),
 });
 
@@ -52,12 +46,16 @@ export const blockNode: z.ZodType<JSONContent> = z.lazy(() =>
       marks: z.array(markSchema).optional(),
     })
     .superRefine((node, ctx) => {
-      for (const attr of ["textColor", "blockBackground"]) {
+      for (const attr of ["textColor", "blockBackground", "cellBackground","cellTextColor","iconColor"]) {
         const value = node.attrs?.[attr];
         if (value != null && (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value))) ctx.addIssue({ code: "custom", message: "Invalid block color" });
       }
       if (node.attrs?.blockId != null && (typeof node.attrs.blockId !== "string" || !/^blk_[a-zA-Z0-9-]{8,80}$/.test(node.attrs.blockId))) ctx.addIssue({ code: "custom", message: "Invalid block ID" });
+      if(node.attrs?.iconAssetId!=null&&(typeof node.attrs.iconAssetId!=='string'||!/^asset_[\w-]{8,80}$/.test(node.attrs.iconAssetId)))ctx.addIssue({code:'custom',message:'Invalid icon asset'});
+      if(node.attrs?.iconName!=null&&(typeof node.attrs.iconName!=='string'||!CALLOUT_ICON_NAMES.includes(node.attrs.iconName as never)))ctx.addIssue({code:'custom',message:'Invalid icon'});
+      if(node.attrs?.iconSrc!=null&&(typeof node.attrs.iconSrc!=='string'||!webUrl(node.attrs.iconSrc)))ctx.addIssue({code:'custom',message:'Invalid icon URL'});
       const indent = node.attrs?.blockIndent;
+      if(node.attrs?.listStyle!=null&&!['disc','circle','square','decimal','lower-alpha','upper-alpha','lower-roman','upper-roman'].includes(String(node.attrs.listStyle)))ctx.addIssue({code:'custom',message:'Invalid list style'});
       if (indent != null && (typeof indent !== "number" || !Number.isInteger(indent) || indent < 0 || indent > 8)) ctx.addIssue({ code: "custom", message: "Invalid block indent" });
       if (node.type === "columns" && (!node.content || node.content.length < 2 || node.content.length > MAX_COLUMNS || node.content.some((child) => child.type !== "column"))) ctx.addIssue({ code: "custom", message: `Columns require 2–${MAX_COLUMNS} column nodes` });
       if(node.type==='columns'){
@@ -87,27 +85,38 @@ export const blockNode: z.ZodType<JSONContent> = z.lazy(() =>
         "image",
         "embed",
         "text",
+        ...RICH_BLOCKS, 'tableRow', 'tableCell', 'tableHeader', 'toggleTitle', 'toggleContent', 'inlineEquation',
       ]);
       if (!allowed.has(node.type)) {
         ctx.addIssue({ code: "custom", message: `Unknown block type: ${node.type}` });
       }
       if (node.type === "heading") {
         const level = Number(node.attrs?.level ?? 1);
-        if (level < 1 || level > 3) {
-          ctx.addIssue({ code: "custom", message: "Heading level must be 1–3" });
+        if (!Number.isInteger(level) || level < 1 || level > 4) {
+          ctx.addIssue({ code: "custom", message: "Heading level must be 1–4" });
         }
       }
+      if(node.type==='codeBlock'){if(node.attrs?.wrap!=null&&typeof node.attrs.wrap!=='boolean')ctx.addIssue({code:'custom',message:'Invalid code wrapping'});if(node.attrs?.caption!=null&&(typeof node.attrs.caption!=='string'||node.attrs.caption.length>1000))ctx.addIssue({code:'custom',message:'Invalid code caption'});}
       if (node.type === "embed") {
-        const url = String(node.attrs?.url ?? "");
-        try {
-          const host = new URL(url).hostname;
-          if (!EMBED_HOSTS.has(host)) {
-            ctx.addIssue({ code: "custom", message: "Embed host not allowed" });
-          }
-        } catch {
-          ctx.addIssue({ code: "custom", message: "Invalid embed URL" });
-        }
+        const url = node.attrs?.src || node.attrs?.url;
+        if (url && !embedUrl(url)) ctx.addIssue({code:'custom',message:'Embed host not allowed'});
       }
+      if ([...MEDIA_TYPES, 'bookmark'].includes(node.type as never)) {
+        if (node.attrs?.src && !webUrl(node.attrs.src)) ctx.addIssue({code:'custom',message:'Invalid media URL'});
+        if (node.attrs?.assetId && (typeof node.attrs.assetId !== 'string' || !/^asset_[\w-]{8,80}$/.test(node.attrs.assetId))) ctx.addIssue({code:'custom',message:'Invalid asset ID'});
+        if (node.attrs?.width != null && (typeof node.attrs.width !== 'number' || node.attrs.width < 10 || node.attrs.width > 100)) ctx.addIssue({code:'custom',message:'Invalid media width'});
+      }
+      if (['equation','inlineEquation'].includes(node.type) && (typeof node.attrs?.latex !== 'string' || node.attrs.latex.length > 4000)) ctx.addIssue({code:'custom',message:'Invalid equation'});
+      if (node.type === 'toggle' && (node.content?.length !== 2 || node.content[0].type !== 'toggleTitle' || node.content[1].type !== 'toggleContent')) ctx.addIssue({code:'custom',message:'Invalid toggle structure'});
+      if (node.type === 'toggle' && ![0,1,2,3,4].includes(Number(node.attrs?.level ?? 0))) ctx.addIssue({code:'custom',message:'Invalid toggle heading'});
+      if (node.type === 'table' && (!node.content?.length || node.content.length > 100 || node.content.some(c => c.type !== 'tableRow') || !validTable(node.content))) ctx.addIssue({code:'custom',message:'Invalid table rows'});
+      if (node.type === 'tableRow' && ((node.content?.length??0) > 50 || node.content?.some(c => !['tableCell','tableHeader'].includes(c.type)))) ctx.addIssue({code:'custom',message:'Invalid table cells'});
+      if (['tableCell','tableHeader'].includes(node.type)) {
+        for (const key of ['colspan','rowspan']) { const v = node.attrs?.[key] ?? 1; if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 100) ctx.addIssue({code:'custom',message:'Invalid cell span'}); }
+        const widths = node.attrs?.colwidth;
+        if (widths != null && (!Array.isArray(widths) || widths.length > 50 || widths.some(w => typeof w !== 'number' || !Number.isFinite(w) || w < 0 || w > 10000))) ctx.addIssue({code:'custom',message:'Invalid column widths'});
+      }
+      if (node.type === 'pageLink' && node.attrs?.pageId && (typeof node.attrs.pageId !== 'string' || node.attrs.pageId.length > 100)) ctx.addIssue({code:'custom',message:'Invalid page link'});
     }),
 );
 
@@ -126,6 +135,8 @@ export function parseDoc(input: unknown): Doc {
   const doc = docSchema.parse(input);
   const checkLayout = (node: JSONContent, parent: string) => {
     if (node.type === "column" && parent !== "columns") throw new Error("Column must belong to columns");
+    const parents: Record<string,string[]> = {tableRow:['table'],tableCell:['tableRow'],tableHeader:['tableRow'],toggleTitle:['toggle'],toggleContent:['toggle']};
+    if(parents[node.type] && !parents[node.type].includes(parent)) throw new Error('Invalid block parent');
     node.content?.forEach((child) => checkLayout(child,node.type));
   };
   doc.content?.forEach((node) => checkLayout(node,"doc"));
@@ -147,6 +158,8 @@ export function docToPlainText(doc: Doc | JSONContent): string {
     if (node.type === "promptBlock" && node.attrs?.prompt) {
       parts.push(String(node.attrs.prompt));
     }
+    if(['equation','inlineEquation'].includes(node.type)&&node.attrs?.latex)parts.push(String(node.attrs.latex));
+    if(['image','video','audio','file','pdf','bookmark','embed','pageLink'].includes(node.type))parts.push(String(node.attrs?.caption||node.attrs?.title||node.attrs?.name||''));
     node.content?.forEach(walk);
   };
   walk(doc as JSONContent);

@@ -1,20 +1,20 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
+import type {Transaction} from "@tiptap/pm/state";
 import { useLocale, useTranslations } from "use-intl";
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
 import { EmojiPicker } from "./EmojiPicker";
 import { BlockGlyph } from "./block-preview";
 import { blockAt } from "./block-commands";
 import { editorCanvas } from "./use-editor-canvas";
-import { blockGeometry, editorClipRect } from "./use-block-handles";
+import { blockGeometry, blockHoverRows, hoverBlockAt, editorClipRect } from "./use-block-handles";
 import { commentThreadAt, setCommentAnchors } from "./comment-anchor";
 import { CommentComposer } from "./CommentComposer";
 import { CommentAvatar } from "./CommentAvatar";
 import { CommentCard } from "./CommentCard";
 import {EditorAnnotations} from './EditorAnnotations';
-import {CommentActionTooltip} from './CommentActionTooltip';
 import { CommentBlockPopover } from "./CommentBlockPopover";
 import { CommentReaction } from "./CommentReaction";
 import { CommentMessageMenu } from "./CommentMessageMenu";
@@ -29,7 +29,7 @@ import { commentDraftScope, emptyCommentDraft, hasCommentDraft, newCommentDraftK
 import type { CommentCommand, CommentContext, CommentData, CommentDraft, CommentMessage, CommentThread, DraftAnchor, FileUpload } from "./comment-types";
 export type { DraftAnchor } from "./comment-types";
 
-export function BlockComments({ editor, context, editable, anchor, onCloseDraft, onAddComment, onPeople,controlsVisible=false }: {
+export const BlockComments=memo(function BlockComments({ editor, context, editable, anchor, onCloseDraft, onAddComment, onPeople,controlsVisible=false }: {
   editor: Editor; context: CommentContext; editable: boolean; anchor: DraftAnchor | null;
   onCloseDraft: () => void; onAddComment?: (target: ReturnType<typeof blockAt>) => void;
   onPeople?:(people:CommentData['people'])=>void;
@@ -64,13 +64,14 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
   const visualHover = popupThread?.id ?? hovered ?? sourceHovered ?? textThread?.id ?? data?.threads.find(item=>item.blockId===popoverBlock)?.id ?? null;
   const load = useCallback(async () => {
     const version = ++inflight.current;
-    try { const next = await request.current<CommentData>(""); if (alive.current && version === inflight.current) { setData(next); setError(""); } }
+    try { const next = await request.current<CommentData>(""); if (alive.current && version === inflight.current) { setData(old=>JSON.stringify(old)===JSON.stringify(next)?old:next); setError(""); } }
     catch { if (alive.current) setError(t("loadFailed")); }
   }, [t]);
   useEffect(() => {
     alive.current = true; void load();
+    const changed=()=>void load();editor.view.dom.addEventListener('relay:comments-changed',changed);
     const timer = window.setInterval(() => { if (document.visibilityState === "visible" && !busyRef.current) void load(); }, 20000);
-    return () => { alive.current = false; window.clearInterval(timer); inflight.current++; };
+    return () => {editor.view.dom.removeEventListener('relay:comments-changed',changed);alive.current = false; window.clearInterval(timer); inflight.current++; };
   }, [load]);
   const mutate = async (command: CommentCommand): Promise<CommentData | null> => {
     if (busyRef.current) return null;
@@ -106,7 +107,8 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
   const pendingDrafts = editable ? drafts : [];
   const discardFirst=(key:string)=>{removeCommentDraft(scope,key);setDrafts(readCommentDrafts(scope).filter(item=>item.anchor));if(selected===key)close();};
   const cards = useMemo(() => [...visibleThreads.map((v) => ({ key: cardKeys.current.get(v.id) ?? v.id, blockId: v.blockId, anchorId: v.id })), ...(editable ? drafts : []).map((d) => ({ key: d.key, blockId: d.anchor!.blockId, anchorId: d.key, first: true }))], [visibleThreads, drafts, editable]);
-  const elevated=sourceHovered??selected;
+  const elevated=selected;
+  useEffect(()=>{const scroll=(event:Event)=>{if(event.target===document||event.target instanceof Element&&event.target.contains(editor.view.dom)){window.clearTimeout(sourceHoverTimer.current);setSourceHovered(null);setHovered(null);}};window.addEventListener('scroll',scroll,{capture:true,passive:true});return()=>window.removeEventListener('scroll',scroll,true);},[editor]);
   const { placements, spaces, measure, compact, indicators } = useCommentLayout(editor, layer, cards, elevated ? cardKeys.current.get(elevated) ?? elevated : null);
   const selectedBlock = data?.threads.find(item=>item.id===selected)?.blockId ?? drafts.find(item=>item.key===selected)?.anchor?.blockId;
   const openBlock = compact ? popoverBlock ?? selectedBlock ?? null : null;
@@ -130,7 +132,7 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
     const blockId = hash.get("block"); if (blockId) editor.view.dom.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(blockId)}"]`)?.scrollIntoView({ block: "center" });
   }, [editor, Boolean(data)]);
   useEffect(() => {
-    const inside = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest(".editor-overlay-shield,.editor-comment-card,.editor-comment-indicator,.editor-comment-block-popover,.editor-emoji-picker,.editor-mention-picker,.editor-comment-profile,.editor-comment-more,.editor-comment-reaction-preview,.relay-date-tooltip,.editor-comments-list,.editor-comments-toggle,.editor-add-comment"));
+    const inside = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest(".editor-overlay-shield,.editor-comment-card,.editor-comment-indicator,.editor-comment-block-popover,.editor-emoji-picker,.editor-emoji-custom-popover,.editor-mention-picker,.editor-comment-profile,.editor-comment-more,.editor-comment-reaction-preview,.relay-date-tooltip,.editor-comments-list,.editor-comments-toggle,.editor-add-comment"));
     const outside = (event: Event) => { if (!inside(event.target)) close(); };
     const escape = (event: KeyboardEvent) => {
       const fromText=event.target instanceof Node&&editor.view.dom.contains(event.target);
@@ -157,7 +159,7 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
   const canAddComment = editable && Boolean(onAddComment);
   useEffect(()=>{
     const move=(event:PointerEvent)=>{
-      if(editorControlsBlocked(editor))return;
+      if(editorControlsBlocked(editor)||editor.view.dom.closest<HTMLElement>('.relay-editor')?.dataset.editorScrolling)return;
       const element=event.target instanceof Element?event.target:null;
       if(!element||!editor.view.dom.contains(element))return;
       const anchored=element.closest<HTMLElement>('[data-comment-anchor-id]');
@@ -173,23 +175,23 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
   useEffect(() => {
     if (!canAddComment) return;
     setAddTarget(null);
-    let point = { x: -1, y: -1 }, hide = 0;
+    const hide=0;
+    let point = { x: -1, y: -1 }, hoverRows:ReturnType<typeof blockHoverRows>|null=null;
     let active: {pos:number;left:number;top:number}|null=null;
-    const clear = () => {active=null;setAddTarget(null);};
+    const clear = () => {hoverRows=null;active=null;setAddTarget(null);};
     const update = () => {
       if(editorControlsBlocked(editor)){setAddTarget(null);return;}
       const canvas = editorCanvas(editor).getBoundingClientRect(), clip = editorClipRect(editor);
       if (point.x < canvas.left || point.x > canvas.right || point.y < clip.top || point.y > clip.bottom) { setAddTarget(null); return; }
       const rect = editor.view.dom.getBoundingClientRect();
-      const found = editor.view.posAtCoords({ left: Math.max(rect.left+1,Math.min(rect.right-1,point.x)), top: point.y });
-      const target = found ? blockAt(editor,found.pos) : null, geometry = target ? blockGeometry(editor,target) : null;
+      const target = hoverBlockAt(editor,point,'comment',hoverRows??=blockHoverRows(editor)), geometry = target ? blockGeometry(editor,target) : null;
       const blockId = target?.node.attrs.blockId;
       const targetDOM=target?editor.view.nodeDOM(target.pos):null;
-      if(targetDOM instanceof HTMLElement&&targetDOM.closest('[data-type="columns"]')){clear();return;}
-      const occupied = blockId && (data?.threads.some((item)=>item.blockId===blockId&&!item.resolved) || drafts.some((item)=>item.anchor?.blockId===blockId));
+      if(targetDOM instanceof HTMLElement&&targetDOM.closest('[data-type="columns"],td,th,table,.tableWrapper')){clear();return;}
+      const rowIds=blockId?commentRow(editor,blockId).blockIds:[];
+      const occupied = rowIds.length && (data?.threads.some(item=>rowIds.includes(item.blockId)&&!item.resolved) || drafts.some(item=>item.anchor&&rowIds.includes(item.anchor.blockId)));
       if(!target||!geometry||occupied){setAddTarget(null);return;}
-      // A column's controls belong to its own edge, not the page-wide edge.
-      const left = Math.min(canvas.right - 32, geometry.rect.right + 20), top = geometry.top;
+      const left=rect.right+20,top=geometry.top;
       if(editorControlZone(geometry.rect,point.x,point.y,geometry.left,left+28)!=='comment'){setAddTarget(null);return;}
       if (top < clip.top+2 || top+28 > clip.bottom-2) { setAddTarget(null); return; }
       const collision = Array.from(layer.current?.querySelectorAll<HTMLElement>('.editor-comment-card') ?? []).some((card)=>{const r=card.getBoundingClientRect();return left < r.right+4 && left+28 > r.left-4 && top < r.bottom+4 && top+28 > r.top-4;});
@@ -207,8 +209,9 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
       if (event.target instanceof Element && event.target.closest(".editor-comment-card,.editor-comment-block-popover,.editor-comment-indicator,.editor-block-menu,.editor-comments-list,.editor-emoji-picker,.editor-mention-picker")) setAddTarget(null);
       else update();
     };
+    const invalidate=()=>{hoverRows=null;};const resized=new ResizeObserver(invalidate);resized.observe(editor.view.dom);const changed=({transaction}:{transaction:Transaction})=>{if(transaction.docChanged)invalidate();};editor.on('transaction',changed);editor.view.dom.addEventListener('relay:row-layout',invalidate);
     document.addEventListener("pointermove",move); window.addEventListener("scroll",clear,true); window.addEventListener("resize",clear);
-    return () => { window.clearTimeout(hide); document.removeEventListener("pointermove",move); window.removeEventListener("scroll",clear,true); window.removeEventListener("resize",clear); };
+    return () => { resized.disconnect();editor.off('transaction',changed);editor.view.dom.removeEventListener('relay:row-layout',invalidate);window.clearTimeout(hide); document.removeEventListener("pointermove",move); window.removeEventListener("scroll",clear,true); window.removeEventListener("resize",clear); };
   }, [editor, canAddComment, data, drafts]);
   const send = async (key: string, value: CommentDraft, item?: CommentThread, first?: DraftAnchor) => {
     if (!data) return false;
@@ -276,12 +279,15 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
   const card = (key: string, activeId: string, first: boolean, content: React.ReactNode, composer?: React.ReactNode) => {
     const placement=placements.find((p)=>p.key===key);
     const latest=data?.threads.find(item=>item.id===activeId)?.messages.at(-1);
-    return <CommentCard key={key} id={key} first={first} active={selected===activeId} expanded={expandedIds.includes(activeId)} latest={latest?.id} latestFromMe={latest?.author.id===data?.me.id} hovered={visualHover===activeId} left={placement?.left??0} top={placement?.top??0} width={placement?.width??328} ready={Boolean(placement)} onActivate={()=>open(activeId)} onHover={(value)=>{window.clearTimeout(sourceHoverTimer.current);setHovered(value?activeId:null);if(!value||sourceHovered&&sourceHovered!==activeId)setSourceHovered(null);}} onMeasure={measure} composer={composer}>{content}</CommentCard>;
+    return <CommentCard key={key} id={key} first={first} active={selected===activeId} expanded={expandedIds.includes(activeId)} reveal={focusComposer===activeId} latest={latest?.id} latestFromMe={latest?.author.id===data?.me.id} hovered={visualHover===activeId} left={placement?.left??0} top={placement?.top??0} width={placement?.width??328} ready={Boolean(placement)} onActivate={()=>open(activeId)} onHover={(value)=>{window.clearTimeout(sourceHoverTimer.current);setHovered(value?activeId:null);if(!value||sourceHovered&&sourceHovered!==activeId)setSourceHovered(null);}} onMeasure={measure} composer={composer}>{content}</CommentCard>;
   };
+  const addBlock=addTarget?blockAt(editor,addTarget.pos,true):null;
+  const addRowIds=addBlock?.node.attrs.blockId?commentRow(editor,addBlock.node.attrs.blockId).blockIds:[];
+  const addOccupied=Boolean(data?.threads.some(item=>!item.resolved&&addRowIds.includes(item.blockId))||drafts.some(item=>item.anchor&&addRowIds.includes(item.anchor.blockId)));
   const menuThread=data?.threads.find(item=>item.messages.some(message=>message.id===more));
   const menuMessage=menuThread?.messages.find(message=>message.id===more);
   return <>
-    <CommentActionTooltip/>
+
     <OverlayPresence visible={Boolean(menuThread&&menuMessage&&moreAnchor.current)}>{menuThread&&menuMessage&&moreAnchor.current ? <CommentMessageMenu anchor={moreAnchor.current} label={t('more')} onClose={()=>setMore(null)} items={[
       {label:t('markUnread'),icon:'markUnread',disabled:busy,run:()=>void mutate({action:'unread',threadId:menuThread.id,value:true}).then(next=>{if(next)close();})},
       ...(editable&&menuMessage.author.id===data!.me.id?[{label:t('edit'),icon:'edit',disabled:busy,run:()=>{setEditing(menuMessage.id);setEditBody(menuMessage.body);}}]:[]),
@@ -316,7 +322,7 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
         {error&&selected===item.key?<div role="alert" className="editor-comment-error">{error}</div>:null}
       </section>)}
     </CommentBlockPopover>:null}</OverlayPresence>
-    <OverlayPresence visible={Boolean(controlsVisible&&addTarget&&onAddComment)} exitDuration={260}>{controlsVisible && addTarget && onAddComment ? createPortal(<OverlaySurface surfaceRef={addSurface} motionKind="controls" className="editor-add-comment-control" style={{left:addTarget.left,top:addTarget.top}}><button ref={addButton} type="button" className="editor-add-comment" aria-label={t("add")} onPointerDown={(e)=>e.preventDefault()} onClick={()=>onAddComment(blockAt(editor,addTarget.pos,true))}><BlockGlyph type="addComment"/><span role="tooltip">{t("add")}</span></button></OverlaySurface>,document.body):null}</OverlayPresence>
+    {!addOccupied?<OverlayPresence visible={Boolean(controlsVisible&&addTarget&&onAddComment)} exitDuration={260}>{controlsVisible && addTarget && !addOccupied && onAddComment ? createPortal(<OverlaySurface surfaceRef={addSurface} motionKind="controls" className="editor-add-comment-control" style={{left:addTarget.left,top:addTarget.top}}><button ref={addButton} type="button" className="editor-add-comment" aria-label={t('add')} onPointerDown={(e)=>e.preventDefault()} onClick={()=>onAddComment(blockAt(editor,addTarget.pos,true))}><BlockGlyph type="addComment"/></button></OverlaySurface>,document.body):null}</OverlayPresence>:null}
     {list ? createPortal(<aside className="editor-comments-list" aria-label={t("title")}><header><strong>{t("title")}</strong><button type="button" onClick={close} aria-label={t("close")}><BlockGlyph type="close"/></button></header><OverlayScroll className="editor-comment-list-scroll">
       <label className="editor-comment-resolved"><input type="checkbox" checked={showResolved} onChange={(e)=>setShowResolved(e.target.checked)}/>{t("showResolved")}</label>
       {data?.threads.filter((v)=>showResolved||!v.resolved).map((item)=><button type="button" key={item.id} className="editor-comment-thread-row" onClick={()=>open(item.id)}><span>{item.quote||t("block")}</span><small>{item.messages.at(-1)?.body||t("attachment")} · {item.messages.length}</small>{item.resolved?<BlockGlyph type="resolve"/>:item.unread&&!item.muted?<i/>:null}</button>)}
@@ -325,4 +331,4 @@ export function BlockComments({ editor, context, editable, anchor, onCloseDraft,
     <OverlayPresence visible={Boolean(react&&reactionAnchor.current&&reactionThread)}>{react && reactionAnchor.current && reactionThread ? <EmojiPicker anchor={reactionAnchor.current} custom={data?.customEmojis??[]} identity={context.identity} busy={busy} onClose={()=>setReact(null)} onPick={(emoji)=>void mutate({action:"react",threadId:reactionThread.id,messageId:react,emoji})} onUpload={async(name,image)=>{const messageId=react;const next=await mutate({action:"createEmoji",name,data:image,type:"image/png"});if(next)setReact(messageId);return Boolean(next);}}/>:null}</OverlayPresence>
     {pagePreview && pagePreviewAnchor.current ? createPortal(<aside className="editor-comment-page-preview" style={{left:Math.max(12,Math.min(pagePreviewAnchor.current.getBoundingClientRect().left,window.innerWidth-Math.min(290,window.innerWidth-24)-12)),top:Math.max(12,Math.min(pagePreviewAnchor.current.getBoundingClientRect().bottom+8,window.innerHeight-232))}}><strong>{pagePreview.icon} {pagePreview.title||t("untitled")}</strong><p>{pagePreview.excerpt}</p></aside>,document.body):null}
   </>;
-}
+});

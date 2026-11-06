@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {PageSaveQueue} from "../lib/page-save-queue";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { BlockEditor } from "@/editor/BlockEditor";
@@ -197,6 +198,9 @@ function WorkspaceAppInner({
   const focusHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageMenuRef = useRef<HTMLDivElement>(null);
   const prevModeRef = useRef<ViewMode>(isWorkspaceBoard ? "board" : defaultMode);
+  const saves=useRef(new PageSaveQueue());
+  const saveTicket=useRef(0);
+  const savingPage=useRef(pageId);savingPage.current=pageId;
   const updatedAtRef = useRef(initialPage?.updatedAt ?? "");
   const skipSaveRef = useRef(false);
   const railListRef = useRef<HTMLDivElement>(null);
@@ -380,6 +384,7 @@ function WorkspaceAppInner({
 
   useEffect(() => {
     updatedAtRef.current = updatedAt;
+    if(pageId)saves.current.seed(pageId,updatedAt);
   }, [updatedAt]);
 
   useEffect(() => {
@@ -521,72 +526,20 @@ function WorkspaceAppInner({
     return () => clearTimeout(timer);
   }, [compassOpen, compassQ, workspaceId, pages]);
 
-  // Автосохранение текста
-  useEffect(() => {
-    if (!pageId || !canWrite || !updatedAtRef.current || mode !== "text") return;
-    if (skipSaveRef.current) {
-      skipSaveRef.current = false;
-      return;
-    }
-    setSaveState("saving");
-    const t = setTimeout(async () => {
-      const base = updatedAtRef.current;
-      const res = await fetch(`/api/v1/pages/${pageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, baseUpdatedAt: base }),
-      });
-      const data = await res.json();
-      if (res.status === 409) {
-        setUpdatedAt(data.details?.serverUpdatedAt ?? base);
-        setSaveState("error");
-        return;
-      }
-      if (!res.ok) {
-        setSaveState("error");
-        return;
-      }
-      updatedAtRef.current = data.updatedAt;
-      setUpdatedAt(data.updatedAt);
-      setSaveState("saved");
-      void markChecklist("editedPage");
-      setPages((prev) => prev.map((p) => (p.id === pageId ? { ...p, title } : p)));
-      bumpActivity();
-    }, 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, content, pageId, canWrite, mode, markChecklist]);
-
-  // Сохранение названия на холсте (в тексте title уходит вместе с content)
-  useEffect(() => {
-    if (!pageId || !canWrite || !updatedAtRef.current || mode === "text") return;
-    setSaveState("saving");
-    const timer = setTimeout(async () => {
-      const base = updatedAtRef.current;
-      const res = await fetch(`/api/v1/pages/${pageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, baseUpdatedAt: base }),
-      });
-      const data = await res.json();
-      if (res.status === 409) {
-        setUpdatedAt(data.details?.serverUpdatedAt ?? base);
-        setSaveState("error");
-        return;
-      }
-      if (!res.ok) {
-        setSaveState("error");
-        return;
-      }
-      updatedAtRef.current = data.updatedAt;
-      setUpdatedAt(data.updatedAt);
-      setSaveState("saved");
-      setPages((prev) => prev.map((p) => (p.id === pageId ? { ...p, title } : p)));
-      bumpActivity();
-    }, 800);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, pageId, canWrite, mode]);
+  const writePage=useCallback((id:string,patch:Record<string,unknown>,base:string)=>saves.current.save(id,base,async version=>{
+    const res=await fetch(`/api/v1/pages/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({...patch,baseUpdatedAt:version})});
+    const data=await res.json();if(!res.ok)throw Object.assign(new Error(data.message??'Save failed'),{status:res.status,details:data.details});return data as {updatedAt:string};
+  }),[]);
+  useEffect(()=>{
+    if(!pageId||!canWrite||!updatedAtRef.current)return;
+    if(skipSaveRef.current){skipSaveRef.current=false;return;}
+    const ticket=++saveTicket.current;setSaveState('saving');
+    const timer=setTimeout(()=>{void writePage(pageId,mode==='text'?{title,content}:{title},updatedAtRef.current).then(data=>{
+      if(savingPage.current!==pageId)return;updatedAtRef.current=data.updatedAt;setUpdatedAt(data.updatedAt);if(ticket===saveTicket.current)setSaveState('saved');
+      setPages(prev=>prev.map(p=>p.id===pageId?{...p,title}:p));void markChecklist('editedPage');bumpActivity();
+    },()=>{if(savingPage.current===pageId&&ticket===saveTicket.current)setSaveState('error');});},800);
+    return()=>clearTimeout(timer);
+  },[title,content,pageId,canWrite,mode,markChecklist,writePage]);
 
   async function createPage() {
     const res = await fetch(`/api/v1/workspaces/${workspaceId}/pages`, {
@@ -617,27 +570,8 @@ function WorkspaceAppInner({
   }
 
   async function savePageBoardSnapshot(board: BoardSnapshot) {
-    if (!pageId || !canWrite || !updatedAtRef.current) return;
-    setSaveState("saving");
-    setPageBoard(board);
-    const res = await fetch(`/api/v1/pages/${pageId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        board,
-        baseUpdatedAt: updatedAtRef.current,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setSaveState("error");
-      return;
-    }
-    updatedAtRef.current = data.updatedAt;
-    setUpdatedAt(data.updatedAt);
-    setSaveState("saved");
-    void markChecklist("editedPage");
-    bumpActivity();
+    if(!pageId||!canWrite||!updatedAtRef.current)return;const ticket=++saveTicket.current;setSaveState('saving');setPageBoard(board);
+    try{const data=await writePage(pageId,{board},updatedAtRef.current);if(savingPage.current!==pageId)return;updatedAtRef.current=data.updatedAt;setUpdatedAt(data.updatedAt);if(ticket===saveTicket.current)setSaveState('saved');void markChecklist('editedPage');bumpActivity();}catch{if(savingPage.current===pageId&&ticket===saveTicket.current)setSaveState('error');}
   }
 
   async function runPrompt(prompt: string) {
@@ -955,6 +889,13 @@ function WorkspaceAppInner({
             {contentPageId === pageId ? <BlockEditor
               key={pageId}
               content={content}
+              resources={pageId?{
+                pageId,
+                moveBlock:async(targetPageId,blockId,doc)=>{const response=await fetch(`/api/v1/pages/${pageId}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'moveBlock',targetPageId,blockId,content:doc})});if(!response.ok)throw Object.assign(new Error('move failed'),{status:response.status});const result=await response.json() as {sourceContent:Doc;updatedAt:string};updatedAtRef.current=result.updatedAt;setUpdatedAt(result.updatedAt);skipSaveRef.current=true;setContent(result.sourceContent);setSaveState('saved');return result.sourceContent;},
+                request:async <T,>(suffix:string,init?:RequestInit):Promise<T>=>{const response=await fetch(`/api/v1/pages/${pageId}/tools${suffix}`,init);if(!response.ok)throw new Error('resources');return response.json() as Promise<T>;},
+                openPage:(id)=>router.push(`/w/${workspaceId}/p/${id}?mode=text`),
+                createPage:async(title)=>{const response=await fetch(`/api/v1/workspaces/${workspaceId}/pages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,parentPageId:pageId})});if(!response.ok)throw new Error('create page');const result=await response.json() as {id:string};await refreshPages();return{id:result.id,title};},
+              }:undefined}
               comments={pageId ? {
                 pageId, identity: viewerId,
                 request: async <T,>(suffix: string, init?: RequestInit): Promise<T> => {

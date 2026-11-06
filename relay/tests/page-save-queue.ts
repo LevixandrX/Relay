@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {PageSaveQueue} from '../src/lib/page-save-queue';
+import {railMetrics} from '../src/lib/board/rail-metrics';
+import {changedActivityBlocks} from '../src/lib/block-activity';
+import {belowTooltip} from '../src/editor/tooltip-position';
+async function main(){
+ const q=new PageSaveQueue(),bases:string[]=[];let release!:()=>void;
+ const gate=new Promise<void>(r=>release=r);q.seed('a','server-1');
+ const one=q.save('a','local-poison',async base=>{bases.push(base);await gate;return{updatedAt:'server-2'};});
+ const two=q.save('a','another-local-time',async base=>{bases.push(base);return{updatedAt:'server-3'};});
+ await Promise.resolve();await Promise.resolve();assert.deepEqual(bases,['server-1']);
+ const independent=await q.save('b','other-1',async base=>({updatedAt:base+'-ok'}));assert.equal(independent.updatedAt,'other-1-ok');
+ release();await Promise.all([one,two]);assert.deepEqual(bases,['server-1','server-2']);
+ await assert.rejects(q.save('a','wrong',async()=>{throw Error('Offline');}));
+ await q.save('a','wrong',async base=>{assert.equal(base,'server-3');return{updatedAt:'server-4'};});
+ const m=railMetrics(800,900,1800,900,18);assert.equal(m.start+m.size,782);assert.equal(railMetrics(800,900,1800,99999,18).start,m.start);
+ assert.equal(railMetrics(800,900,900,0,18).show,false);assert.ok(railMetrics(12,20,30,0,18).size>=0);
+ const tip=belowTooltip({left:200,top:500,bottom:520,width:200},{width:250,height:40},{width:1280,height:720});assert.deepEqual(tip,{left:300,top:528});
+ assert.equal(belowTooltip({left:200,top:680,bottom:700,width:20},{width:250,height:40},{width:1280,height:720}).top,632);
+ const existing={type:'doc',content:[{type:'table',attrs:{blockId:'blk_existing-table'},content:[{type:'tableRow',content:[{type:'tableCell',content:[{type:'paragraph',attrs:{blockId:'blk_existing-cell'}}]}]}]}]};
+ const added={type:'paragraph',attrs:{blockId:'blk_created-new'},content:[{type:'text',text:'new'}]};assert.deepEqual(changedActivityBlocks(existing,{...existing,content:[...existing.content,added]}),[{id:'blk_created-new',created:true}]);
+ console.log('Save queue: acknowledged versions, serialization, isolated pages and failure recovery; rail bounds and table tooltip anchors passed');
+}void main();

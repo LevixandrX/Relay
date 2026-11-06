@@ -2,8 +2,42 @@ import { useTranslations } from "use-intl";
 import type { ReactNode } from "react";
 import type { BlockType } from "./block-commands";
 export function BlockGlyph({ type }: { type: string }) {
-  if (type === "text" || /^h[123]$/.test(type)) return <span className="editor-tool-letter" aria-hidden>{type === "text" ? "T" : `H${type[1]}`}</span>;
+  if (type === "text" || /^h[1234]$/.test(type)) return <span className="editor-tool-letter" aria-hidden>{type === "text" ? "T" : `H${type[1]}`}</span>;
+  if(/^toggleH[1-4]$/.test(type))return <svg className="editor-toggle-heading-glyph" viewBox="0 0 24 20" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round"><path d="m1 7 4 3-4 3Z" fill="currentColor" stroke="none"/><path d="M8 5v10m7-10v10M8 10h7"/><text x="17" y="15" fill="currentColor" stroke="none" fontSize="10" fontFamily="system-ui,sans-serif">{type.slice(-1)}</text></svg>;
+  if(type.startsWith('columns'))return <svg viewBox="0 0 20 20" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="2" y="3" width="16" height="14" rx="1"/>{Array.from({length:Number(type.slice(-1))-1},(_,i)=><path key={i} d={`M${2+16*(i+1)/Number(type.slice(-1))} 3v14`}/>)}</svg>;
   const paths: Record<string, ReactNode> = {
+    fitWidth:<path d="M2 3v14M18 3v14M3 10h14M6 7l-3 3 3 3m8-6 3 3-3 3"/>,
+    headerRow:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M2 8h16M8 3v14"/><path d="M3 4h14v3H3Z" fill="currentColor" stroke="none"/></>,
+    headerColumn:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M7 3v14M2 10h16"/><path d="M3 4h3v12H3Z" fill="currentColor" stroke="none"/></>,
+    rowAbove:<path d="M2 8h16v9H2ZM10 1v5M7 3l3-3 3 3M2 12h16"/>,rowBelow:<path d="M2 2h16v9H2ZM10 14v5M7 17l3 3 3-3M2 6h16"/>,
+    columnBefore:<path d="M8 2h10v16H8ZM1 10h5M3 7l-3 3 3 3M13 2v16"/>,columnAfter:<path d="M2 2h9v16H2ZM14 10h5M17 7l3 3-3 3M6 2v16"/>,
+    deleteRow:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M2 8h16M2 12h16m-5-3 3 3m0-3-3 3"/></>,
+    deleteColumn:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M7 3v14M12 3v14m1 5 3 4m0-4-3 4"/></>,
+    tableRows:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M2 8h16M2 12h16"/></>,tableColumns:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M7 3v14M13 3v14"/></>,tableCells:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M10 3v14M2 10h16"/></>,
+    cellGrip:<><circle cx="10" cy="5" r="1" fill="currentColor"/><circle cx="10" cy="10" r="1" fill="currentColor"/><circle cx="10" cy="15" r="1" fill="currentColor"/></>,
+    clearContents:<><circle cx="10" cy="10" r="7"/><path d="m7 7 6 6m0-6-6 6"/></>,
+    left:<path d="M17 10H3m6-6-6 6 6 6"/>,right:<path d="M3 10h14m-6-6 6 6-6 6"/>,
+    chevronRight:<path d="m7 4 6 6-6 6"/>,
+    download:<path d="M10 2v11m-4-4 4 4 4-4M3 14v4h14v-4"/>,
+    mergeCells:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="m6 7 3 3-3 3m8-6-3 3 3 3"/></>,
+    splitCell:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M10 3v14m-4-10-3 3 3 3m8-6 3 3-3 3"/></>,
+    moveTo:<path d="M7 5H3v12h14V8M10 2h8v8M18 2 7 13"/>,
+    wrap:<path d="M2 4h16M2 9h12a4 4 0 0 1 0 8h-4m3-3-3 3 3 3M2 14h4"/>,
+    caption:<><rect x="2" y="2" width="16" height="11" rx="1"/><path d="M5 17h10"/></>,
+    bold:<path strokeWidth="2" d="M6 3h5a3.5 3.5 0 0 1 0 7H6m5 0a3.5 3.5 0 0 1 0 7H6V3"/>,
+    italic:<path d="M9 3h7M4 17h7M13 3 7 17"/>,
+    underline:<path d="M5 3v6a5 5 0 0 0 10 0V3M3 18h14"/>,
+    strike:<path d="M14 5c-2-4-9-3-9 1 0 5 10 3 10 8 0 4-8 5-10 1M2 10h16"/>,
+    clear:<path d="M3 4h12M9 4v12M4 16h7M14 12l5 6m0-6-5 6"/>,
+    toggle:<path d="m5 3 10 7-10 7Z"/>, toggleOpen:<path d="m4 7 6 6 6-6"/>,
+    table:<><rect x="2" y="3" width="16" height="14" rx="1"/><path d="M2 8h16M2 12h16M8 3v14M13 3v14"/></>,
+    image:<><rect x="2" y="3" width="16" height="14" rx="2"/><circle cx="7" cy="7" r="1.5"/><path d="m2 15 5-5 4 4 3-5 4 6"/></>,
+    video:<><rect x="2" y="4" width="16" height="12" rx="2"/><path d="m8 7 5 3-5 3Z"/></>,
+    audio:<><path d="M8 14V4l9-2v10M8 7l9-2"/><circle cx="5" cy="15" r="3"/><circle cx="14" cy="13" r="3"/></>,
+    file:<><path d="M4 2h8l4 4v12H4ZM12 2v5h4"/></>,pdf:<><path d="M4 2h8l4 4v12H4ZM12 2v5h4"/><text x="5" y="14" fontSize="5" stroke="none" fill="currentColor">PDF</text></>,
+    bookmark:<path d="M5 2h10v16l-5-4-5 4Z"/>,embed:<path d="m6 5-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/>,
+    equation:<path d="M15 3H5l6 7-6 7h10"/>,toc:<><path d="M7 4h11M7 10h11M7 16h11M2 4h1M2 10h1M2 16h1"/></>,pageLink:<><path d="M4 2h8l4 4v12H4ZM12 2v5h4M7 11h6m-3-3 3 3-3 3"/></>,
+    editSource:<><path d="m4 13 9-9 3 3-9 9H4v-3m7-7 3 3M3 18h14"/></>,
     selectParent: <><rect x="2" y="3" width="16" height="14" rx="2" strokeDasharray="2 2"/><path d="M5 7h10M5 10h10M5 13h6"/></>,
     replace: <><path d="M16 8a6 6 0 0 0-10-3L3 8m0-4v4h4M4 12a6 6 0 0 0 10 3l3-3m0 4v-4h-4"/></>,
     markUnread: <><rect x="3" y="4" width="13" height="13" rx="2"/><circle cx="16" cy="4" r="2.5" fill="currentColor" stroke="none"/></>,
@@ -40,13 +74,18 @@ export function BlockGlyph({ type }: { type: string }) {
     down: <path d="m4 10 6 6 6-6M10 3v13" />,
     turn: <path d="M3 5h13l-3-3m3 3-3 3M17 15H4l3-3m-3 3 3 3" />,
   };
-  return <svg viewBox="0 0 20 20" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{paths[type]}</svg>;
+  const aliases:Record<string,string>={inlineMath:'equation',page:'pageLink',codeLanguage:'code',codeWrap:'wrap',codeCaption:'caption',copyCode:'copy',codeSelect:'selectParent',codeDownload:'download',editIcon:'react'};
+  return <svg className={type==='chevronRight'?'editor-menu-chevron-glyph':undefined} viewBox="0 0 20 20" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{paths[aliases[type]??type]??paths.table}</svg>;
 }
 export function BlockPreview({ type }: { type: BlockType }) {
   const t = useTranslations("editorTools");
   const sample = t("sample");
   return <><div className="editor-block-example" data-type={type} aria-hidden>
     {type.startsWith("h") ? <strong className={`example-${type}`}>{t("sampleHeading")}</strong> :
+    type.startsWith('columns') ? <div style={{display:'flex',gap:8}}>{Array.from({length:Number(type.slice(-1))},(_,i)=><span key={i} style={{flex:1,border:'1px solid var(--line)',padding:6}}>Aa</span>)}</div> :
+    type==='table'?<table><tbody>{[1,2,3].map(i=><tr key={i}>{[1,2,3].map(j=><td key={j} style={{border:'1px solid var(--line)',padding:6}}>Aa</td>)}</tr>)}</tbody></table>:
+    type.startsWith('toggle')?<><strong>▸ {t('sampleHeading')}</strong><span>{sample}</span></>:
+    ['image','video','audio','file','pdf','embed','bookmark','equation','toc','pageLink'].includes(type)?<><BlockGlyph type={type}/><span>{t(`blocks.${type}`)}</span></>:
     type === "code" ? <code>const idea = "Relay";<br />share(idea);</code> :
     type === "divider" ? <><span>{sample}</span><hr /><span>{t("sampleSecond")}</span></> :
     type === "todo" ? <><span>☑ {sample}</span><span>☐ {t("sampleSecond")}</span></> :

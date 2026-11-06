@@ -1,3 +1,4 @@
+import {BLOCK_ID_TYPES} from '../domain/blocks/identity';
 export type ActivityNode = { type: string; attrs?: Record<string, unknown>; content?: ActivityNode[]; text?: string; marks?: unknown[] };
 export type BlockActivityInfo = { createdBy: string | null; createdAt: string | null; editedBy: string; editedAt: string };
 export function activityBlocks(doc: ActivityNode) {
@@ -8,7 +9,7 @@ export function activityBlocks(doc: ActivityNode) {
     return { ...node, attrs: Object.keys(attrs).length ? attrs : undefined, content: node.content?.map(clean) };
   };
   const walk = (node: ActivityNode) => {
-    if (node.type !== "doc" && node.type !== "text" && node.type !== "hardBreak") blocks.push({ id: typeof node.attrs?.blockId === "string" ? node.attrs.blockId : null, signature: JSON.stringify(clean(node)) });
+    if (BLOCK_ID_TYPES.includes(node.type)) blocks.push({ id: typeof node.attrs?.blockId === "string" ? node.attrs.blockId : null, signature: JSON.stringify(clean(node)) });
     node.content?.forEach(walk);
   };
   walk(doc); return blocks;

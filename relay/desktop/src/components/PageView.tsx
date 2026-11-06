@@ -1,4 +1,6 @@
+import {nativeSaveCode} from '../lib/save-code';
 import { guestCommentRequest } from "@relay-editor/guest-comments";
+import {guestResourceRequest} from '@relay-editor/guest-resources';
 import { useEffect, useRef, useState } from "react";
 import { useTranslations, useLocale } from "use-intl";
 import { BlockEditor } from "../editor/BlockEditor";
@@ -32,7 +34,7 @@ export function PageView({
   const locale = useLocale();
   const tc = useTranslations("common");
   const ta = useTranslations("app");
-  const { loadPage, updatePage, deletePage, offline, mode: wsMode, activeWorkspaceId, activeRole, pages } = useWorkspace();
+  const { loadPage, movePageBlock, updatePage, deletePage, createPage, offline, mode: wsMode, activeWorkspaceId, activeRole, pages } = useWorkspace();
   const auth = useAuth();
   const dialog = useDialog();
   const [mode, setMode] = useState<Mode>("text");
@@ -49,6 +51,7 @@ export function PageView({
   const [activityFocus, setActivityFocus] = useState<ActivityFocus | null>(null);
   const activityFocusMode = useRef<Mode | null>(null);
   const activityFocusTimer = useRef<number | null>(null);
+  const saveTicket=useRef(0);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -173,32 +176,32 @@ export function PageView({
 
   function scheduleTitle(next: string) {
     setTitle(next);
-    setSaveState("saving");
+    const ticket=++saveTicket.current;setSaveState("saving");
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = setTimeout(() => {
       void updatePage(pageId, { title: next.trim() || tc("untitled") })
-        .then(() => setSaveState("saved"))
-        .catch(() => setSaveState("error"));
+        .then(() => {if(ticket===saveTicket.current)setSaveState("saved");})
+        .catch(() => {if(ticket===saveTicket.current)setSaveState("error");});
     }, 400);
   }
 
   function scheduleContent(doc: Doc) {
     setContent(doc);
-    setSaveState("saving");
+    const ticket=++saveTicket.current;setSaveState("saving");
     if (contentTimer.current) clearTimeout(contentTimer.current);
     contentTimer.current = setTimeout(() => {
       void updatePage(pageId, { content: doc })
-        .then(() => setSaveState("saved"))
-        .catch(() => setSaveState("error"));
+        .then(() => {if(ticket===saveTicket.current)setSaveState("saved");})
+        .catch(() => {if(ticket===saveTicket.current)setSaveState("error");});
     }, 500);
   }
 
   function onBoardChange(next: BoardSnapshot) {
     setBoard(next);
-    setSaveState("saving");
+    const ticket=++saveTicket.current;setSaveState("saving");
     void updatePage(pageId, { board: next })
-      .then(() => setSaveState("saved"))
-      .catch(() => setSaveState("error"));
+      .then(() => {if(ticket===saveTicket.current)setSaveState("saved");})
+      .catch(() => {if(ticket===saveTicket.current)setSaveState("error");});
   }
 
   const pageUrl =
@@ -287,6 +290,7 @@ export function PageView({
           {contentPageId === pageId ? <BlockEditor
             key={pageId}
             content={content}
+            resources={{pageId,saveText:nativeSaveCode,moveBlock:async(targetId,blockId,doc)=>{if(contentTimer.current)clearTimeout(contentTimer.current);const next=await movePageBlock(pageId,targetId,blockId,doc);setContent(next);setSaveState('saved');return next;},request:<T,>(suffix:string,init?:RequestInit)=>wsMode==='guest'?guestResourceRequest<T>(pageId,pages,suffix,init):api<T>(`/pages/${pageId}/tools${suffix}`,{...init,token:auth.token}),openPage:(id)=>window.dispatchEvent(new CustomEvent('relay:open-page',{detail:id})),createPage}}
             editable={wsMode === "guest" || activeRole !== "viewer"}
             comments={{
               pageId, identity: wsMode === "guest" ? "guest" : auth.user?.id ?? "signed-out",

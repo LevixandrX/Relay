@@ -1,4 +1,18 @@
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
+
+/// The destination always comes from the native Save dialog, never from JS.
+#[tauri::command]
+async fn save_code(window: tauri::WebviewWindow, name: String, text: String) -> Result<bool, String> {
+  if text.len() > 5 * 1024 * 1024 { return Err("Code is too large".into()); }
+  let name: String = name.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-' || *c == '_').take(80).collect();
+  tauri::async_runtime::spawn_blocking(move || {
+    let Some(file) = window.dialog().file().set_file_name(if name.is_empty() { "code.txt" } else { &name }).blocking_save_file() else { return Ok(false); };
+    let path = file.into_path().map_err(|error| error.to_string())?;
+    std::fs::write(path, text).map_err(|error| error.to_string())?;
+    Ok(true)
+  }).await.map_err(|error| error.to_string())?
+}
 
 #[cfg(windows)]
 fn apply_corner_preference(window: &tauri::WebviewWindow) {
@@ -52,12 +66,13 @@ fn app_info() -> serde_json::Value {
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_dialog::init())
     .plugin(
       tauri_plugin_snap_layout::init()
         .button_id("relay-snap-btn")
         .build(),
     )
-    .invoke_handler(tauri::generate_handler![app_info])
+    .invoke_handler(tauri::generate_handler![app_info, save_code])
     .setup(|app| {
       if let Some(window) = app.get_webview_window("main") {
         let _ = window.set_title("Relay");

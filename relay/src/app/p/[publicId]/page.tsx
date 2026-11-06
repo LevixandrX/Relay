@@ -42,7 +42,7 @@ export default async function PublicPage({ params }: Props) {
         <h1 className="relay-title" style={{ marginBottom: "1.25rem" }}>
           {(page.icon ? `${page.icon} ` : "") + (page.title || tc("untitled"))}
         </h1>
-        <DocRenderer doc={content} />
+        <DocRenderer doc={content} publicId={publicId} />
       </article>
     </div>
   );

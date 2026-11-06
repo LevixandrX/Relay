@@ -20,7 +20,10 @@ export function OverlayPresence({visible,children,exitDuration=duration}:{visibl
 
 type Layer={element:HTMLElement;level:number;owner?:string};
 const layers=new Set<Layer>();
+const placeholderOwners=new Set<HTMLElement>();
+export function suppressEditorPlaceholder(element:HTMLElement){placeholderOwners.add(element);document.documentElement.classList.add('editor-placeholder-suppressed');return()=>{placeholderOwners.delete(element);if(!placeholderOwners.size)document.documentElement.classList.remove('editor-placeholder-suppressed');};}
 function topLayer(){return [...layers].reverse().sort((a,b)=>b.level-a.level)[0];}
+export function isTopEditorOverlay(element:HTMLElement|null){return topLayer()?.element===element;}
 function owned(layer:Layer,target:Element){return layer.element.contains(target)||Boolean(layer.owner&&target.closest('[data-editor-menu-owner]')?.getAttribute('data-editor-menu-owner')===layer.owner);}
 function preventBackground(event:WheelEvent|TouchEvent){
   const layer=topLayer(),target=event.target;if(!layer||!(target instanceof Element))return;
@@ -71,14 +74,19 @@ function register(layer:Layer){
 
 /** Shared motion and optional pointer/wheel boundary for editor popup surfaces. */
 export function OverlaySurface({surfaceRef,blockLevel,owner,children,style,motionKind='popup',...props}:HTMLAttributes<HTMLDivElement>&{
-  surfaceRef:RefObject<HTMLDivElement|null>;blockLevel?:number;owner?:string;style?:CSSProperties;motionKind?:'popup'|'controls';
+  surfaceRef:RefObject<HTMLDivElement|null>;blockLevel?:number;owner?:string;style?:CSSProperties;motionKind?:'popup'|'controls'|'notice';
 }){
   const closing=useContext(Closing),motion=useRef<Animation|null>(null);
+  const nested=useRef(Boolean(owner&&[...layers].some(layer=>layer.owner===owner)));
   useLayoutEffect(()=>{
     const element=surfaceRef.current;if(!element)return;
     const css=getComputedStyle(element),opacity=css.opacity,scale=css.scale,translate=css.translate;
     const continuing=motion.current!==null;
     motion.current?.cancel();
+    if(motionKind==='notice'){
+      if(!reduced())motion.current=element.animate(closing?[{opacity,translate},{opacity:0,translate:'0px 30px'}]:[{opacity:0,translate:'0px 30px'},{opacity:1,translate:'0px 0px'}],{duration:closing?260:340,easing:'cubic-bezier(.2,.8,.2,1)',fill:closing?'forwards':'none'});
+      return;
+    }
     if(!reduced())motion.current=element.animate(motionKind==='controls'?(closing?[{opacity,translate},{opacity:0,translate:'0px 2px'}]:[{opacity:continuing?opacity:0,translate:continuing?translate:'0px 2px'},{opacity:1,translate:'0px 0px'}]):closing?[{opacity,scale},{opacity:0,scale:'.985'}]:[{opacity:continuing?opacity:0,scale:continuing?scale:'.985'},{opacity:1,scale:'1'}],{duration:motionKind==='controls'?220:closing?140:160,easing:'cubic-bezier(.2,.8,.2,1)',fill:closing?'forwards':'none'});
   },[closing,surfaceRef,motionKind]);
   useLayoutEffect(()=>()=>{motion.current?.cancel();motion.current=null;},[]);
@@ -86,8 +94,12 @@ export function OverlaySurface({surfaceRef,blockLevel,owner,children,style,motio
     const element=surfaceRef.current;if(!element||blockLevel===undefined)return;
     return register({element,level:blockLevel,owner});
   },[surfaceRef,blockLevel,owner]);
+  useLayoutEffect(()=>{
+    const element=surfaceRef.current;if(!element||blockLevel===undefined&&!['dialog','menu','toolbar'].includes(props.role??''))return;
+    return suppressEditorPlaceholder(element);
+  },[surfaceRef,blockLevel,props.role]);
   return <>
-    {blockLevel!==undefined?<div className="editor-overlay-shield" style={{zIndex:blockLevel-1}} aria-hidden onPointerDown={event=>event.preventDefault()}/>:null}
-    <div {...props} ref={surfaceRef} data-editor-overlay-surface data-overlay-state={closing?'closing':'open'} inert={closing||undefined} style={{...style,...(blockLevel===undefined?{}:{zIndex:blockLevel}),...(closing?{pointerEvents:'none'}:{})}}>{children}</div>
+    {blockLevel!==undefined&&!nested.current?<div className="editor-overlay-shield" style={{zIndex:blockLevel-1}} aria-hidden onPointerDown={event=>event.preventDefault()}/>:null}
+    <div {...props} ref={surfaceRef} data-editor-overlay-surface data-editor-overlay-level={blockLevel} data-overlay-state={closing?'closing':'open'} inert={closing||undefined} style={{...style,...(blockLevel===undefined?{}:{zIndex:blockLevel}),...(closing?{pointerEvents:'none'}:{})}}>{children}</div>
   </>;
 }

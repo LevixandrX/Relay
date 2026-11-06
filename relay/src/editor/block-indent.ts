@@ -7,6 +7,13 @@ import {blockAt} from './block-commands';
 export function indentEditorSelection(editor:Editor,direction:1|-1){
   if(!editor.isEditable)return false;
   const {state,view}=editor,{$from,$to,from,to,empty}=state.selection;
+  let inTable=false;for(let depth=$from.depth;depth>0;depth--)if($from.node(depth).type.name==='table')inTable=true;
+  if(inTable){
+    if(direction===-1)return editor.commands.goToPreviousCell()||true;
+    if(editor.commands.goToNextCell())return true;
+    for(let d=$from.depth;d>0;d--)if($from.node(d).type.name==='table'&&$from.node(d).childCount>=100)return true;
+    return editor.chain().addRowAfter().goToNextCell().run()||true;
+  }
   if($from.parent.type.name==='codeBlock'&&$from.sameParent($to)){
     const tr=closeHistory(state.tr),start=$from.start(),text=$from.parent.textContent;
     if(direction===1&&empty)tr.insertText('\t',from,to);

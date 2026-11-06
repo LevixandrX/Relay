@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,7 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
+    fs: { allow: [searchForWorkspaceRoot(here), path.resolve(here, '../node_modules/katex/dist/fonts')] },
     port: 1420,
     strictPort: true,
     host: host || "127.0.0.1",

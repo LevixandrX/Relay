@@ -57,3 +57,16 @@ export function revealCommentCard(element: HTMLElement) {
   const delta = commentRevealDelta(top, height, 0, window.innerHeight);
   if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
+
+/** Recheck final stacked positions: earlier cards can push later ones into a wide block. */
+export function avoidCommentObstacles(cards:{key:string;top:number;height:number}[],obstacles:{top:number;bottom:number}[],active:string|null){
+  const fixed=cards.find(card=>card.key===active),barriers=[...obstacles,...(fixed?[{top:fixed.top-COMMENT_GAP,bottom:fixed.top+fixed.height+COMMENT_GAP}]:[])].sort((a,b)=>a.top-b.top);
+  let end=0;
+  return cards.map(card=>{
+    if(card.key===active)return card;
+    let top=Math.max(end,card.top);
+    for(const barrier of barriers)if(top+card.height>barrier.top&&top<barrier.bottom)top=barrier.bottom;
+    end=top+card.height+COMMENT_GAP;
+    return {...card,top};
+  });
+}

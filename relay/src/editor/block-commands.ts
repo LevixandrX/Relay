@@ -1,10 +1,12 @@
 import { closeHistory } from "@tiptap/pm/history";
+import {focusAfterBlockRender} from './node-view-events';
 import {MAX_COLUMNS} from '../domain/blocks/columns';
-import { NodeSelection, Selection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/core";
 import { Fragment, type Node as PMNode, type Schema } from "@tiptap/pm/model";
 import {planBlockMove} from './block-move';
-export const BLOCK_TYPES = ["text", "h1", "h2", "h3", "bullet", "numbered", "todo", "quote", "callout", "code", "divider", "prompt"] as const;
+import { MEDIA_TYPES, webUrl, embedUrl } from '../domain/blocks/rich-content';
+export const BLOCK_TYPES = ["text", "h1", "h2", "h3", "h4", "bullet", "numbered", "todo", "toggle", "quote", "callout", "code", "divider", "table", ...MEDIA_TYPES, "bookmark", "embed", "equation", "inlineMath", "toc", "page", "pageLink", "toggleH1", "toggleH2", "toggleH3", "toggleH4", "columns2", "columns3", "columns4", "columns5", "prompt"] as const;
 export type BlockType = typeof BLOCK_TYPES[number];
 export type BlockTarget = { pos: number; node: PMNode; parentType?: string };
 export type BlockAction = "duplicate" | "delete" | "up" | "down";
@@ -59,7 +61,7 @@ export function blockAt(editor: Editor, position: number, exact = false): BlockT
   if (direct?.isBlock && (exact || ["listItem", "taskItem"].includes(direct.type.name))) return { pos, node: direct, parentType: editor.state.doc.resolve(pos).parent.type.name };
   const resolved = editor.state.doc.resolve(pos);
   let depth = 1;
-  for (let current = 1; current <= resolved.depth; current++) { if (resolved.node(current).type.name === "column" && current < resolved.depth) depth = current + 1; }
+  for (let current = 1; current <= resolved.depth; current++) { if (["column","toggleContent","callout","blockquote","tableCell","tableHeader"].includes(resolved.node(current).type.name) && current < resolved.depth) depth = current + 1; }
   for (let current = resolved.depth; current > 0; current--) {
     if (["listItem", "taskItem"].includes(resolved.node(current).type.name)) { depth = current; break; }
   }
@@ -68,10 +70,21 @@ export function blockAt(editor: Editor, position: number, exact = false): BlockT
   return node?.isBlock ? { pos: start, node, parentType: editor.state.doc.resolve(start).parent.type.name } : null;
 }
 export function blockType(node: PMNode, parentType?: string): BlockType {
+  if(node.type.name==='pageLink'&&node.attrs.createNew)return'page';
   if (node.type.name === "taskItem") return "todo";
   if (node.type.name === "listItem") return parentType === "orderedList" ? "numbered" : "bullet";
   if (node.type.name === "heading") return `h${node.attrs.level}` as BlockType;
+  if (node.type.name === 'toggle') return node.attrs.level ? `toggleH${node.attrs.level}` as BlockType : 'toggle';
+  if (node.type.name === 'columns') return `columns${Math.min(5,node.childCount)}` as BlockType;
+  if (node.type.name === 'tableOfContents') return 'toc';
+  if (BLOCK_TYPES.includes(node.type.name as BlockType)) return node.type.name as BlockType;
   return ({ paragraph: "text", bulletList: "bullet", orderedList: "numbered", taskList: "todo", blockquote: "quote", callout: "callout", codeBlock: "code", horizontalRule: "divider", promptBlock: "prompt" } as Record<string, BlockType>)[node.type.name] ?? "text";
+}
+/** Whole-block handles share the first callout line and never enter table cells. */
+export function blockHandleTarget(editor:Editor,target:BlockTarget):BlockTarget{
+  const resolved=editor.state.doc.resolve(target.pos);
+  for(let d=resolved.depth;d>0;d--){const parent=resolved.node(d);let first=true;for(let child=d;child<=resolved.depth;child++)if(resolved.index(child)!==0)first=false;if(parent.type.name==='table'||parent.type.name==='callout'&&first)return blockAt(editor,resolved.before(d),true)??target;}
+  return target;
 }
 // Preserve text and produce schema-valid content when converting a whole block
 export function convertedBlock(schema: Schema, source: PMNode, type: BlockType): PMNode {
@@ -83,7 +96,23 @@ export function convertedBlock(schema: Schema, source: PMNode, type: BlockType):
     paragraphs.push(schema.nodes.paragraph.create(null, node.content));
     return false;
   });
-  if (!paragraphs.length) paragraphs.push(schema.nodes.paragraph.create());
+  if (!paragraphs.length) {const text=String(source.attrs.latex||source.attrs.caption||source.attrs.src||source.attrs.title||'');paragraphs.push(schema.nodes.paragraph.create(null,text?schema.text(text):null));}
+  if(type === 'toggle' || type.startsWith('toggleH')) return schema.nodes.toggle.create({open:false,level:type==='toggle'?0:Number(type.slice(-1))},[
+    schema.nodes.toggleTitle.create(null,paragraphs[0].content),
+    schema.nodes.toggleContent.create(null,paragraphs.length>1?paragraphs.slice(1):schema.nodes.paragraph.create()),
+  ]);
+  if(type.startsWith('columns')) {
+    const count=Number(type.slice(-1));
+    const first=source.type.name==='columns'?Array.from({length:source.childCount},(_,j)=>source.child(j).content.content).flat():source.type.name==='column'?Array.from({length:source.childCount},(_,j)=>source.child(j)):source.type.name==='listItem'?[schema.nodes.bulletList.create(null,source)]:source.type.name==='taskItem'?[schema.nodes.taskList.create(null,source)]:[source];
+    return schema.nodes.columns.create(null,Array.from({length:count},(_,i)=>schema.nodes.column.create({width:1},i===0?first:[schema.nodes.paragraph.create()])));
+  }
+  if(type === 'table') return schema.nodes.table.create(null,Array.from({length:Math.max(3,paragraphs.length)},(_,row)=>schema.nodes.tableRow.create(null,Array.from({length:3},(_,col)=>schema.nodes[row===0?'tableHeader':'tableCell'].create(null,col===0&&paragraphs[row]?paragraphs[row]:schema.nodes.paragraph.create())))));
+  if(MEDIA_TYPES.includes(type as never)||type==='bookmark'||type==='embed')return schema.nodes[type].create({src:type==='embed'?embedUrl(source.textContent):webUrl(source.textContent),caption:source.attrs.caption??'',name:source.attrs.name??''});
+  if(type==='equation') return schema.nodes.equation.create({latex:source.textContent});
+  if(type==='inlineMath') return schema.nodes.paragraph.create(null,schema.nodes.inlineEquation.create({latex:source.textContent}));
+  if(type==='toc') return schema.nodes.tableOfContents.create();
+  if(type==='pageLink') return schema.nodes.pageLink.create();
+  if(type==='page') return schema.nodes.pageLink.create({createNew:true});
   const inline: PMNode[] = [];
   paragraphs.forEach((paragraph, index) => {
     if (index && schema.nodes.hardBreak) inline.push(schema.nodes.hardBreak.create());
@@ -102,14 +131,20 @@ export function convertedBlock(schema: Schema, source: PMNode, type: BlockType):
   const item = type === "todo" ? "taskItem" : "listItem";
   return schema.nodes[list].create(null, paragraphs.map((paragraph) => schema.nodes[item].create(type === "todo" ? { checked: false } : null, paragraph)));
 }
-export function changeBlock(editor: Editor, target: BlockTarget, type: BlockType) {
-  if (blockType(target.node, target.parentType) === type&&!['columns','column'].includes(target.node.type.name)) { editor.commands.focus(); return; }
-  const converted = convertedBlock(editor.schema, target.node, type);
+export function changeBlock(editor: Editor, target: BlockTarget, type: BlockType, range?:{from:number;to:number}) {
+  if (!range&&blockType(target.node, target.parentType) === type&&!['columns','column'].includes(target.node.type.name)) { editor.commands.focus(); return; }
+  const transaction = closeHistory(editor.state.tr);
+  if(range){transaction.delete(range.from,range.to);const pos=transaction.mapping.map(target.pos),node=transaction.doc.nodeAt(pos);if(!node)return;target={...target,pos,node};}
+  const sourceItem=['listItem','taskItem'].includes(target.node.type.name);
+  const listConversion=['bullet','numbered','todo'].includes(type);
+  const tail:PMNode[]=[];
+  if(sourceItem&&range)target.node.forEach((child,_offset,index)=>{if(index>0)tail.push(child);});
+  let converted = convertedBlock(editor.schema, sourceItem&&range?target.node.firstChild!:target.node, type);
+  if(sourceItem&&range&&listConversion&&tail.length)converted=converted.copy(Fragment.from(converted.firstChild!.copy(converted.firstChild!.content.append(Fragment.fromArray(tail)))));
   const common = { blockId: target.node.attrs.blockId, textColor: target.node.attrs.textColor, blockBackground: target.node.attrs.blockBackground, blockIndent: target.node.attrs.blockIndent };
   const toItem = ["bulletList", "orderedList", "taskList"].includes(converted.type.name) && !["bulletList", "orderedList", "taskList"].includes(target.node.type.name);
   const node = toItem ? converted.copy(Fragment.fromArray([converted.firstChild!.type.create({ ...converted.firstChild!.attrs, ...common }, converted.firstChild!.content), ...Array.from({ length: converted.childCount - 1 }, (_, i) => converted.child(i + 1))])) : converted.type.create({ ...converted.attrs, ...common }, converted.content);
-  const resolved = editor.state.doc.resolve(target.pos);
-  const transaction = closeHistory(editor.state.tr);
+  const resolved = transaction.doc.resolve(target.pos);
   let insertedPos=target.pos;
   if (["listItem", "taskItem"].includes(target.node.type.name)) {
     const list = resolved.parent;
@@ -119,15 +154,28 @@ export function changeBlock(editor: Editor, target: BlockTarget, type: BlockType
     const replacement: PMNode[] = [];
     if (before.length) replacement.push(list.copy(Fragment.fromArray(before)));
     replacement.push(node);
+    if(!listConversion)replacement.push(...tail);
     if (after.length) replacement.push(list.copy(Fragment.fromArray(after)));
     const start = resolved.before(resolved.depth);
     insertedPos=start+before.reduce((size,item)=>size+item.nodeSize,0)+(before.length?2:0);
     transaction.replaceWith(start, start + list.nodeSize, replacement);
   } else transaction.replaceWith(target.pos, target.pos + target.node.nodeSize, node);
-  const caret=Selection.findFrom(transaction.doc.resolve(insertedPos),1,true);
-  if(caret&&caret.from<insertedPos+node.nodeSize)transaction.setSelection(caret);
+  let textPos:number|null=node.isTextblock?insertedPos+1:null;
+  if(textPos===null&&!node.isAtom)node.descendants((child,offset)=>{if(textPos!==null)return false;if(child.isTextblock){textPos=insertedPos+offset+2;return false;}return true;});
+  transaction.setSelection(textPos!==null?TextSelection.create(transaction.doc,textPos):NodeSelection.create(transaction.doc,insertedPos));
   editor.view.dispatch(transaction.scrollIntoView());
   editor.commands.focus();
+  focusAfterBlockRender(editor);
+  if(node.isAtom&&typeof window!=='undefined')requestAnimationFrame(()=>{if(editor.isDestroyed)return;const dom=editor.view.nodeDOM(insertedPos);if(dom instanceof HTMLElement)dom.querySelector<HTMLElement>('.rich-source-form input:not([type=file]),.rich-page-link input')?.focus({preventScroll:true});});
+}
+
+/** Exclude lossy conversions; insertion starts from an empty paragraph. */
+export function canChangeBlock(source:PMNode,type:BlockType){
+  const text=source.textContent.trim();
+  if(type==='divider'||type==='toc'||type==='pageLink'||type==='page')return !text;
+  if(MEDIA_TYPES.includes(type as never)||type==='bookmark')return !text||Boolean(webUrl(text));
+  if(type==='embed')return !text||Boolean(embedUrl(text));
+  return !['toggleTitle','tableRow','tableCell','tableHeader','toggleContent'].includes(source.type.name);
 }
 export function insertAdjacent(editor: Editor, target: BlockTarget, above: boolean) {
   const pos = target.node.type.name==='column'?(above?target.pos+1:target.pos+target.node.nodeSize-1):above ? target.pos : target.pos + target.node.nodeSize;

@@ -1,3 +1,6 @@
+@import './rich-blocks.css';
+@import './rich-interactions.css';
+@import './editor-refinements.css';
 .relay-editor[data-block-tools] { padding-inline: 0; }
 .editor-block-handles { position: fixed; z-index: 8; display: flex; gap: 2px; padding: 0; color: var(--muted); }
 .editor-block-handles[data-menu-open] { z-index:81; }
@@ -233,7 +236,6 @@
 .editor-comment-add-reaction { color: var(--muted) !important; border-color: transparent !important; }
 .editor-emoji-picker, .editor-mention-picker { position: fixed; z-index: 110; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-ui, 10px); background: var(--chrome-overlay-bg, var(--surface)); color: var(--text, var(--ink)); backdrop-filter: blur(var(--chrome-blur, 0px)) saturate(var(--glass-sat, 1.45)); -webkit-backdrop-filter: blur(var(--chrome-blur, 0px)) saturate(var(--glass-sat, 1.45)); box-shadow: var(--chrome-shadow, 0 8px 28px #0004); overflow: hidden; font: 13px/1.4 var(--font-body, system-ui); }
 .editor-emoji-picker { height: min(380px, calc(100vh - 24px)); width: min(360px, calc(100vw - 24px)); max-height: min(380px, calc(100vh - 24px)); }
-.editor-emoji-picker[data-adding="true"] { width: min(300px, calc(100vw - 24px)); height: auto; max-height: calc(100vh - 24px); }
 .editor-emoji-search { display: flex; gap: 4px; padding: 9px; flex: none; }
 .editor-emoji-search > input, .editor-emoji-add input, .editor-mention-date input { min-width: 0; width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: max(0px, calc(var(--radius-ui, 10px) * .6)); color: inherit; background: var(--chrome-float-bg, var(--surface)); font: inherit; }
 .editor-emoji-search button { width: 26px; padding: 0; border: 0; background: transparent; color: var(--muted); font: 20px system-ui; cursor: pointer; }
@@ -416,12 +418,8 @@ span.editor-comment-compose-avatar { display: grid; }
 .editor-comment-card[data-hovered="true"] { transform: translateX(-5px); border-color: color-mix(in srgb, var(--line) 70%, var(--muted)); }
 .editor-comment-card:is([data-hovered="true"],[data-focused="true"]) { z-index:2; }
 .editor-comment-card[data-focused="true"] { transform: translateX(-10px); background: var(--chrome-overlay-bg, var(--surface)); box-shadow: var(--chrome-shadow, 0 4px 14px #0002); }
-/* Keep the backdrop on an independent paint layer. The animated card itself
-   must not become the backdrop root for its glass surface and child tools. */
-.editor-comment-card { contain:layout; background:transparent; backdrop-filter:none; -webkit-backdrop-filter:none; }
-.editor-comment-card[data-focused="true"] { background:transparent; }
-.editor-comment-card::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; border-radius:inherit; background:var(--chrome-overlay-bg,var(--surface)); backdrop-filter:blur(var(--chrome-blur,0px)) saturate(var(--glass-sat,1.45)); -webkit-backdrop-filter:blur(var(--chrome-blur,0px)) saturate(var(--glass-sat,1.45)); }
-.editor-comment-card[data-draft="true"]::before { display:none; }
+/* Match popup glass on the card surface; no negative-z-index backdrop layer. */
+.editor-comment-card { contain:layout; background:var(--chrome-overlay-bg,var(--surface)); backdrop-filter:blur(var(--chrome-blur,0px)) saturate(var(--glass-sat,1.45)); -webkit-backdrop-filter:blur(var(--chrome-blur,0px)) saturate(var(--glass-sat,1.45)); }
 .editor-comment-card[data-draft="true"] { padding: 0; border-color: transparent; background: transparent; box-shadow: none; backdrop-filter: none; }
 .editor-comment-card-content { display: flex; flex-direction: column; min-width: 0; min-height: 0; max-height: max(70px, calc(var(--comment-card-max-height, 560px) - 26px)); }
 .editor-comment-card-content > .editor-comment-thread-scroll { flex: 0 1 auto; min-height: 0; }
