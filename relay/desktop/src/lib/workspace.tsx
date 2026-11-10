@@ -1,4 +1,5 @@
 import {PageSaveQueue} from '../../../src/lib/page-save-queue';
+import { changedActivityBlocks, type BlockActivityInfo } from "../../../src/lib/block-activity";
 import {
   createContext,
   useCallback,
@@ -9,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLocale } from "use-intl";
 import {
   createPage as createLocalPage,
   loadWorkspace,
@@ -20,7 +22,7 @@ import {
 import type { Doc } from "./types";
 import { emptyDoc } from "./types";
 import { useAuth } from "./auth";
-import { api, ApiClientError } from "./api";
+import { api } from "./api";
 import {prepareBlockMove,referencedAssets} from '../../../src/domain/blocks/move-content';
 import {copyGuestAssets} from '@relay-editor/guest-resources';
 import {stageGuestComments} from '@relay-editor/guest-move-comments';
@@ -47,6 +49,8 @@ type WorkspaceContextValue = {
   activeRole: string;
   members: Member[];
   offline: boolean;
+  workspaceLoading: boolean;
+  membersLoading: boolean;
   guestLimit: number;
   createPage: (title?: string) => Promise<PageRecord>;
   deletePage: (id: string) => Promise<void>;
@@ -68,16 +72,34 @@ type WorkspaceContextValue = {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-function persistLocal(next: WorkspaceData) {
-  saveWorkspace(next);
-  return next;
+function recordGuestEdits(pageId: string, before: Doc, after: Doc, name: string, timestamp: string) {
+  const changes = changedActivityBlocks(before, after);
+  if (!changes.length) return;
+  const key = `relay-guest-block-activity-v1:${pageId}`;
+  const records = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, BlockActivityInfo>;
+  for (const block of changes) {
+    records[block.id] = {
+      createdBy: records[block.id]?.createdBy ?? (block.created ? name : null),
+      createdAt: records[block.id]?.createdAt ?? (block.created ? timestamp : null),
+      editedBy: name,
+      editedAt: timestamp,
+    };
+  }
+  localStorage.setItem(key, JSON.stringify(records));
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const guestName = useLocale().startsWith("ru") ? "Гость" : "Guest";
   const mode: "guest" | "cloud" = auth.token && auth.user ? "cloud" : "guest";
 
   const [local, setLocal] = useState<WorkspaceData>(() => loadWorkspace());
+  const localRef = useRef(local);
+  const commitLocal = useCallback((next: WorkspaceData) => {
+    saveWorkspace(next);
+    localRef.current = next;
+    setLocal(next);
+  }, []);
   const [cloudPages, setCloudPages] = useState<PageRecord[]>([]);
   const [workspaceBoard, setWsBoard] = useState<BoardSnapshot | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(() => {
@@ -89,6 +111,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   });
   const [members, setMembers] = useState<Member[]>([]);
   const [offline, setOffline] = useState(false);
+  const [workspaceLoaded, setWorkspaceLoaded] = useState<string | null>(null);
+  const [membersLoaded, setMembersLoaded] = useState<string | null>(null);
+  const pagesRequest = useRef<AbortController | null>(null);
+  const membersRequest = useRef<AbortController | null>(null);
   const [pageCache, setPageCache] = useState<Record<string, PageRecord>>({});
   const saves=useRef(new PageSaveQueue());
   const pageCacheRef = useRef(pageCache);
@@ -115,7 +141,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [mode, auth.workspaces, activeWs, activeWorkspaceId]);
 
   const refreshPages = useCallback(async () => {
+    pagesRequest.current?.abort();
     if (mode !== "cloud" || !activeWs || !auth.token) return;
+    const request = new AbortController();
+    pagesRequest.current = request;
+    const { signal } = request;
     try {
       const data = await api<{
         pages: {
@@ -125,7 +155,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           updatedAt: string;
           publicId: string | null;
         }[];
-      }>(`/workspaces/${activeWs.id}/pages`, { token: auth.token });
+      }>(`/workspaces/${activeWs.id}/pages`, { token: auth.token, signal });
+      if (signal.aborted) return;
       setOffline(false);
       setCloudPages(
         data.pages.map((p) => ({
@@ -140,34 +171,45 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       );
       const board = await api<{ board: BoardSnapshot | null }>(
         `/workspaces/${activeWs.id}/board`,
-        { token: auth.token },
+        { token: auth.token, signal },
       );
-      setWsBoard(board.board);
-    } catch (err) {
-      if (err instanceof ApiClientError && err.status >= 500) setOffline(true);
-      else setOffline(true);
+      if (!signal.aborted) setWsBoard(board.board);
+    } catch {
+      if (!signal.aborted) setOffline(true);
+    } finally {
+      if (!signal.aborted) setWorkspaceLoaded(activeWs.id);
     }
   }, [mode, activeWs, auth.token]);
 
   const refreshMembers = useCallback(async () => {
+    membersRequest.current?.abort();
     if (mode !== "cloud" || !activeWs || !auth.token) {
       setMembers([]);
       return;
     }
+    const request = new AbortController();
+    membersRequest.current = request;
+    const { signal } = request;
     try {
       const data = await api<{ members: Member[] }>(
         `/workspaces/${activeWs.id}/members`,
-        { token: auth.token },
+        { token: auth.token, signal },
       );
-      setMembers(data.members);
+      if (!signal.aborted) setMembers(data.members);
     } catch {
-      setMembers([]);
+      if (!signal.aborted) setMembers([]);
+    } finally {
+      if (!signal.aborted) setMembersLoaded(activeWs.id);
     }
   }, [mode, activeWs, auth.token]);
 
   useEffect(() => {
     void refreshPages();
     void refreshMembers();
+    return () => {
+      pagesRequest.current?.abort();
+      membersRequest.current?.abort();
+    };
   }, [refreshPages, refreshMembers]);
 
   useEffect(() => {
@@ -181,13 +223,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const createPage = useCallback(
     async (title = "Новая страница") => {
       if (mode === "guest") {
-        if (local.pages.length >= GUEST_PAGE_LIMIT) {
+        const current = localRef.current;
+        if (current.pages.length >= GUEST_PAGE_LIMIT) {
           throw new Error(
             `Гостевой режим: максимум ${GUEST_PAGE_LIMIT} страницы. Войди, чтобы снять лимит.`,
           );
         }
         const page = createLocalPage(title);
-        setLocal((prev) => persistLocal({ ...prev, pages: [page, ...prev.pages] }));
+        commitLocal({ ...current, pages: [page, ...current.pages] });
         return page;
       }
       if (!auth.token || !activeWs) throw new Error("Нет облачного пространства");
@@ -209,15 +252,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setPageCache((c) => ({ ...c, [page.id]: page }));
       return page;
     },
-    [mode, local.pages.length, auth.token, activeWs],
+    [mode, commitLocal, auth.token, activeWs],
   );
 
   const deletePage = useCallback(
     async (id: string) => {
       if (mode === "guest") {
-        setLocal((prev) =>
-          persistLocal({ ...prev, pages: prev.pages.filter((p) => p.id !== id) }),
-        );
+        const current = localRef.current;
+        commitLocal({ ...current, pages: current.pages.filter((p) => p.id !== id) });
         return;
       }
       if (!auth.token) return;
@@ -229,7 +271,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [mode, auth.token],
+    [mode, auth.token, commitLocal],
   );
 
   const updatePage = useCallback(
@@ -238,21 +280,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       patch: Partial<Pick<PageRecord, "title" | "content" | "board" | "icon">>,
     ) => {
       if (mode === "guest") {
-        setLocal((prev) =>
-          persistLocal({
-            ...prev,
-            pages: prev.pages.map((p) =>
-              p.id === id
-                ? { ...p, ...patch, updatedAt: new Date().toISOString() }
-                : p,
-            ),
-          }),
-        );
+        const current = localRef.current;
+        const previous = current.pages.find((page) => page.id === id);
+        if (!previous) return;
+        const updatedAt = new Date().toISOString();
+        const next = { ...previous, ...patch, updatedAt };
+        commitLocal({ ...current, pages: current.pages.map((page) => page.id === id ? next : page) });
+        if (patch.content) {
+          try {
+            recordGuestEdits(id, previous.content, patch.content, guestName, updatedAt);
+          } catch {
+            // Optional activity metadata cannot undo a committed page.
+          }
+        }
         return;
       }
       if (!auth.token) return;
       const current =
-        pageCache[id] ||
+        pageCacheRef.current[id] ||
         cloudPages.find((p) => p.id === id) ||
         ({
           id,
@@ -269,48 +314,45 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         ...patch,
         updatedAt: current.updatedAt,
       };
-      setPageCache((c) => ({ ...c, [id]: next }));
+      setPageCache((c) => ({ ...c, [id]: { ...(c[id] ?? next), ...patch } }));
       setCloudPages((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, title: next.title, icon: next.icon, updatedAt: next.updatedAt } : p)),
+        prev.map((p) => (p.id === id ? { ...p, title: patch.title ?? p.title, icon: patch.icon === undefined ? p.icon : patch.icon } : p)),
       );
 
-      await saves.current.save(id,current.updatedAt,base=>api<{ updatedAt: string }>(`/pages/${id}`, {
-        method: "PATCH",
-        token: auth.token,
-        body: JSON.stringify({
-          title: patch.title,
-          icon: patch.icon,
-          content: patch.content,
-          board: patch.board,
-          baseUpdatedAt: base,
-        }),
-      })).then((res) => {
-        setPageCache((c) => ({
-          ...c,
-          [id]: { ...(c[id]??next), updatedAt: res.updatedAt },
-        }));
-        notifyActivityChanged({ workspaceId: activeWs?.id ?? null, pageId: id });
+      const saved = await saves.current.save(id, current.updatedAt, (baseUpdatedAt) => {
+        const body = JSON.stringify({ ...patch, baseUpdatedAt });
+        return api<{ updatedAt: string }>(`/pages/${id}`, {
+          method: "PATCH",
+          token: auth.token,
+          body,
+          keepalive: document.visibilityState === "hidden" && new Blob([body]).size <= 60_000,
+        });
       });
+      setPageCache((c) => c[id] ? { ...c, [id]: { ...c[id], updatedAt: saved.updatedAt } } : c);
+      setCloudPages((prev) => prev.map((page) => page.id === id ? { ...page, updatedAt: saved.updatedAt } : page));
+      notifyActivityChanged({ workspaceId: activeWs?.id ?? null, pageId: id });
     },
-    [mode, auth.token, pageCache, cloudPages, activeWs?.id],
+    [mode, auth.token, cloudPages, activeWs?.id, commitLocal, guestName],
   );
 
   const setWorkspaceBoard = useCallback(
     async (board: BoardSnapshot | null) => {
       if (mode === "guest") {
-        setLocal((prev) => persistLocal({ ...prev, workspaceBoard: board }));
+        commitLocal({ ...localRef.current, workspaceBoard: board });
         return;
       }
       if (!auth.token || !activeWs || !board) return;
       setWsBoard(board);
+      const body = JSON.stringify({ board });
       await api(`/workspaces/${activeWs.id}/board`, {
         method: "PUT",
         token: auth.token,
-        body: JSON.stringify({ board }),
+        body,
+        keepalive: document.visibilityState === "hidden" && new Blob([body]).size <= 60_000,
       });
       notifyActivityChanged({ workspaceId: activeWs.id, pageId: null });
     },
-    [mode, auth.token, activeWs],
+    [mode, auth.token, activeWs, commitLocal],
   );
 
   const getPage = useCallback(
@@ -324,7 +366,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const loadPage = useCallback(
     async (id: string) => {
       if (mode === "guest") {
-        return local.pages.find((p) => p.id === id) ?? null;
+        return localRef.current.pages.find((p) => p.id === id) ?? null;
       }
       if (!auth.token) return null;
       try {
@@ -355,14 +397,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return pageCacheRef.current[id] ?? null;
       }
     },
-    [mode, local.pages, auth.token],
+    [mode, auth.token],
   );
 
   const setActiveWorkspace = useCallback((id: string) => {
+    if (id === activeWs?.id) return;
     setActiveWorkspaceId(id);
     localStorage.setItem(ACTIVE_WS_KEY, id);
     setPageCache({});
-  }, []);
+    setCloudPages([]);
+    setWsBoard(null);
+    setMembers([]);
+    setWorkspaceLoaded(null);
+    setMembersLoaded(null);
+  }, [activeWs?.id]);
 
   const inviteMember = useCallback(
     async (email: string, role: "editor" | "viewer") => {
@@ -378,20 +426,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const pages = mode === "guest" ? local.pages : cloudPages;
   const board = mode === "guest" ? local.workspaceBoard : workspaceBoard;
+  const workspaceLoading = Boolean(activeWs && workspaceLoaded !== activeWs.id);
+  const membersLoading = Boolean(activeWs && membersLoaded !== activeWs.id);
 
-  const moveLocal=useRef(local);moveLocal.current=local;
   const movePageBlock=useCallback(async(sourceId:string,targetId:string,blockId:string,content:Doc)=>{
     if(sourceId===targetId)throw new Error('Same page');
     if(mode==='guest'){
-      const initial=moveLocal.current.pages.find(page=>page.id===targetId);if(!initial)throw new Error('Page not found');
+      const initial=localRef.current.pages.find(page=>page.id===targetId);if(!initial)throw new Error('Page not found');
       const prepared=prepareBlockMove(content,initial.content,blockId),assets=await copyGuestAssets(sourceId,targetId,referencedAssets(prepared.moving));
-      const current=moveLocal.current,target=current.pages.find(page=>page.id===targetId);if(!target||target.updatedAt!==initial.updatedAt)throw new Error('Destination changed');
+      const current=localRef.current,target=current.pages.find(page=>page.id===targetId);if(!target||target.updatedAt!==initial.updatedAt)throw new Error('Destination changed');
       const result=prepareBlockMove(content,target.content,blockId,assets),staged=stageGuestComments(sourceId,targetId,result.blockIds),updatedAt=new Date().toISOString();
-      try{const next=persistLocal({...current,pages:current.pages.map(page=>page.id===sourceId?{...page,content:result.source,updatedAt}:page.id===targetId?{...page,content:result.destination,updatedAt}:page)});moveLocal.current=next;setLocal(next);}catch(error){staged.rollback();throw error;}staged.commit();return result.source;
+      try{commitLocal({...current,pages:current.pages.map(page=>page.id===sourceId?{...page,content:result.source,updatedAt}:page.id===targetId?{...page,content:result.destination,updatedAt}:page)});}catch(error){staged.rollback();throw error;}staged.commit();return result.source;
     }
     const result=await api<{sourceContent:Doc;updatedAt:string}>(`/pages/${sourceId}/tools`,{method:'POST',token:auth.token,body:JSON.stringify({action:'moveBlock',targetPageId:targetId,blockId,content})});
     await Promise.all([loadPage(sourceId),loadPage(targetId)]);notifyActivityChanged({workspaceId:activeWs?.id??null,pageId:sourceId});return result.sourceContent;
-  },[mode,auth.token,loadPage,activeWs?.id]);
+  },[mode,auth.token,loadPage,activeWs?.id,commitLocal]);
   const value = useMemo(
     () => ({
       mode,
@@ -401,6 +450,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       activeRole: activeWs?.role ?? "owner",
       members,
       offline,
+      workspaceLoading,
+      membersLoading,
       guestLimit: GUEST_PAGE_LIMIT,
       createPage,
       deletePage,
@@ -421,6 +472,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       activeWs,
       members,
       offline,
+      workspaceLoading,
+      membersLoading,
       createPage,
       deletePage,
       updatePage,

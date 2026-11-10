@@ -1,6 +1,10 @@
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+mod diagnostics;
+#[cfg(windows)]
+mod webview_recovery;
+
 /// The destination always comes from the native Save dialog, never from JS.
 #[tauri::command]
 async fn save_code(window: tauri::WebviewWindow, name: String, text: String) -> Result<bool, String> {
@@ -32,23 +36,27 @@ fn apply_corner_preference(window: &tauri::WebviewWindow) {
   }
 }
 
-/// WebView2: block page zoom but keep pinch → ctrl+wheel events for the canvas.
+/// Configure WebView2 lifecycle and leave pinch → ctrl+wheel events for the canvas.
 #[cfg(windows)]
-fn configure_webview_zoom(window: &tauri::WebviewWindow) {
-  let _ = window.with_webview(|webview| {
+fn configure_webview(window: &tauri::WebviewWindow, diagnostics: diagnostics::Diagnostics) {
+  let hwnd = window.hwnd().ok().map(|hwnd| hwnd.0 as usize);
+  let _ = window.with_webview(move |webview| {
     unsafe {
       use webview2_com::Microsoft::Web::WebView2::Win32::*;
       use windows_core::Interface;
 
       let controller: ICoreWebView2Controller = webview.controller();
-      let core = controller.CoreWebView2().expect("webview2 core");
-      let settings = core.Settings().expect("webview2 settings");
-
-      let _ = settings.SetIsZoomControlEnabled(false);
-      if let Ok(s5) = settings.cast::<ICoreWebView2Settings5>() {
-        let _ = s5.SetIsPinchZoomEnabled(true);
+      let Ok(core) = controller.CoreWebView2() else { return };
+      if let Ok(settings) = core.Settings() {
+        let _ = settings.SetIsZoomControlEnabled(false);
+        if let Ok(s5) = settings.cast::<ICoreWebView2Settings5>() {
+          let _ = s5.SetIsPinchZoomEnabled(true);
+        }
       }
       let _ = controller.SetZoomFactor(1.0);
+      if let Some(hwnd) = hwnd {
+        webview_recovery::install(hwnd as _, controller, core, diagnostics);
+      }
     }
   });
 }
@@ -72,14 +80,16 @@ pub fn run() {
         .button_id("relay-snap-btn")
         .build(),
     )
-    .invoke_handler(tauri::generate_handler![app_info, save_code])
+    .invoke_handler(tauri::generate_handler![app_info, save_code, diagnostics::report_desktop_failure])
     .setup(|app| {
+      let diagnostics = diagnostics::Diagnostics::new(app.path().app_log_dir().ok());
+      app.manage(diagnostics.clone());
       if let Some(window) = app.get_webview_window("main") {
         let _ = window.set_title("Relay");
         #[cfg(windows)]
         {
           apply_corner_preference(&window);
-          configure_webview_zoom(&window);
+          configure_webview(&window, diagnostics);
         }
       }
       Ok(())

@@ -2,6 +2,7 @@
 @import "../styles/overlays.css";
 @import "../styles/sidebar.css";
 @import "../styles/glass.css";
+@import "../styles/app-chrome.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -1337,7 +1338,6 @@ kbd {
 .relay-activity-scrim {
   position: fixed;
   inset: 0;
-  right: min(22rem, 92vw);
   z-index: 79;
   border: none;
   padding: 0;
@@ -1372,8 +1372,7 @@ kbd {
   margin-bottom: 0.45rem;
 }
 
-.relay-activity-hover ul,
-.relay-activity-panel-body ul {
+.relay-activity-hover ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1381,8 +1380,7 @@ kbd {
   gap: 0.45rem;
 }
 
-.relay-activity-hover li,
-.relay-activity-panel-body li {
+.relay-activity-hover li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.55rem 0.9rem;
@@ -1427,35 +1425,14 @@ kbd {
   border-left: 1px solid var(--line);
   box-shadow: var(--chrome-shadow);
   color: var(--ink);
-  animation: relay-activity-in 0.2s var(--ease);
-}
-
-@keyframes relay-activity-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 .relay-activity-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--line);
-}
-
-.relay-activity-panel-close {
-  width: 1.8rem;
-  height: 1.8rem;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1;
 }
 
 .relay-activity-panel-body {
@@ -2275,24 +2252,6 @@ kbd {
   background: var(--hover);
 }
 
-.relay-help-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: calc(var(--radius-ui) - 4px);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.relay-help-close:hover {
-  background: var(--hover);
-  color: var(--ink);
-}
-
 .relay-help-body {
   overflow: auto;
   padding: 1rem;
@@ -3091,7 +3050,7 @@ kbd {
 
 .relay-shell[data-chrome="focus"] .relay-sidebar {
   position: fixed;
-  left: calc(-1 * min(260px, 86vw));
+  left: 0;
   top: 0;
   bottom: 0;
   width: min(260px, 86vw);
@@ -3099,30 +3058,18 @@ kbd {
   overflow: visible;
   display: flex;
   flex-direction: column;
-  transform: none;
   opacity: 1;
-  visibility: hidden;
-  transition:
-    left 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0.34s ease;
   isolation: auto;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-right: 1px solid var(--line);
   box-shadow: var(--chrome-shadow);
-  pointer-events: none;
 }
 
 .relay-shell[data-chrome="focus"] .sidebar::before {
   backdrop-filter: blur(calc(var(--chrome-blur) + 8px)) saturate(1.55);
   -webkit-backdrop-filter: blur(calc(var(--chrome-blur) + 8px)) saturate(1.55);
-}
-
-.relay-shell[data-chrome="focus"][data-peek="true"] .relay-sidebar {
-  left: 0;
-  visibility: visible;
-  pointer-events: auto;
 }
 
 .relay-shell[data-chrome="focus"] .relay-main {
@@ -3210,15 +3157,6 @@ kbd {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: color-mix(in oklab, var(--accent) 28%, var(--line));
-}
-
-.relay-edge-peek {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 24px;
-  z-index: 31;
 }
 
 .relay-edge-peek-top {

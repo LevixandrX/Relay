@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "use-intl";
 import { OverlayScroll } from "@relay-board/CompactRailScroll";
+import { useViewMotion } from "@relay-ui/use-view-motion";
 import { useWorkspace } from "../lib/workspace";
 import { PageList } from "./PageList";
 
@@ -23,6 +24,7 @@ export function PagesView({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("updated");
+  const filterMotion = useViewMotion<HTMLDivElement>(`${filter}:${sort}`);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const atLimit = mode === "guest" && pages.length >= guestLimit;
@@ -151,7 +153,7 @@ export function PagesView({
             </span>
           )}
         </div>
-        <OverlayScroll arrows contentClassName="pages-body">
+        <OverlayScroll ref={filterMotion} arrows contentClassName="pages-body">
           <PageList
             pages={sorted}
             activeId={sorted[active]?.id}

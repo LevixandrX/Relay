@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
+import { PanelCloseButton } from "./PanelCloseButton";
 
 type Member = {
   userId: string;
@@ -140,14 +141,7 @@ export function WorkspaceShareModal({
             <h2>{t("shareTitle")}</h2>
             <p className="relay-modal-lede">{t("shareLede")}</p>
           </div>
-          <button
-            type="button"
-            className="relay-icon-btn relay-icon-btn-surface"
-            onClick={onClose}
-            aria-label={t("close")}
-          >
-            ×
-          </button>
+          <PanelCloseButton onClick={onClose} aria-label={t("close")} />
         </header>
 
         <section className="relay-share-block">

@@ -3,6 +3,7 @@ import { Manrope, Unbounded } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AppTooltips } from "@/components/AppTooltips";
 import "./globals.css";
 import "../styles/glass.css";
 
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body className="min-h-full antialiased">
         <NextIntlClientProvider messages={messages}>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>{children}<AppTooltips /></ThemeProvider>
         </NextIntlClientProvider>
       </body>
     </html>

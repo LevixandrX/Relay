@@ -23,6 +23,7 @@
       "@relay-messages/*": ["../messages/*"],
       "@relay-i18n/*": ["../src/i18n/*"],
       "@relay-board/*": ["../src/lib/board/*"],
+      "@relay-ui/*": ["../src/components/*"],
       "@relay-board-chrome": ["../src/components/BoardChrome.tsx"],
       "@relay-help": ["../src/components/BoardHelp.tsx"],
       "@relay-activity": ["../src/components/ActivityDisclosure.tsx"],

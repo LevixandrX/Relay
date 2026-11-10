@@ -3,6 +3,7 @@ import {createContext, useContext, useLayoutEffect, useRef, useState, type CSSPr
 
 const Closing=createContext(false);
 const duration=180;
+export const drawerExitDuration = 200;
 const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Retain the real portal, including its shield, until its exit has finished. */
@@ -74,7 +75,7 @@ function register(layer:Layer){
 
 /** Shared motion and optional pointer/wheel boundary for editor popup surfaces. */
 export function OverlaySurface({surfaceRef,blockLevel,owner,children,style,motionKind='popup',...props}:HTMLAttributes<HTMLDivElement>&{
-  surfaceRef:RefObject<HTMLDivElement|null>;blockLevel?:number;owner?:string;style?:CSSProperties;motionKind?:'popup'|'controls'|'notice';
+  surfaceRef:RefObject<HTMLDivElement|null>;blockLevel?:number;owner?:string;style?:CSSProperties;motionKind?:'popup'|'controls'|'notice'|'drawer'|'scrim';
 }){
   const closing=useContext(Closing),motion=useRef<Animation|null>(null);
   const nested=useRef(Boolean(owner&&[...layers].some(layer=>layer.owner===owner)));
@@ -83,6 +84,22 @@ export function OverlaySurface({surfaceRef,blockLevel,owner,children,style,motio
     const css=getComputedStyle(element),opacity=css.opacity,scale=css.scale,translate=css.translate;
     const continuing=motion.current!==null;
     motion.current?.cancel();
+    if (motionKind === "drawer" || motionKind === "scrim") {
+      if (reduced()) return;
+      const drawer = motionKind === "drawer";
+      const hidden = drawer ? { opacity: 0.68, translate: "100% 0" } : { opacity: 0 };
+      const shown = drawer ? { opacity: 1, translate: "0% 0" } : { opacity: 1 };
+      const current = drawer ? { opacity, translate } : { opacity };
+      motion.current = element.animate(
+        closing ? [current, hidden] : [continuing ? current : hidden, shown],
+        {
+          duration: closing ? drawerExitDuration : 285,
+          easing: closing ? "cubic-bezier(.4, 0, .7, 1)" : "cubic-bezier(.2, .8, .2, 1)",
+          fill: closing ? "forwards" : "none",
+        },
+      );
+      return;
+    }
     if(motionKind==='notice'){
       if(!reduced())motion.current=element.animate(closing?[{opacity,translate},{opacity:0,translate:'0px 30px'}]:[{opacity:0,translate:'0px 30px'},{opacity:1,translate:'0px 0px'}],{duration:closing?260:340,easing:'cubic-bezier(.2,.8,.2,1)',fill:closing?'forwards':'none'});
       return;

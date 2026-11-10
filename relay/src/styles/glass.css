@@ -14,9 +14,6 @@
   --glass-filter: blur(var(--chrome-blur)) saturate(var(--glass-sat));
 }
 
-:root.editor-block-menu-open .relay-shell[data-chrome="focus"] .relay-edge-peek { pointer-events: none; }
-:root.editor-block-menu-open .relay-shell[data-chrome="focus"] .relay-sidebar { left: calc(-1 * min(260px, 86vw)); visibility: hidden; pointer-events: none; }
-
 .dark {
   --chrome-pct: 96%;
   --chrome-float-pct: 96%;

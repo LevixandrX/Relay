@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingIndicator } from "@/components/LoadingIndicator";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -58,7 +59,7 @@ export default function LoginPage() {
         <LanguageToggle variant="floating" />
         <ThemeToggle variant="floating" />
       </div>
-      <form className="relay-auth-card" onSubmit={onSubmit}>
+      <form className="relay-auth-card relay-screen-enter" onSubmit={onSubmit}>
         <BrandLockup href="/" />
         <h1>{t("loginTitle")}</h1>
         <p className="lede">{t("loginLede")}</p>
@@ -85,7 +86,7 @@ export default function LoginPage() {
         />
         {error && <p className="relay-error">{error}</p>}
         <button className="relay-btn relay-btn-accent" style={{ width: "100%" }} disabled={loading}>
-          {loading ? t("loginSubmitting") : t("loginSubmit")}
+          {loading ? <LoadingIndicator label={t("loginSubmitting")} inline /> : t("loginSubmit")}
         </button>
         <OAuthButtons />
         <p style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.9rem" }}>

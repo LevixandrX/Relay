@@ -257,7 +257,7 @@ export function useBlockHandles(editor: Editor, container: RefObject<HTMLDivElem
       if (callbacks.current.locked) return;
       if(editorControlsBlocked(editor)||editorControlsCovered({left:event.clientX,right:event.clientX+.1,top:event.clientY,bottom:event.clientY+.1})){controlHover(null);selectTarget(null);return;}
       const element = event.target instanceof Element ? event.target : null;
-      if(element?.closest('.sidebar,.relay-sidebar,.shell-edge,.relay-edge-peek')){cancelHide();controlHover(null);selectTarget(null);return;}
+      if(element?.closest('.sidebar,.relay-sidebar')){cancelHide();controlHover(null);selectTarget(null);return;}
       const active=targetRef.current, activeGeometry=active?blockGeometry(editor,active):null;
       const onControls=element&&handles.current?.contains(element);
       const crossingGutter=activeGeometry&&editorControlBridge(event.clientX,event.clientY,activeGeometry.left,activeGeometry.rect.left+2,activeGeometry.top);

@@ -9,10 +9,11 @@ export const COLOR_NAMES = ["default", "gray", "brown", "orange", "yellow", "gre
 export const COLOR_VALUES: Record<string, string | null> = { default: null, gray: "#969696", brown: "#ae8061", orange: "#e59443", yellow: "#d5b44b", green: "#69ac83", blue: "#6aabe4", purple: "#ac88d4", pink: "#d582ac", red: "#e17676" };
 export const validColor = (value: unknown): value is string => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
 export const LIST_STYLES=['disc','circle','square','decimal','lower-alpha','upper-alpha','lower-roman','upper-roman'] as const;
+export const INITIALIZE_BLOCK_IDS = "relay:initialize-identities";
 export const BlockAppearance = Extension.create({
   name: "blockAppearance",
   priority:1000,
-  onCreate(){if(this.editor.isEditable)this.editor.view.dispatch(this.editor.state.tr.setMeta('relay:initialize-identities',true).setMeta('addToHistory',false));},
+  onCreate(){if(this.editor.isEditable)this.editor.view.dispatch(this.editor.state.tr.setMeta(INITIALIZE_BLOCK_IDS,true).setMeta('addToHistory',false));},
   addKeyboardShortcuts(){return {Tab:()=>indentEditorSelection(this.editor,1),'Shift-Tab':()=>indentEditorSelection(this.editor,-1)};},
   addGlobalAttributes() { return [{ types, attributes: {
     blockIndent: { default: 0, parseHTML: (el) => Math.max(0, Math.min(8, Number(el.getAttribute("data-block-indent")) || 0)), renderHTML: (attrs) => attrs.blockIndent ? { "data-block-indent": attrs.blockIndent, style: `--block-indent: ${attrs.blockIndent}` } : {} },
@@ -21,7 +22,7 @@ export const BlockAppearance = Extension.create({
     blockBackground: { default: null, parseHTML: (el) => validColor(el.getAttribute("data-block-background")) ? el.getAttribute("data-block-background") : null, renderHTML: (attrs) => validColor(attrs.blockBackground) ? { "data-block-background": attrs.blockBackground, style: `--block-bg: ${attrs.blockBackground}` } : {} },
   } },{types:['tableCell','tableHeader'],attributes:{cellTextColor:{default:null,parseHTML:el=>validColor(el.getAttribute('data-cell-text-color'))?el.getAttribute('data-cell-text-color'):null,renderHTML:a=>validColor(a.cellTextColor)?{'data-cell-text-color':a.cellTextColor,style:`color:${a.cellTextColor}`}:{}} ,cellBackground:{default:null,parseHTML:el=>validColor(el.getAttribute('data-cell-background'))?el.getAttribute('data-cell-background'):null,renderHTML:a=>validColor(a.cellBackground)?{'data-cell-background':a.cellBackground,style:`background-color:${a.cellBackground}`}:{}}}},{types:['bulletList','orderedList'],attributes:{listStyle:{default:null,parseHTML:element=>LIST_STYLES.includes(element.getAttribute('data-list-style') as never)?element.getAttribute('data-list-style'):null,renderHTML:attributes=>LIST_STYLES.includes(attributes.listStyle)?{'data-list-style':attributes.listStyle,style:`list-style-type:${attributes.listStyle}`}:{}}}}]; },
   addProseMirrorPlugins() { return [new Plugin({ key: new PluginKey("blockIdentity"), appendTransaction(transactions, _old, state) {
-    if (!transactions.some((t) => t.docChanged||t.getMeta('relay:initialize-identities'))) return null;
+    if (!transactions.some((t) => t.docChanged||t.getMeta(INITIALIZE_BLOCK_IDS))) return null;
     const seen = new Set<string>(), tr = state.tr;
     state.doc.descendants((node, pos) => {
       if (!types.includes(node.type.name)) return;

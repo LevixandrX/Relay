@@ -1,3 +1,4 @@
+import { LoadingIndicator } from "@relay-ui/LoadingIndicator";
 import { useMemo, useState, type FormEvent } from "react";
 import { useTranslations } from "use-intl";
 import { useAuth } from "../lib/auth";
@@ -196,7 +197,7 @@ export function TeamView({ onNeedAuth }: { onNeedAuth?: () => void }) {
             </div>
 
             <button type="submit" className="btn btn-accent" disabled={busy}>
-              {busy ? t("inviteSending") : t("inviteSend")}
+              {busy ? <LoadingIndicator label={t("inviteSending")} inline /> : t("inviteSend")}
             </button>
           </form>
 

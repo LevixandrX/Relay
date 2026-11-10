@@ -11,7 +11,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: relayDesktopAliases(here),
-    dedupe: ["react", "react-dom", "@tiptap/core", "@tiptap/pm"],
+    // Shared UI under ../src must use the desktop locale provider's context.
+    dedupe: ["react", "react-dom", "use-intl", "@tiptap/core", "@tiptap/pm"],
   },
   clearScreen: false,
   server: {

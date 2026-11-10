@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Quickdraw,
   useQuickdrawStore,
@@ -15,6 +15,7 @@ import { parseQuickdrawSnapshot } from "../lib/boardSnapshot";
 import { useTheme } from "../theme/ThemeProvider";
 import type { BoardSnapshot } from "../lib/types";
 import { useBoardActivityFocus } from "@relay-board/useBoardActivityFocus";
+import { useBoardChanges } from "@relay-board/use-board-changes";
 
 applyRelayBoardTheme();
 
@@ -44,7 +45,8 @@ function useBoardTheme(): "light" | "dark" {
 type Props = {
   editable?: boolean;
   initialSnapshot?: BoardSnapshot | null;
-  onChange?: (snapshot: BoardSnapshot) => void;
+  getDraft?: () => BoardSnapshot | undefined;
+  onChange?: (readSnapshot: () => BoardSnapshot) => void;
   syncRoomId?: string;
   focusShapeIds?: string[];
 };
@@ -52,15 +54,15 @@ type Props = {
 export function InfiniteBoard({
   editable = true,
   initialSnapshot,
+  getDraft,
   onChange,
   syncRoomId,
   focusShapeIds,
 }: Props) {
-  const store = useQuickdrawStore(parseQuickdrawSnapshot(initialSnapshot));
+  const [snapshot] = useState(() => parseQuickdrawSnapshot(getDraft?.() ?? initialSnapshot));
+  const store = useQuickdrawStore(snapshot);
   const ref = useRef<QuickdrawRef>(null);
   const hostRef = useRef<HTMLDivElement>(null);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
   const theme = useBoardTheme();
   const [editor, setEditor] = useState<Editor | null>(null);
   const activityFocusRect = useBoardActivityFocus(editor, focusShapeIds);
@@ -75,29 +77,7 @@ export function InfiniteBoard({
 
   useBoardViewportInput(editor, hostRef);
 
-  const persist = useCallback(() => {
-    if (!onChangeRef.current) return;
-    try {
-      onChangeRef.current(store.getSnapshot() as unknown as BoardSnapshot);
-    } catch (err) {
-      console.error("board persist failed", err);
-    }
-  }, [store]);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsub = store.listen(
-      () => {
-        clearTimeout(timer);
-        timer = setTimeout(persist, 900);
-      },
-      { source: "user" },
-    );
-    return () => {
-      clearTimeout(timer);
-      unsub();
-    };
-  }, [store, persist]);
+  useBoardChanges(store, editable ? onChange : undefined);
 
   useEffect(() => {
     applyRelayBoardTheme();

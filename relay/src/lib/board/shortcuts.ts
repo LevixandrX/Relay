@@ -29,6 +29,19 @@ function k(label: string, wide?: boolean): ShortcutKey {
 
 const GROUPS: ShortcutGroup[] = [
   {
+    title: "groupText",
+    rows: [
+      { label: "textBlocks", keys: [k("/")] },
+      { label: "textBlockActions", keys: [k(MOD), k("/")] },
+      { label: "textComment", keys: [k(MOD), k(SHIFT, true), k("M")] },
+      { label: "textBold", keys: [k(MOD), k("B")] },
+      { label: "textItalic", keys: [k(MOD), k("I")] },
+      { label: "textUnderline", keys: [k(MOD), k("U")] },
+      { label: "textIndent", keys: [k("Tab", true)] },
+      { label: "textOutdent", keys: [k(SHIFT, true), k("Tab", true)] },
+    ],
+  },
+  {
     title: "groupNavigate",
     rows: [
       { label: "panWheel", keys: [k("keyScroll", true)] },

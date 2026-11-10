@@ -8,6 +8,8 @@ import { DateLabel } from './DateLabel';
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
 import { subscribeActivityChanged } from "../lib/activity-refresh";
 import { ActivityPanel, type AnalyticsRange, type AnalyticsReport } from "./ActivityPanel";
+import { PanelCloseButton } from "./PanelCloseButton";
+import { drawerExitDuration, OverlayPresence, OverlaySurface } from "../editor/EditorOverlay";
 
 export type { AnalyticsRange, AnalyticsReport };
 import type { HistoryBlock, RevisionSummary } from "./VersionHistory";
@@ -136,6 +138,9 @@ export function ActivityDisclosure({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const focusOnOpen = useRef(false);
   const hoverRef = useRef<HTMLDivElement>(null);
   const hoverHide = useRef<number | null>(null);
   const overChrome = useRef(false);
@@ -190,14 +195,12 @@ export function ActivityDisclosure({
   }, []);
 
   const closePanel = useCallback(() => {
+    if (panelRef.current?.contains(document.activeElement)) {
+      triggerRef.current?.focus({ preventScroll: true });
+    }
     setPanel(false);
     setHover(false);
     ignoreHoverUntil.current = Date.now() + 280;
-    const el = triggerRef.current;
-    if (el) {
-      el.blur();
-      if (document.activeElement === el) el.blur();
-    }
   }, []);
 
   const placeHover = useCallback(() => {
@@ -228,13 +231,15 @@ export function ActivityDisclosure({
 
   useEffect(() => {
     if (!panel) return;
+    if (focusOnOpen.current) closeRef.current?.focus({ preventScroll: true });
     function onDown(e: PointerEvent) {
       const node = e.target as Node;
-      if (rootRef.current?.contains(node) || panelRef.current?.contains(node) || node instanceof Element && node.closest('.editor-comment-profile,.relay-date-tooltip')) return;
+      if (rootRef.current?.contains(node) || panelRef.current?.contains(node)) return;
+      if (node instanceof Element && node.closest(".relay-help, .editor-comment-profile, .relay-date-tooltip")) return;
       closePanel();
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.defaultPrevented || (e.target instanceof Element && e.target.closest(".relay-help"))) return;
       e.preventDefault();
       e.stopPropagation();
       closePanel();
@@ -372,14 +377,12 @@ export function ActivityDisclosure({
           className="relay-activity-trigger"
           data-unread={dot || undefined}
           aria-expanded={panel}
-          onPointerDown={(e) => {
-            if (!panel) return;
-            e.preventDefault();
-            e.stopPropagation();
-            closePanel();
-          }}
-          onClick={() => {
-            if (panel) return;
+          onClick={(event) => {
+            if (panel) {
+              closePanel();
+              return;
+            }
+            focusOnOpen.current = event.detail === 0;
             ignoreHoverUntil.current = Date.now() + 280;
             setPanel(true);
             setHover(false);
@@ -427,32 +430,34 @@ export function ActivityDisclosure({
               document.body,
             )
           : null}
+        <OverlayPresence visible={panel} exitDuration={drawerExitDuration}>
         {panel
           ? createPortal(
               <>
-                <div
+                <OverlaySurface
+                  surfaceRef={scrimRef}
+                  motionKind="scrim"
                   className="relay-activity-scrim"
+                  aria-hidden
                   onPointerDown={(e) => {
                     e.preventDefault();
                     closePanel();
                   }}
                 />
-                <div
-                  ref={panelRef}
+                <OverlaySurface
+                  surfaceRef={panelRef}
+                  motionKind="drawer"
                   className="relay-activity-panel"
                   role="dialog"
                   aria-label={t("pulse")}
                 >
                   <div className="relay-activity-panel-head">
                     <strong>{t("pulse")}</strong>
-                    <button
-                      type="button"
-                      className="relay-activity-panel-close"
+                    <PanelCloseButton
+                      ref={closeRef}
                       onClick={closePanel}
                       aria-label={t("close")}
-                    >
-                      ×
-                    </button>
+                    />
                   </div>
                   <OverlayScroll arrows edge contentClassName="relay-activity-panel-body">
                     {listUpdates && listAnalytics && onViewVersion && onOpenUpdate ? (
@@ -478,11 +483,12 @@ export function ActivityDisclosure({
                       groupedPanel()
                     )}
                   </OverlayScroll>
-                </div>
+                </OverlaySurface>
               </>,
               document.body,
             )
           : null}
+        </OverlayPresence>
       </div>
     );
   }

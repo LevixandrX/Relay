@@ -43,6 +43,7 @@ export function CommandPalette({ open, onClose, onOpenPage, onOpenBoard, onCreat
   const { pages, mode, activeWorkspaceId } = useWorkspace();
   const auth = useAuth();
   const [query, setQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
 
   useEffect(() => {
@@ -78,26 +79,32 @@ export function CommandPalette({ open, onClose, onOpenPage, onOpenBoard, onCreat
     const q = query.trim();
     if (mode !== "cloud" || !activeWorkspaceId || !auth.token) {
       setHits(localHits);
+      setSearchLoading(false);
       return;
     }
     if (q.length < 1) {
+      setSearchLoading(false);
       setHits(localHits);
       return;
     }
+    const controller = new AbortController();
+    setSearchLoading(true);
     const timer = setTimeout(() => {
       void (async () => {
         try {
           const data = await api<{ results: { pageId: string; title: string; snippet: string }[] }>(
             `/workspaces/${activeWorkspaceId}/search?q=${encodeURIComponent(q)}`,
-            { token: auth.token },
+            { token: auth.token, signal: controller.signal },
           );
-          setHits(data.results.map((r) => ({ id: r.pageId, title: r.title, snippet: r.snippet })));
+          if (!controller.signal.aborted) setHits(data.results.map((r) => ({ id: r.pageId, title: r.title, snippet: r.snippet })));
         } catch {
-          setHits(localHits);
+          if (!controller.signal.aborted) setHits(localHits);
+        } finally {
+          if (!controller.signal.aborted) setSearchLoading(false);
         }
       })();
     }, 200);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [open, query, mode, activeWorkspaceId, auth.token, localHits]);
 
   return (
@@ -105,6 +112,7 @@ export function CommandPalette({ open, onClose, onOpenPage, onOpenBoard, onCreat
       open={open}
       onClose={onClose}
       query={query}
+      loading={searchLoading}
       onQueryChange={setQuery}
       label={`${ta("searchTitle")} · ${searchHint}`}
       placeholder={t("pagesSearch")}

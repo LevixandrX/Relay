@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { Titlebar } from "./components/Titlebar";
 import { Sidebar } from "./components/Sidebar";
@@ -14,6 +14,9 @@ import { useAuth } from "./lib/auth";
 import { useDialog } from "./components/DialogHost";
 import { CommandPalette } from "./components/CommandPalette";
 import { useChromeMode } from "./lib/chrome";
+import { LoadingIndicator } from "@relay-ui/LoadingIndicator";
+import { useViewMotion } from "@relay-ui/use-view-motion";
+import { useSidebarPeek } from "@relay-ui/use-sidebar-peek";
 import { HelpPanel } from "@relay-help";
 
 export type ViewId = "home" | "board" | "pages" | "theme" | "auth" | "team";
@@ -28,13 +31,18 @@ type Route =
   | { kind: "page"; pageId: string };
 
 export function App() {
-  const [route, setRoute] = useState<Route>({ kind: "home" });
-  const { createPage } = useWorkspace();
+  const [route, commitRoute] = useState<Route>({ kind: "home" });
+  const { createPage, workspaceLoading, membersLoading } = useWorkspace();
   const auth = useAuth();
   const dialog = useDialog();
   const t = useTranslations("desktop");
   const ta = useTranslations("app");
   const chrome = useChromeMode();
+  const { sidebarRef, beforeNavigate } = useSidebarPeek(chrome.mode === "zen");
+  const setRoute = useCallback((next: Route) => {
+    beforeNavigate();
+    startTransition(() => commitRoute(next));
+  }, [beforeNavigate]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [zenTop, setZenTop] = useState(false);
 
@@ -123,12 +131,19 @@ export function App() {
       window.removeEventListener("relay:open-page", onPage);
       window.removeEventListener("relay:open-board", onBoard);
     };
-  }, []);
+  }, [setRoute]);
 
   const navView: ViewId =
     route.kind === "page" ? "pages" : route.kind === "home" ? "home" : route.kind;
 
+  const loading = auth.loading ||
+    (["home", "board", "pages"].includes(route.kind) && workspaceLoading) ||
+    (route.kind === "team" && membersLoading);
   const fill = route.kind === "board" || route.kind === "page";
+  const screenMotion = useViewMotion<HTMLElement>(
+    loading || route.kind === "page" ? null : route.kind,
+    route.kind === "pages" ? "back" : "up",
+  );
 
   function openPage(id: string) {
     setRoute({ kind: "page", pageId: id });
@@ -150,12 +165,14 @@ export function App() {
   return (
     <div className="app" data-chrome={chrome.mode} data-peek-top={zenTop || undefined}>
       <div className="titlebar-slot">
-        <Titlebar activityPageId={route.kind === "page" ? route.pageId : null} />
+        <Titlebar
+          activityPageId={route.kind === "page" ? route.pageId : null}
+          visible={chrome.mode !== "zen" || zenTop}
+        />
       </div>
       <div className="shell" data-chrome={chrome.mode}>
-        {/* hover target that brings the sidebar back in zen mode */}
-        {chrome.mode === "zen" && <div className="shell-edge" aria-hidden />}
         <Sidebar
+          surfaceRef={sidebarRef}
           view={navView}
           chrome={chrome.mode}
           onChrome={chrome.set}
@@ -163,24 +180,11 @@ export function App() {
           onCreatePage={() => void createAndOpen()}
           activePageId={route.kind === "page" ? route.pageId : null}
           onOpenPage={openPage}
-          onNavigate={(id) => {
-            if (id === "home") setRoute({ kind: "home" });
-            if (id === "board") setRoute({ kind: "board" });
-            if (id === "pages") setRoute({ kind: "pages" });
-            if (id === "theme") setRoute({ kind: "theme" });
-            if (id === "auth") setRoute({ kind: "auth" });
-            if (id === "team") setRoute({ kind: "team" });
-          }}
+          onNavigate={(kind) => setRoute({ kind })}
         />
-        <main className="main" data-fill={fill} data-auth={route.kind === "auth" || undefined}>
-          {auth.loading && (
-            <div className="page-frame">
-              <section className="card">
-                <p className="muted">{t("syncAccount")}</p>
-              </section>
-            </div>
-          )}
-          {!auth.loading && route.kind === "home" && (
+        <main ref={screenMotion} className="main" data-fill={fill} data-auth={route.kind === "auth" || undefined}>
+          {loading && <LoadingIndicator centered label={auth.loading ? t("syncAccount") : undefined} />}
+          {!loading && route.kind === "home" && (
             <HomeView
               onOpenBoard={() => setRoute({ kind: "board" })}
               onOpenPages={() => setRoute({ kind: "pages" })}
@@ -191,24 +195,24 @@ export function App() {
               onOpenTeam={() => setRoute({ kind: "team" })}
             />
           )}
-          {!auth.loading && route.kind === "board" && <BoardView />}
-          {!auth.loading && route.kind === "pages" && (
+          {!loading && route.kind === "board" && <BoardView />}
+          {!loading && route.kind === "pages" && (
             <PagesView
               onOpenPage={openPage}
               onCreate={() => void createAndOpen()}
               onNeedAuth={() => setRoute({ kind: "auth" })}
             />
           )}
-          {!auth.loading && route.kind === "page" && (
-            <PageView pageId={route.pageId} onBack={() => setRoute({ kind: "pages" })} />
+          {!loading && route.kind === "page" && (
+            <PageView key={route.pageId} pageId={route.pageId} onBack={() => setRoute({ kind: "pages" })} />
           )}
-          {!auth.loading && route.kind === "theme" && (
+          {!loading && route.kind === "theme" && (
             <ThemeView chrome={chrome.mode} onChrome={chrome.set} />
           )}
-          {!auth.loading && route.kind === "auth" && (
+          {!loading && route.kind === "auth" && (
             <AuthView onDone={() => setRoute({ kind: "home" })} />
           )}
-          {!auth.loading && route.kind === "team" && (
+          {!loading && route.kind === "team" && (
             <TeamView onNeedAuth={() => setRoute({ kind: "auth" })} />
           )}
         </main>

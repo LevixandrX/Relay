@@ -1,4 +1,6 @@
 "use client";
+import { LoadingIndicator } from "../components/LoadingIndicator";
+import { PanelCloseButton } from "../components/PanelCloseButton";
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
@@ -307,7 +309,7 @@ export const BlockComments=memo(function BlockComments({ editor, context, editab
       </>, editable && data ? <CommentComposer focusVersion={focusVersion} scope={scope} draftKey={item.id} data={data} active={selected===item.id} autoFocus={focusComposer===item.id&&placements.some(p=>p.key===(cardKeys.current.get(item.id)??item.id))} first={false} busy={busy} onActivate={()=>open(item.id)} onError={setError} onSend={(value)=>send(item.id,value,item)}/>:null))}
       {!compact && pendingDrafts.map((item)=>card(item.key,item.key,true,<>
         {error && selected===item.key ? <div role="alert" className="editor-comment-error">{error}</div>:null}
-        {data ? <CommentComposer focusVersion={focusVersion} scope={scope} draftKey={item.key} anchor={item.anchor} data={data} active={selected===item.key} autoFocus={focusComposer===item.key&&placements.some(p=>p.key===item.key)} onDiscard={()=>discardFirst(item.key)} first busy={busy} onActivate={()=>open(item.key)} onError={setError} onSend={(value)=>send(item.key,value,undefined,item.anchor)}/>:<p className="editor-comment-status">{t("loading")}</p>}
+        {data ? <CommentComposer focusVersion={focusVersion} scope={scope} draftKey={item.key} anchor={item.anchor} data={data} active={selected===item.key} autoFocus={focusComposer===item.key&&placements.some(p=>p.key===item.key)} onDiscard={()=>discardFirst(item.key)} first busy={busy} onActivate={()=>open(item.key)} onError={setError} onSend={(value)=>send(item.key,value,undefined,item.anchor)}/>:<LoadingIndicator label={t("loading")} inline />}
       </>))}
     </EditorAnnotations>
     <OverlayPresence visible={Boolean(openBlock&&data)}>{openBlock && data ? <CommentBlockPopover editor={editor} blockId={openBlock} label={t('title')} ownReply={ownReply} textThread={textThread} focusComposer={focusComposer}>
@@ -323,7 +325,7 @@ export const BlockComments=memo(function BlockComments({ editor, context, editab
       </section>)}
     </CommentBlockPopover>:null}</OverlayPresence>
     {!addOccupied?<OverlayPresence visible={Boolean(controlsVisible&&addTarget&&onAddComment)} exitDuration={260}>{controlsVisible && addTarget && !addOccupied && onAddComment ? createPortal(<OverlaySurface surfaceRef={addSurface} motionKind="controls" className="editor-add-comment-control" style={{left:addTarget.left,top:addTarget.top}}><button ref={addButton} type="button" className="editor-add-comment" aria-label={t('add')} onPointerDown={(e)=>e.preventDefault()} onClick={()=>onAddComment(blockAt(editor,addTarget.pos,true))}><BlockGlyph type="addComment"/></button></OverlaySurface>,document.body):null}</OverlayPresence>:null}
-    {list ? createPortal(<aside className="editor-comments-list" aria-label={t("title")}><header><strong>{t("title")}</strong><button type="button" onClick={close} aria-label={t("close")}><BlockGlyph type="close"/></button></header><OverlayScroll className="editor-comment-list-scroll">
+    {list ? createPortal(<aside className="editor-comments-list" aria-label={t("title")}><header><strong>{t("title")}</strong><PanelCloseButton onClick={close} aria-label={t("close")} /></header><OverlayScroll className="editor-comment-list-scroll">
       <label className="editor-comment-resolved"><input type="checkbox" checked={showResolved} onChange={(e)=>setShowResolved(e.target.checked)}/>{t("showResolved")}</label>
       {data?.threads.filter((v)=>showResolved||!v.resolved).map((item)=><button type="button" key={item.id} className="editor-comment-thread-row" onClick={()=>open(item.id)}><span>{item.quote||t("block")}</span><small>{item.messages.at(-1)?.body||t("attachment")} · {item.messages.length}</small>{item.resolved?<BlockGlyph type="resolve"/>:item.unread&&!item.muted?<i/>:null}</button>)}
       {!data?.threads.some((v)=>showResolved||!v.resolved)?<p className="editor-comment-status">{t("empty")}</p>:null}

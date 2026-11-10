@@ -208,7 +208,7 @@ export function WebWorkspaceSwitcher({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        title={collapsed ? `${label} · ${sub}` : undefined}
+        data-tooltip={collapsed ? `${label} · ${sub}` : undefined}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="relay-ws-mark" style={{ background: workspaceAccent(active.id) }} aria-hidden>

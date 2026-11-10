@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
+import { LoadingIndicator } from "./LoadingIndicator";
 
 export type SearchHit = {
   id: string;
@@ -50,6 +51,7 @@ export function SearchPalette({
   emptyHint,
   actions,
   hits,
+  loading = false,
   onOpenHit,
 }: {
   open: boolean;
@@ -64,6 +66,7 @@ export function SearchPalette({
   emptyHint?: string;
   actions: SearchAction[];
   hits: SearchHit[];
+  loading?: boolean;
   onOpenHit: (id: string) => void;
 }) {
   useEffect(() => {
@@ -128,7 +131,9 @@ export function SearchPalette({
             </>
           ) : null}
 
-          {searching && hits.length === 0 ? (
+          {searching && loading ? (
+            <LoadingIndicator />
+          ) : searching && hits.length === 0 ? (
             <div className="palette-empty-state">
               <span className="palette-empty-ico" aria-hidden>
                 <SearchGlyph />

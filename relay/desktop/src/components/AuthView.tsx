@@ -1,3 +1,5 @@
+import { LoadingIndicator } from "@relay-ui/LoadingIndicator";
+import { useViewMotion } from "@relay-ui/use-view-motion";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 import { useAuth } from "../lib/auth";
@@ -25,6 +27,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
   const auth = useAuth();
   const dialog = useDialog();
   const [mode, setMode] = useState<"login" | "register">("login");
+  const formMotion = useViewMotion<HTMLFormElement>(mode, mode === "register" ? "forward" : "back");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -215,7 +218,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
           <span>{t("orByEmail")}</span>
         </div>
 
-        <form onSubmit={(e) => void submit(e)} className="auth-form">
+        <form ref={formMotion} onSubmit={(e) => void submit(e)} className="auth-form">
           {mode === "register" && (
             <label className="field">
               <span>{tc("name")}</span>
@@ -244,7 +247,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
             />
           </label>
           <button type="submit" className="btn btn-accent auth-submit" disabled={busy || !!flow}>
-            {busy ? "…" : mode === "login" ? tc("login") : tc("register")}
+            {busy ? <LoadingIndicator inline /> : mode === "login" ? tc("login") : tc("register")}
           </button>
         </form>
 

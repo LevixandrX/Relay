@@ -1,4 +1,5 @@
 ﻿@import "../../../src/styles/overlays.css";
+@import "../../../src/styles/app-chrome.css";
 
 :root,
 [data-theme="dark"] {
@@ -1164,38 +1165,19 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   grid-template-columns: 1fr;
 }
 
-.shell-edge {
+.shell[data-chrome="zen"] .sidebar {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 24px;
-  z-index: 9;
-}
-
-.shell[data-chrome="zen"] .sidebar {
-  position: absolute;
-  left: calc(-1 * var(--sidebar-w) - 2px);
-  top: 0;
-  bottom: 0;
   z-index: 10;
-  transform: none;
   box-shadow: var(--chrome-shadow);
-  transition: left 0.16s ease;
 }
 
 .shell[data-chrome="zen"] .sidebar::before {
   backdrop-filter: blur(calc(var(--chrome-blur) + 8px)) saturate(1.55);
   -webkit-backdrop-filter: blur(calc(var(--chrome-blur) + 8px)) saturate(1.55);
 }
-
-.shell[data-chrome="zen"] .shell-edge:hover + .sidebar,
-.shell[data-chrome="zen"] .sidebar:hover {
-  left: 0;
-}
-
-:root.editor-block-menu-open .shell[data-chrome="zen"] .shell-edge { pointer-events: none; }
-:root.editor-block-menu-open .shell[data-chrome="zen"] .sidebar { left: calc(-1 * var(--sidebar-w) - 2px); pointer-events: none; }
 
 .sidebar {
   --sidebar-w: 240px;
@@ -1464,7 +1446,6 @@ html[data-fluent-icons="1"] .win-glyph-svg {
 .relay-activity-scrim {
   position: fixed;
   inset: 0;
-  right: min(22rem, 92vw);
   z-index: 79;
   border: none;
   padding: 0;
@@ -1499,8 +1480,7 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   margin-bottom: 0.45rem;
 }
 
-.relay-activity-hover ul,
-.relay-activity-panel-body ul {
+.relay-activity-hover ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1508,8 +1488,7 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   gap: 0.45rem;
 }
 
-.relay-activity-hover li,
-.relay-activity-panel-body li {
+.relay-activity-hover li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.55rem 0.9rem;
@@ -1555,7 +1534,6 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   border-left: 1px solid var(--line);
   box-shadow: var(--chrome-shadow);
   color: var(--text);
-  animation: relay-activity-in 0.2s ease;
   transition: top 0.14s ease;
 }
 
@@ -1579,37 +1557,12 @@ html[data-fluent-icons="1"] .win-glyph-svg {
   top: 0.75rem;
 }
 
-@keyframes relay-activity-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 .relay-activity-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--line);
-}
-
-.relay-activity-panel-close {
-  width: 1.8rem;
-  height: 1.8rem;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1;
-}
-
-.relay-activity-panel-close:hover {
-  background: var(--hover);
-  color: var(--text);
 }
 
 .relay-activity-panel-body {
@@ -5428,24 +5381,6 @@ button.home-tile:active .home-tile-art {
 .relay-help-tabs button[data-active] {
   color: var(--ink);
   background: var(--hover);
-}
-
-.relay-help-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: calc(var(--radius-ui) - 4px);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.relay-help-close:hover {
-  background: var(--hover);
-  color: var(--ink);
 }
 
 .relay-help-body {

@@ -1,7 +1,8 @@
 "use client";
+import { LoadingIndicator } from "../components/LoadingIndicator";
 import {editorPlaceholder} from './editor-placeholder';
 import { BlockColumns, BlockColumn } from "./block-columns";
-import { BlockAppearance } from "./block-appearance";
+import { BlockAppearance, INITIALIZE_BLOCK_IDS } from "./block-appearance";
 import { CommentAnchors } from "./comment-anchor";
 import type { CommentContext } from "./comment-types";
 import { usePageResume } from "./use-page-resume";
@@ -15,7 +16,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PromptBlock } from "./extensions";
 import type { Doc } from "@/domain/blocks/schema";
 import { BlockFilterExtension } from "./block-filter";
@@ -30,10 +31,11 @@ import {
 
 type Props = {
   content: Doc;
+  getDraft?: () => Doc | undefined;
   comments?: CommentContext;
   resources?: EditorResources;
   editable?: boolean;
-  onChange?: (doc: Doc) => void;
+  onChange?: (readDoc: () => Doc, options: { initializing: boolean }) => void;
   onSlashUsed?: () => void;
   onRunPrompt?: (prompt: string) => Promise<void>;
   focusPhrases?: string[];
@@ -43,6 +45,7 @@ type Props = {
 
 export function BlockEditor({
   content,
+  getDraft,
   comments,
   resources,
   editable = true,
@@ -54,6 +57,8 @@ export function BlockEditor({
   onActivityFocusDismiss,
 }: Props) {
   const t = useTranslations("editorTools");
+  const [initialContent] = useState(() => getDraft?.() ?? content);
+  const externalContent = useRef(content);
   const wrapRef = useRef<HTMLDivElement>(null);
   const resourcesRef=useRef(resources);resourcesRef.current=resources;
   const commentsRef=useRef(comments);commentsRef.current=comments;
@@ -88,8 +93,12 @@ export function BlockEditor({
         },
       }),
     ],
-    content: content as object,
-    onUpdate: ({ editor: ed }) => { onChange?.(ed.getJSON() as Doc); },
+    content: initialContent as object,
+    onUpdate: ({ editor: ed, transaction, appendedTransactions }) => {
+      if (!transaction.docChanged && !appendedTransactions.some((tr) => tr.docChanged)) return;
+      const snapshot = ed.state.doc;
+      onChange?.(() => snapshot.toJSON() as Doc, { initializing: transaction.getMeta(INITIALIZE_BLOCK_IDS) === true });
+    },
   });
 
   useEffect(() => {
@@ -98,13 +107,14 @@ export function BlockEditor({
   }, [editor, editable]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || externalContent.current === content) return;
+    externalContent.current = content;
     // Normalize schema defaults before comparing, so an equivalent document
     // doesn't reset the selection immediately after restoring it.
     const next=editor.schema.nodeFromJSON(content);
     if(editor.state.doc.eq(next))return;
     // React node views mount with flushSync; update them after React's commit.
-    const frame=requestAnimationFrame(()=>{if(!editor.isDestroyed&&!editor.state.doc.eq(next))editor.commands.setContent(content as object);});
+    const frame=requestAnimationFrame(()=>{if(!editor.isDestroyed&&!editor.state.doc.eq(next))editor.commands.setContent(content as object, {emitUpdate:false});});
     return()=>cancelAnimationFrame(frame);
   }, [content, editor]);
 
@@ -122,7 +132,7 @@ export function BlockEditor({
 
   usePageResume(editor, comments, Boolean(focusPhrases?.length));
 
-  if (!editor) return <div className="relay-editor-skeleton" />;
+  if (!editor) return <LoadingIndicator centered />;
 
   return (
     <div className="relay-editor" data-block-tools={editable} ref={wrapRef}>

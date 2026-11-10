@@ -1,7 +1,13 @@
+import { ArrowLeft } from "lucide-react";
+import { LoadingIndicator } from "@relay-ui/LoadingIndicator";
+import { PageActions } from "@relay-ui/PageActions";
+import { useSaveFeedback } from "@relay-ui/SaveIndicator";
+import { useViewMotion } from "@relay-ui/use-view-motion";
+import { useSaveBatch } from "../../../src/lib/use-save-batch";
 import {nativeSaveCode} from '../lib/save-code';
 import { guestCommentRequest } from "@relay-editor/guest-comments";
 import {guestResourceRequest} from '@relay-editor/guest-resources';
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslations, useLocale } from "use-intl";
 import { BlockEditor } from "../editor/BlockEditor";
 import { InfiniteBoard } from "../board/InfiniteBoard";
@@ -22,6 +28,7 @@ import {
 } from "@relay-board/activity-focus";
 
 type Mode = "text" | "board";
+type PageDraft = { title?: string; readContent?: () => Doc; readBoard?: () => BoardSnapshot };
 
 export function PageView({
   pageId,
@@ -35,24 +42,28 @@ export function PageView({
   const tc = useTranslations("common");
   const ta = useTranslations("app");
   const { loadPage, movePageBlock, updatePage, deletePage, createPage, offline, mode: wsMode, activeWorkspaceId, activeRole, pages } = useWorkspace();
+  const canWrite = wsMode === "guest" || activeRole === "owner" || activeRole === "editor";
   const auth = useAuth();
   const dialog = useDialog();
   const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<Doc>(emptyDoc());
   const [contentPageId, setContentPageId] = useState<string | null>(null);
-  const [board, setBoard] = useState<BoardSnapshot | null>(null);
-  const [saveState, setSaveState] = useState<"saved" | "saving" | "loading" | "error">(
-    "loading",
+  const modeMotion = useViewMotion<HTMLDivElement>(
+    contentPageId === pageId ? `${pageId}:${mode}` : null,
+    mode === "text" ? "forward" : "back",
   );
+  const [board, setBoard] = useState<BoardSnapshot | null>(null);
+  const [saveState, setSaveState, saveRevision] = useSaveFeedback();
+  const batch = useSaveBatch<PageDraft>(`${wsMode}:${activeWorkspaceId}:${pageId}`);
+  const currentBatch = useRef(batch);
+  currentBatch.current = batch;
+  const draft = useRef<PageDraft>({});
   const [missing, setMissing] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const fetchPage = useEffectEvent((id: string) => loadPage(id));
   const [activityFocus, setActivityFocus] = useState<ActivityFocus | null>(null);
   const activityFocusMode = useRef<Mode | null>(null);
   const activityFocusTimer = useRef<number | null>(null);
-  const saveTicket=useRef(0);
-  const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const focus = readActivityFocus(pageId);
@@ -96,8 +107,10 @@ export function PageView({
     function onRestored(event: Event) {
       const id = (event as CustomEvent<{ pageId?: string | null }>).detail?.pageId;
       if (id !== pageId) return;
+      batch.discardPending();
       void loadPage(pageId).then((p) => {
         if (!p) return;
+        draft.current = {};
         setTitle(p.title);
         setContent(p.content);
         setBoard(p.board);
@@ -106,35 +119,16 @@ export function PageView({
     }
     window.addEventListener("relay:history-restored", onRestored);
     return () => window.removeEventListener("relay:history-restored", onRestored);
-  }, [pageId, loadPage]);
-  const contentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
+  }, [pageId, loadPage, batch, setSaveState]);
+  const titleInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setSaveState("loading");
-    void loadPage(pageId).then((p) => {
+    draft.current = {};
+    setContentPageId(null);
+    setSaveState("idle");
+    setMissing(false);
+    void fetchPage(pageId).then((p) => {
       if (cancelled) return;
       if (!p) {
         setMissing(true);
@@ -148,12 +142,11 @@ export function PageView({
       setBoard(p.board);
       setMode(activityFocusMode.current ?? "text");
       activityFocusMode.current = null;
-      setSaveState("saved");
     });
     return () => {
       cancelled = true;
     };
-  }, [pageId, loadPage]);
+  }, [pageId, wsMode, activeWorkspaceId, auth.token]);
 
   if (missing) {
     return (
@@ -166,42 +159,35 @@ export function PageView({
     );
   }
 
-  if (saveState === "loading") {
-    return (
-      <section className="card">
-        <p className="muted">{tc("loading")}</p>
-      </section>
-    );
+  if (contentPageId !== pageId) {
+    return <LoadingIndicator centered />;
   }
 
-  function scheduleTitle(next: string) {
-    setTitle(next);
-    const ticket=++saveTicket.current;setSaveState("saving");
-    if (titleTimer.current) clearTimeout(titleTimer.current);
-    titleTimer.current = setTimeout(() => {
-      void updatePage(pageId, { title: next.trim() || tc("untitled") })
-        .then(() => {if(ticket===saveTicket.current)setSaveState("saved");})
-        .catch(() => {if(ticket===saveTicket.current)setSaveState("error");});
-    }, 400);
+  function stageEdit(patch: PageDraft, announce = true) {
+    Object.assign(draft.current, patch);
+    batch.stage(patch, async ({ title, readContent, readBoard }, showStatus) => {
+      if (showStatus && currentBatch.current === batch) setSaveState("saving");
+      try {
+        await updatePage(pageId, {
+          ...(title !== undefined ? { title } : {}),
+          ...(readContent ? { content: readContent() } : {}),
+          ...(readBoard ? { board: readBoard() } : {}),
+        });
+        if (showStatus && currentBatch.current === batch) setSaveState("saved");
+      } catch (error) {
+        if (currentBatch.current === batch) setSaveState("error");
+        throw error;
+      }
+    }, announce);
   }
 
-  function scheduleContent(doc: Doc) {
-    setContent(doc);
-    const ticket=++saveTicket.current;setSaveState("saving");
-    if (contentTimer.current) clearTimeout(contentTimer.current);
-    contentTimer.current = setTimeout(() => {
-      void updatePage(pageId, { content: doc })
-        .then(() => {if(ticket===saveTicket.current)setSaveState("saved");})
-        .catch(() => {if(ticket===saveTicket.current)setSaveState("error");});
-    }, 500);
-  }
-
-  function onBoardChange(next: BoardSnapshot) {
-    setBoard(next);
-    const ticket=++saveTicket.current;setSaveState("saving");
-    void updatePage(pageId, { board: next })
-      .then(() => {if(ticket===saveTicket.current)setSaveState("saved");})
-      .catch(() => {if(ticket===saveTicket.current)setSaveState("error");});
+  async function moveBlock(targetId: string, blockId: string, doc: Doc) {
+    await batch.flush();
+    const next = await movePageBlock(pageId, targetId, blockId, doc);
+    delete draft.current.readContent;
+    setContent(next);
+    setSaveState("saved");
+    return next;
   }
 
   const pageUrl =
@@ -209,14 +195,6 @@ export function PageView({
       ? `${publicAppOrigin()}/w/${activeWorkspaceId}/p/${pageId}`
       : null;
 
-  function copyPageLink() {
-    if (!pageUrl) return;
-    void navigator.clipboard.writeText(pageUrl).then(() => {
-      setCopied(true);
-      if (copiedTimer.current) clearTimeout(copiedTimer.current);
-      copiedTimer.current = setTimeout(() => setCopied(false), 1400);
-    });
-  }
 
   async function removePage() {
     const ok = await dialog.confirm({
@@ -225,106 +203,80 @@ export function PageView({
       danger: true,
     });
     if (!ok) return;
-    setMenuOpen(false);
     await deletePage(pageId);
+    batch.discardPending();
     onBack();
   }
 
   return (
     <div className="workspace-fill">
-      <div className="toprow workspace-bar">
-        <div className="page-title" style={{ flex: 1, minWidth: 0 }}>
-          <button type="button" className="btn" onClick={onBack}>
-            ←
+      <header className="relay-page-header">
+        <div className="relay-page-heading">
+          <button type="button" className="relay-page-control" aria-label={t("backToList")} onClick={onBack}>
+            <ArrowLeft aria-hidden />
           </button>
           <input
+            ref={titleInput}
             className="title-input"
             value={title}
-            onChange={(e) => scheduleTitle(e.target.value)}
+            onChange={(event) => {
+              const next = event.target.value;
+              setTitle(next);
+              stageEdit({ title: next.trim() || tc("untitled") });
+            }}
             placeholder={t("titlePlaceholder")}
             aria-label={t("titleAria")}
+            readOnly={!canWrite}
           />
-          <WorkspacePresence save={saveState} />
         </div>
-        <ContentModeSwitch
-          value={mode}
-          onChange={setMode}
-          boardLabel={ta("board")}
-          textLabel={ta("text")}
-        />
-        <div className="page-menu" ref={menuRef}>
-          <button
-            type="button"
-            className="page-menu-btn"
-            title={ta("pageMenu")}
-            aria-label={ta("pageMenu")}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <MoreIcon />
-          </button>
-          {menuOpen && (
-            <div className="page-menu-pop" role="menu">
-              {pageUrl && (
-                <button type="button" className="page-menu-item" role="menuitem" onClick={copyPageLink}>
-                  {copied ? ta("pageMenuCopied") : ta("pageMenuCopyLink")}
-                </button>
-              )}
-              {pageUrl && <div className="page-menu-sep" role="separator" />}
-              <button
-                type="button"
-                className="page-menu-item"
-                data-danger="true"
-                role="menuitem"
-                onClick={() => void removePage()}
-              >
-                {ta("pageMenuDelete")}
-              </button>
-            </div>
-          )}
+        <ContentModeSwitch value={mode} onChange={setMode} boardLabel={ta("board")} textLabel={ta("text")} />
+        <div className="relay-page-header-actions">
+          {canWrite && <WorkspacePresence save={saveState} revision={saveRevision} />}
+          <PageActions
+            key={pageId}
+            pageUrl={pageUrl ? pageUrl + "?mode=" + mode : null}
+            onRename={canWrite ? () => { titleInput.current?.focus(); titleInput.current?.select(); } : undefined}
+            onHistory={wsMode === "cloud" ? () => {
+              void batch.flush().then(() => window.dispatchEvent(new CustomEvent("relay:open-page-history", { detail: pageId }))).catch(() => undefined);
+            } : undefined}
+            onDelete={canWrite ? () => void removePage() : undefined}
+          />
         </div>
-      </div>
+      </header>
 
       {mode === "text" ? (
-        <OverlayScroll arrows className="editor-card-scroll" contentClassName="card editor-card">
-          {contentPageId === pageId ? <BlockEditor
+        <OverlayScroll ref={modeMotion} arrows className="editor-card-scroll" contentClassName="card editor-card">
+          <BlockEditor
             key={pageId}
             content={content}
-            resources={{pageId,saveText:nativeSaveCode,moveBlock:async(targetId,blockId,doc)=>{if(contentTimer.current)clearTimeout(contentTimer.current);const next=await movePageBlock(pageId,targetId,blockId,doc);setContent(next);setSaveState('saved');return next;},request:<T,>(suffix:string,init?:RequestInit)=>wsMode==='guest'?guestResourceRequest<T>(pageId,pages,suffix,init):api<T>(`/pages/${pageId}/tools${suffix}`,{...init,token:auth.token}),openPage:(id)=>window.dispatchEvent(new CustomEvent('relay:open-page',{detail:id})),createPage}}
-            editable={wsMode === "guest" || activeRole !== "viewer"}
+            getDraft={() => draft.current.readContent?.()}
+            resources={{pageId,saveText:nativeSaveCode,moveBlock,request:<T,>(suffix:string,init?:RequestInit)=>wsMode==='guest'?guestResourceRequest<T>(pageId,pages,suffix,init):api<T>(`/pages/${pageId}/tools${suffix}`,{...init,token:auth.token}),openPage:(id)=>window.dispatchEvent(new CustomEvent('relay:open-page',{detail:id})),createPage}}
+            editable={canWrite}
             comments={{
               pageId, identity: wsMode === "guest" ? "guest" : auth.user?.id ?? "signed-out",
               request: <T,>(suffix: string, init?: RequestInit) => wsMode === "guest" ? guestCommentRequest<T>(pageId, pages, { id: "guest", name: locale === "ru" ? "Гость" : "Guest" }, suffix, init) : api<T>(`/pages/${pageId}/comments${suffix}`, { ...init, token: auth.token }),
               blockLink: (blockId, threadId) => wsMode === "cloud" ? `${publicAppOrigin()}/w/${activeWorkspaceId}/p/${pageId}?mode=text#${new URLSearchParams({ block: blockId, ...(threadId ? { comment: threadId } : {}) })}` : `${window.location.href.split("#")[0]}#${new URLSearchParams({ page: pageId, block: blockId, ...(threadId ? { comment: threadId } : {}) })}`,
               openPage: (id) => window.dispatchEvent(new CustomEvent("relay:open-page", { detail: id })),
             }}
-            onChange={scheduleContent}
+            onChange={(readContent, { initializing }) => stageEdit({ readContent }, !initializing)}
             focusPhrases={activityFocus?.phrases}
             focusBlockType={activityFocus?.blockType}
             onActivityFocusDismiss={() => setActivityFocus(null)}
-          /> : <div className="relay-editor-skeleton" />}
+          />
         </OverlayScroll>
       ) : (
-        <div className="board-wrap">
+        <div ref={modeMotion} className="board-wrap">
           <InfiniteBoard
             key={`page-board-${pageId}`}
+            editable={canWrite}
             initialSnapshot={board}
+            getDraft={() => draft.current.readBoard?.()}
             syncRoomId={!offline ? `pg-${pageId}` : undefined}
-            onChange={onBoardChange}
+            onChange={(readBoard) => stageEdit({ readBoard })}
             focusShapeIds={activityFocus?.shapeIds}
           />
         </div>
       )}
     </div>
-  );
-}
-
-function MoreIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="6" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="18" cy="12" r="1.6" fill="currentColor" />
-    </svg>
   );
 }

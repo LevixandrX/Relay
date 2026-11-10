@@ -25,7 +25,7 @@ export default async function DesktopHandoffPage({ searchParams }: Props) {
 
   return (
     <div className="relay-auth">
-      <div className="relay-auth-card" style={{ textAlign: "center" }}>
+      <div className="relay-auth-card relay-screen-enter" style={{ textAlign: "center" }}>
         <div style={{ display: "flex", justifyContent: "center" }}>
           <BrandLockup href="/" />
         </div>

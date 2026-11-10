@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
+import { LoadingIndicator } from "../components/LoadingIndicator";
 import {BlockGlyph} from './block-preview';
 import { embedUrl, webUrl, type AssetRecord, type EditorResources } from '../domain/blocks/rich-content';
 export type MediaAttrs = {src?: string; url?: string; assetId?: string; name?: string; caption?: string; width?: number; type?: string; size?: number};
@@ -21,7 +22,7 @@ export function MediaContent({kind,attrs,resources,publicId}:{kind:string;attrs:
     return () => {cancelled = true; if(url) URL.revokeObjectURL(url);};
   },[key,attempt]);
   const src = key ? publicId ? `/api/v1/public/${encodeURIComponent(publicId)}/assets/${encodeURIComponent(key)}` : loaded?.key===key?loaded.url:null : webUrl(attrs.src||attrs.url);
-  if (!src) return key ? <div className="rich-media-status">{failed?<><span>{t('loadFailed')}</span><button type="button" onClick={()=>setAttempt(n=>n+1)}>{t('retry')}</button></>:t('loading')}</div> : null;
+  if (!src) return key ? <div className="rich-media-status">{failed?<><span>{t('loadFailed')}</span><button type="button" onClick={()=>setAttempt(n=>n+1)}>{t('retry')}</button></>:<LoadingIndicator label={t('loading')} inline />}</div> : null;
   if (kind === 'image') return <img className="rich-image" src={src} alt={attrs.caption || attrs.name || ''} loading="lazy" />;
   if (kind === 'video') return <video src={src} controls preload="metadata" />;
   if (kind === 'audio') return <audio src={src} controls preload="metadata" />;

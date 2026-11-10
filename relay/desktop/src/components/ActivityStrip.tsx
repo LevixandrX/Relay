@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "use-intl";
 import { ActivityDisclosure, type AnalyticsReport } from "@relay-activity";
 import { VersionHistory, type HistoryClient, type RevisionSummary } from "@relay-history";
@@ -16,7 +16,15 @@ export function ActivityStrip({ pageId }: { pageId?: string | null }) {
   const auth = useAuth();
   const { mode, activeWorkspaceId, activeRole } = useWorkspace();
   const [seenId, setSeenId] = useState<string | null>(null);
-  const [history, setHistory] = useState<{ pageId: string | null; entryId: string } | null>(null);
+  const [history, setHistory] = useState<{ pageId: string | null; entryId?: string } | null>(null);
+
+  useEffect(() => {
+    function openHistory(event: Event) {
+      if (pageId && (event as CustomEvent<string>).detail === pageId) setHistory({ pageId });
+    }
+    window.addEventListener("relay:open-page-history", openHistory);
+    return () => window.removeEventListener("relay:open-page-history", openHistory);
+  }, [pageId]);
 
   if (mode !== "cloud" || !auth.token || !activeWorkspaceId) return null;
   const token = auth.token;

@@ -40,6 +40,7 @@ export function CompactRailScroll({target,itemCount=0,arrows=false,edge=false,ax
 }
 
 export function OverlayScroll({
+  ref: surfaceRef,
   children,
   className,
   contentClassName,
@@ -47,6 +48,7 @@ export function OverlayScroll({
   edge = false,
   fitContent = false,
 }: {
+  ref?: RefObject<HTMLDivElement | null>;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
@@ -73,7 +75,7 @@ export function OverlayScroll({
     return()=>{observer.disconnect();mutation.disconnect();port.removeEventListener('scroll',resetHorizontal);port.removeEventListener('wheel',wheel);};
   },[]);
   return (
-    <div className={["overlay-scroll", className].filter(Boolean).join(" ")} data-fit-content={fitContent||undefined}>
+    <div ref={surfaceRef} className={["overlay-scroll", className].filter(Boolean).join(" ")} data-fit-content={fitContent||undefined}>
       <div
         ref={ref}
         className={["overlay-scroll-target", contentClassName].filter(Boolean).join(" ")}

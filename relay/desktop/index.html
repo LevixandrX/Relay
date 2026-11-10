@@ -4,16 +4,149 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Relay</title>
+    <style>
+      html {
+        --relay-launch-bg: #111;
+        --relay-launch-muted: #a3a3a3;
+        --relay-launch-ink: #eee;
+        background: var(--bg, var(--relay-launch-bg));
+      }
+      #relay-startup {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: grid;
+        place-items: center;
+        background: var(--bg, var(--relay-launch-bg));
+        color: var(--muted, var(--relay-launch-muted));
+        font: 14px system-ui, sans-serif;
+        text-align: center;
+        transition: opacity 140ms ease-out, display 140ms allow-discrete;
+      }
+      #relay-startup[hidden] {
+        display: none;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .relay-launch {
+        position: relative;
+      }
+      .relay-launch-mark {
+        position: relative;
+        width: 84px;
+        height: 84px;
+        overflow: hidden;
+        border-radius: 22px;
+        background: #1d4ed8;
+        box-shadow: 0 12px 28px rgb(0 0 0 / 20%);
+      }
+      .relay-launch-mark img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .relay-launch-mark::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        box-shadow: inset 0 0 0 1px rgb(255 255 255 / 16%);
+      }
+      .relay-launch-mark::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(115deg, transparent 34%, rgb(255 255 255 / 18%) 50%, transparent 66%);
+        transform: translateX(-120%);
+        animation: relay-launch-light 720ms ease-out 100ms forwards;
+      }
+      @keyframes relay-launch-light { to { transform: translateX(120%); } }
+      .relay-launch-details {
+        position: absolute;
+        top: calc(100% + 20px);
+        left: 50%;
+        width: min(280px, calc(100vw - 32px));
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+        transform: translateX(-50%);
+      }
+      #relay-startup:not([data-state="slow"], [data-state="failed"]) #relay-startup-status {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .relay-launch-progress {
+        display: none;
+        width: 36px;
+        height: 2px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: color-mix(in srgb, currentColor 28%, transparent);
+        animation: relay-launch-reveal 200ms ease 700ms backwards;
+      }
+      #relay-startup[data-state="starting"] .relay-launch-progress { display: block; }
+      .relay-launch-progress::after {
+        content: "";
+        display: block;
+        width: 50%;
+        height: 100%;
+        border-radius: inherit;
+        background: currentColor;
+        animation: relay-launch-progress 1.6s ease-in-out 700ms infinite both;
+      }
+      @keyframes relay-launch-reveal { from { opacity: 0; } }
+      @keyframes relay-launch-progress {
+        0% { transform: translateX(-110%); }
+        72%, 100% { transform: translateX(210%); }
+      }
+      #relay-startup-reload {
+        color: var(--text, var(--relay-launch-ink));
+        text-underline-offset: 3px;
+      }
+      #relay-startup:not([data-state]) #relay-startup-reload {
+        animation: relay-launch-reload 0s linear 3s backwards;
+      }
+      @keyframes relay-launch-reload { from { visibility: hidden; } }
+      html[data-theme="light"] {
+        --relay-launch-bg: #f4f4f5;
+        --relay-launch-muted: #52525b;
+        --relay-launch-ink: #171717;
+      }
+      @media (prefers-color-scheme: light) {
+        html:not([data-theme]) {
+          --relay-launch-bg: #f4f4f5;
+          --relay-launch-muted: #52525b;
+          --relay-launch-ink: #171717;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #relay-startup { transition: none; }
+        .relay-launch-mark::before,
+        #relay-startup[data-state="starting"] .relay-launch-progress { display: none; }
+      }
+    </style>
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Unbounded:wght@500;700&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
+    <div id="relay-startup">
+      <div class="relay-launch">
+        <div class="relay-launch-mark" aria-hidden="true">
+          <img src="/icon.png" alt="" width="84" height="84" draggable="false" />
+        </div>
+        <div class="relay-launch-details">
+          <span class="relay-launch-progress" aria-hidden="true"></span>
+          <span id="relay-startup-status" role="status">Загрузка Relay…</span>
+          <a id="relay-startup-reload" href="">Reload / Перезагрузить</a>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>

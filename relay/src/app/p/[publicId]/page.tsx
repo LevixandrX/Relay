@@ -38,7 +38,7 @@ export default async function PublicPage({ params }: Props) {
           <ThemeToggle variant="inline" />
         </div>
       </nav>
-      <article className="relay-page" style={{ paddingTop: "1rem" }}>
+      <article className="relay-page relay-screen-enter" style={{ paddingTop: "1rem" }}>
         <h1 className="relay-title" style={{ marginBottom: "1.25rem" }}>
           {(page.icon ? `${page.icon} ` : "") + (page.title || tc("untitled"))}
         </h1>

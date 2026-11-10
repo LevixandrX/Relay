@@ -12,6 +12,7 @@ export function relayDesktopAliases(fromDir) {
     "@relay-messages": path.resolve(fromDir, "../messages"),
     "@relay-i18n": path.resolve(shared, "i18n"),
     "@relay-board": path.resolve(shared, "lib/board"),
+    "@relay-ui": path.resolve(shared, "components"),
     "@relay-board-chrome": path.resolve(shared, "components/BoardChrome.tsx"),
     "@relay-help": path.resolve(shared, "components/BoardHelp.tsx"),
     "@relay-activity": path.resolve(shared, "components/ActivityDisclosure.tsx"),

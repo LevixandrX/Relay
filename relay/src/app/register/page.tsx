@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingIndicator } from "@/components/LoadingIndicator";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -94,7 +95,7 @@ export default function RegisterPage() {
         <ThemeToggle variant="floating" />
       </div>
       {step === 1 ? (
-        <form className="relay-auth-card" onSubmit={goNext}>
+        <form key="account" className="relay-auth-card relay-screen-enter" onSubmit={goNext}>
           <BrandLockup href="/" />
           <h1>{t("registerTitle")}</h1>
           <p className="lede">{t("registerLede")}</p>
@@ -142,7 +143,7 @@ export default function RegisterPage() {
           </p>
         </form>
       ) : (
-        <form className="relay-auth-card relay-auth-wide" onSubmit={onSubmit}>
+        <form key="workspace" className="relay-auth-card relay-auth-wide relay-screen-enter" onSubmit={onSubmit}>
           <BrandLockup href="/" />
           <button type="button" className="relay-back" onClick={() => setStep(1)}>
             ← {t("registerBack")}
@@ -180,7 +181,7 @@ export default function RegisterPage() {
             disabled={loading || !intent}
             type="submit"
           >
-            {loading ? t("intentSubmitting") : t("intentSubmit")}
+            {loading ? <LoadingIndicator label={t("intentSubmitting")} inline /> : t("intentSubmit")}
           </button>
         </form>
       )}

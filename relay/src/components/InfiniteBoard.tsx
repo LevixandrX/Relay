@@ -1,18 +1,20 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { LoadingIndicator } from "./LoadingIndicator";
 
 export type BoardSnapshot = unknown;
 
 const BoardInner = dynamic(() => import("./InfiniteBoardInner"), {
   ssr: false,
-  loading: () => <div className="relay-board-loading">Загружаем доску…</div>,
+  loading: () => <LoadingIndicator centered />,
 });
 
 type Props = {
   editable?: boolean;
   initialSnapshot?: BoardSnapshot | null;
-  onChange?: (snapshot: BoardSnapshot) => void;
+  getDraft?: () => BoardSnapshot | undefined;
+  onChange?: (readSnapshot: () => BoardSnapshot) => void;
   syncRoomId?: string;
   viewerId?: string;
   focusShapeIds?: string[];

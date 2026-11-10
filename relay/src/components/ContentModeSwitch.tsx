@@ -24,11 +24,20 @@ export function ContentModeSwitch({
       data-compact={compact || undefined}
       role="tablist"
       aria-label={`${boardLabel} / ${textLabel}`}
+      onKeyDown={(event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === "Home" ? "board" : event.key === "End" ? "text" : value === "board" ? "text" : "board";
+        onChange(next);
+        event.currentTarget.querySelector<HTMLButtonElement>(`[data-content-mode="${next}"]`)?.focus();
+      }}
     >
       <span className="relay-content-mode-indicator" aria-hidden />
       <button
         type="button"
         role="tab"
+        data-content-mode="board"
+        tabIndex={value === "board" ? 0 : -1}
         aria-selected={value === "board"}
         data-active={value === "board" || undefined}
         onClick={() => onChange("board")}
@@ -39,6 +48,8 @@ export function ContentModeSwitch({
       <button
         type="button"
         role="tab"
+        data-content-mode="text"
+        tabIndex={value === "text" ? 0 : -1}
         aria-selected={value === "text"}
         data-active={value === "text" || undefined}
         onClick={() => onChange("text")}

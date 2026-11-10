@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { LoadingIndicator } from "./LoadingIndicator";
+import { PanelCloseButton } from "./PanelCloseButton";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "use-intl";
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
@@ -8,6 +10,7 @@ import { ContentModeSwitch } from "./ContentModeSwitch";
 import { DateLabel } from './DateLabel';
 import { activityTime } from '../lib/display-time';
 import { CommentAvatar } from '../editor/CommentAvatar';
+import { useViewMotion } from "./use-view-motion";
 
 export type HistorySpan = { t: string; m?: "add" | "del"; href?: string };
 
@@ -122,8 +125,33 @@ export function UpdateCard({
   const t = useTranslations("app");
   const locale = useLocale();
   const [expanded, setExpanded] = useState(false);
-  const hiddenCount = Math.max(0, row.blocks.length - 6);
-  const visibleBlocks = expanded ? row.blocks : row.blocks.slice(0, 6);
+  const [clipped, setClipped] = useState(false);
+  const card = useRef<HTMLDivElement>(null);
+  const previewCount = 2;
+  const hiddenCount = Math.max(0, row.blocks.length - previewCount);
+  const visibleBlocks = expanded ? row.blocks : row.blocks.slice(0, previewCount);
+  const toggleLabel = expanded ? t("historyShowLess")
+    : hiddenCount ? t("historyViewMore", { count: hiddenCount })
+    : t("historyExpandChanges");
+  useLayoutEffect(() => {
+    if (expanded || !card.current) return;
+    const previews = Array.from(card.current.querySelectorAll<HTMLElement>(".vh-preview-clip"));
+    function measure() {
+      let clipped = false;
+      for (const preview of previews) {
+        const overflow = preview.scrollHeight > preview.clientHeight + 1;
+        preview.toggleAttribute("data-clipped", overflow);
+        clipped ||= overflow;
+      }
+      setClipped(clipped);
+    }
+    const observer = new ResizeObserver(measure);
+    for (const preview of previews) {
+      if (preview.firstElementChild) observer.observe(preview.firstElementChild);
+    }
+    measure();
+    return () => observer.disconnect();
+  }, [expanded, row.blocks]);
   const you = Boolean(viewerId && row.createdBy === viewerId);
   const pageTitle = row.title.trim() || title.trim() || t("untitled");
   const who = row.baseline
@@ -155,7 +183,7 @@ export function UpdateCard({
           <ClockIcon />
         </button>
       ) : null}
-      <div className="vh-card">
+      <div ref={card} className="vh-card" data-expanded={expanded || undefined}>
         {visibleBlocks.map((block, index) => (
           <div
             key={index}
@@ -172,12 +200,14 @@ export function UpdateCard({
               onOpen(row, block);
             }}
           >
-            <BlockView block={block} />
+            <div className="vh-preview-clip">
+              <div><BlockView block={block} /></div>
+            </div>
           </div>
         ))}
-        {hiddenCount > 0 ? (
+        {expanded || clipped || hiddenCount > 0 ? (
           <button type="button" className="vh-expand" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
-            {expanded ? t("historyShowLess") : t("historyViewMore", { count: hiddenCount })}
+            {toggleLabel}
           </button>
         ) : null}
         {row.more > 0 ? <span className="vh-more">{t("historyMore", { count: row.more })}</span> : null}
@@ -219,14 +249,21 @@ export function VersionHistory({
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [snapshot, setSnapshot] = useState<{ title: string; content: unknown; board: unknown } | null>(null);
   const [mode, setMode] = useState<"text" | "board">("text");
+  const previewMotion = useViewMotion<HTMLDivElement>(
+    open && snapshot ? `${selected}:${mode}` : null,
+    mode === "text" ? "forward" : "back",
+  );
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setError(null);
     setLoaded(false);
+    setRevisions([]);
+    setSelected(null);
     setSnapshot(null);
     void clientRef.current
       .list()
@@ -263,6 +300,7 @@ export function VersionHistory({
     // unmounted and rebuilt from the selected revision instead of reusing that
     // store with new props.
     setSnapshot(null);
+    setPreviewFailed(false);
     const run = current.restoreId
       ? clientRef.current.get(current.restoreId).then((row) => ({
           title: row.title,
@@ -275,7 +313,7 @@ export function VersionHistory({
         if (!cancelled) setSnapshot(row);
       })
       .catch(() => {
-        if (!cancelled) setSnapshot(null);
+        if (!cancelled) setPreviewFailed(true);
       });
     return () => {
       cancelled = true;
@@ -320,8 +358,12 @@ export function VersionHistory({
             />
           </div>
         ) : null}
-        {mode === "board" ? (
-          <div className="version-stage-body" data-mode="board">
+        {!loaded || current && !snapshot && !previewFailed ? (
+          <LoadingIndicator />
+        ) : previewFailed && current ? (
+          <p className="version-history-empty" role="alert">{t("historyLoadFailed")}</p>
+        ) : mode === "board" ? (
+          <div ref={previewMotion} className="version-stage-body" data-mode="board">
             <div className="version-stage-board">
               {snapshot?.board && renderBoard ? (
                 <div className="version-stage-board-snapshot" key={selected}>
@@ -333,7 +375,7 @@ export function VersionHistory({
             </div>
           </div>
         ) : (
-          <OverlayScroll arrows className="version-stage-scroll" contentClassName="version-stage-body">
+          <OverlayScroll ref={previewMotion} arrows className="version-stage-scroll" contentClassName="version-stage-body">
             <article className="version-doc">
               <h1>{snapshot?.title || title || t("untitled")}</h1>
               {removed.length > 0 ? (
@@ -352,11 +394,10 @@ export function VersionHistory({
       <aside className="version-history-side">
         <header className="version-history-side-head">
           <strong>{t("historyTitle")}</strong>
-          <button type="button" className="version-history-close" onClick={onClose} aria-label={t("close")}>
-            ×
-          </button>
+          <PanelCloseButton onClick={onClose} aria-label={t("close")} />
         </header>
         <OverlayScroll arrows className="version-history-list-scroll" contentClassName="version-history-list">
+          {!loaded && <LoadingIndicator />}
           {error ? <p className="version-history-empty">{error}</p> : null}
           {loaded && !error && revisions.length === 0 ? (
             <p className="version-history-empty">{t("historyEmpty")}</p>

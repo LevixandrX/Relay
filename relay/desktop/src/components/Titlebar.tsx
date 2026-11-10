@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 import { LanguageToggle } from "./LanguageToggle";
 import { HelpButton } from "@relay-help";
@@ -61,9 +61,33 @@ function CaptionGlyph({ kind }: { kind: "min" | "max" | "restore" | "close" }) {
   );
 }
 
-export function Titlebar({ activityPageId }: { activityPageId?: string | null }) {
+export function Titlebar({ activityPageId, visible }: { activityPageId?: string | null; visible: boolean }) {
   const t = useTranslations("desktop");
   const [maximized, setMaximized] = useState(false);
+  const [snapReady, setSnapReady] = useState(false);
+  const header = useRef<HTMLElement>(null);
+  const nativeSnap = visible && snapReady;
+
+  useLayoutEffect(() => {
+    if (!visible) {
+      setSnapReady(false);
+      return;
+    }
+    let frame = 0;
+    const element = header.current;
+    if (!element) return;
+    const sync = () => {
+      // Measure after the reveal has settled. The plugin samples the target
+      // on insertion and keeps a native hit area independent of CSS.
+      if (element.getBoundingClientRect().top < -0.1) {
+        frame = requestAnimationFrame(sync);
+      } else {
+        setSnapReady(true);
+      }
+    };
+    frame = requestAnimationFrame(sync);
+    return () => cancelAnimationFrame(frame);
+  }, [visible]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -92,7 +116,7 @@ export function Titlebar({ activityPageId }: { activityPageId?: string | null })
   }, []);
 
   return (
-    <header className="titlebar" data-tauri-drag-region>
+    <header ref={header} className="titlebar" inert={!visible || undefined} data-tauri-drag-region>
       <div className="titlebar-brand">
         <img className="titlebar-mark" src="/icon.png" alt="" width={16} height={16} draggable={false} />
         Relay
@@ -114,7 +138,8 @@ export function Titlebar({ activityPageId }: { activityPageId?: string | null })
         </button>
         <button
           type="button"
-          id="relay-snap-btn"
+          key={nativeSnap ? "native-snap" : "client-snap"}
+          id={nativeSnap ? "relay-snap-btn" : undefined}
           className="win-btn win-btn-max"
           aria-label={maximized ? t("winRestore") : t("winMaximize")}
           title={maximized ? t("winRestore") : t("winMaximize")}

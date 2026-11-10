@@ -1,7 +1,13 @@
 "use client";
 
+import { PageActions } from "./PageActions";
+import { SaveIndicator, useSaveFeedback } from "./SaveIndicator";
+import { LoadingIndicator } from "./LoadingIndicator";
 import Link from "next/link";
 import {PageSaveQueue} from "../lib/page-save-queue";
+import { useSaveBatch } from "../lib/use-save-batch";
+import { useViewMotion } from "./use-view-motion";
+import { useSidebarPeek } from "./use-sidebar-peek";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { BlockEditor } from "@/editor/BlockEditor";
@@ -91,6 +97,7 @@ type Checklist = {
 };
 
 type ViewMode = "board" | "text";
+type PageDraft = { title?: string; readContent?: () => Doc; readBoard?: () => BoardSnapshot };
 
 type Props = {
   workspaceId: string;
@@ -157,19 +164,22 @@ function WorkspaceAppInner({
   const [pageBoard, setPageBoard] = useState<BoardSnapshot | null>(
     initialPage?.board ?? null,
   );
-  const [wsBoard, setWsBoard] = useState<BoardSnapshot | null>(workspaceBoard);
-  const [updatedAt, setUpdatedAt] = useState(initialPage?.updatedAt ?? "");
   const [publicId, setPublicId] = useState(initialPage?.publicId ?? null);
-  const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
+  const [saveState, setSaveState, saveRevision] = useSaveFeedback();
   const [checklist, setChecklist] = useState(initialChecklist);
   const [pulseSeen, setPulseSeen] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [compassOpen, setCompassOpen] = useState(false);
   const [compassQ, setCompassQ] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<
     { pageId: string; title: string; snippet: string }[]
   >([]);
   const [mode, setMode] = useState<ViewMode>(isWorkspaceBoard ? "board" : defaultMode);
+  const modeMotion = useViewMotion<HTMLDivElement>(
+    isWorkspaceBoard || contentPageId === pageId ? `${pathname}:${mode}` : null,
+    mode === "text" ? "forward" : "back",
+  );
   const [me, setMe] = useState<{
     name: string;
     email: string;
@@ -180,29 +190,26 @@ function WorkspaceAppInner({
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
-  const [historyTarget, setHistoryTarget] = useState<{ pageId: string | null; entryId: string } | null>(
+  const [historyTarget, setHistoryTarget] = useState<{ pageId: string | null; entryId?: string } | null>(
     null,
   );
   const [activityFocus, setActivityFocus] = useState<ActivityFocus | null>(null);
   const activityFocusTimer = useRef<number | null>(null);
   const [chrome, setChrome] = useState<"expanded" | "rail" | "focus">("expanded");
   const rail = chrome === "rail";
-  const [peek, setPeek] = useState(false);
+  const { sidebarRef, beforeNavigate } = useSidebarPeek(chrome === "focus");
   const [peekTop, setPeekTop] = useState(false);
   const [focusHint, setFocusHint] = useState(false);
   const [focusHintHide, setFocusHintHide] = useState(false);
-  const [pageMenuOpen, setPageMenuOpen] = useState(false);
-  const [copied, setCopied] = useState<"link" | "public" | null>(null);
   const peekHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pageMenuRef = useRef<HTMLDivElement>(null);
+  const pageTitleInput = useRef<HTMLInputElement>(null);
   const prevModeRef = useRef<ViewMode>(isWorkspaceBoard ? "board" : defaultMode);
   const saves=useRef(new PageSaveQueue());
-  const saveTicket=useRef(0);
-  const savingPage=useRef(pageId);savingPage.current=pageId;
-  const updatedAtRef = useRef(initialPage?.updatedAt ?? "");
-  const skipSaveRef = useRef(false);
+  const batch = useSaveBatch<PageDraft>(`${workspaceId}:${pageId ?? ""}`);
+  const currentBatch = useRef(batch);
+  currentBatch.current = batch;
+  const draft = useRef<PageDraft>({});
   const railListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -225,7 +232,6 @@ function WorkspaceAppInner({
 
   function setChromePersist(next: "expanded" | "rail" | "focus") {
     setChrome(next);
-    setPeek(false);
     setPeekTop(false);
     if (next !== "focus") {
       setFocusHint(false);
@@ -274,25 +280,6 @@ function WorkspaceAppInner({
     }, 4200);
   }
 
-  function showSidebarPeek() {
-    if(document.documentElement.classList.contains('editor-block-menu-open'))return;
-    if (peekHideTimer.current) {
-      clearTimeout(peekHideTimer.current);
-      peekHideTimer.current = null;
-    }
-    setPeek(true);
-  }
-
-  useEffect(()=>{const menu=(event:Event)=>{if((event as CustomEvent<{open:boolean}>).detail.open)setPeek(false);};window.addEventListener('relay:editor-menu-state',menu);return()=>window.removeEventListener('relay:editor-menu-state',menu);},[]);
-
-  function scheduleHideSidebarPeek() {
-    if (peekHideTimer.current) clearTimeout(peekHideTimer.current);
-    peekHideTimer.current = setTimeout(() => {
-      setPeek(false);
-      peekHideTimer.current = null;
-    }, 220);
-  }
-
   function showTopPeek() {
     if (peekHideTimer.current) {
       clearTimeout(peekHideTimer.current);
@@ -311,31 +298,23 @@ function WorkspaceAppInner({
 
   useEffect(() => {
     if (chrome !== "focus") return;
+    const hideTopPeek = () => {
+      if (peekHideTimer.current) clearTimeout(peekHideTimer.current);
+      peekHideTimer.current = null;
+      setPeekTop(false);
+    };
+    window.addEventListener("blur", hideTopPeek);
     const bump = window.setTimeout(() => {
       window.dispatchEvent(new Event("resize"));
     }, 280);
-    return () => window.clearTimeout(bump);
+    return () => {
+      window.removeEventListener("blur", hideTopPeek);
+      window.clearTimeout(bump);
+      if (peekHideTimer.current) clearTimeout(peekHideTimer.current);
+      peekHideTimer.current = null;
+    };
   }, [chrome]);
 
-  useEffect(() => {
-    if (!pageMenuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (!pageMenuRef.current?.contains(e.target as Node)) setPageMenuOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        setPageMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [pageMenuOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -383,19 +362,15 @@ function WorkspaceAppInner({
   }, [mode, isWorkspaceBoard]);
 
   useEffect(() => {
-    updatedAtRef.current = updatedAt;
-    if(pageId)saves.current.seed(pageId,updatedAt);
-  }, [updatedAt]);
-
-  useEffect(() => {
+    draft.current = {};
+    setSaveState("idle");
     setMode(isWorkspaceBoard ? "board" : defaultMode);
     setTitle(initialPage?.title ?? "");
     setContent(initialPage?.content ?? { type: "doc", content: [{ type: "paragraph" }] });
     setContentPageId(pageId);
     setPageBoard(initialPage?.board ?? null);
-    setUpdatedAt(initialPage?.updatedAt ?? "");
     setPublicId(initialPage?.publicId ?? null);
-    updatedAtRef.current = initialPage?.updatedAt ?? "";
+    if (pageId && initialPage) saves.current.seed(pageId, initialPage.updatedAt);
   }, [pageId, initialPage, isWorkspaceBoard, defaultMode]);
 
   useEffect(() => {
@@ -510,36 +485,82 @@ function WorkspaceAppInner({
   useEffect(() => {
     if (!compassOpen) return;
     if (compassQ.trim().length < 1) {
+      setSearchLoading(false);
       setSearchResults(
         pages.slice(0, 8).map((p) => ({ pageId: p.id, title: p.title, snippet: "" })),
       );
       return;
     }
+    const controller = new AbortController();
+    setSearchLoading(true);
     const timer = setTimeout(async () => {
-      const res = await fetch(
-        `/api/v1/workspaces/${workspaceId}/search?q=${encodeURIComponent(compassQ)}`,
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      setSearchResults(data.results);
+      try {
+        const res = await fetch(
+          `/api/v1/workspaces/${workspaceId}/search?q=${encodeURIComponent(compassQ)}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) throw new Error("Search failed");
+        const data = await res.json();
+        if (!controller.signal.aborted) setSearchResults(data.results);
+      } catch {
+        if (!controller.signal.aborted) setSearchResults([]);
+      } finally {
+        if (!controller.signal.aborted) setSearchLoading(false);
+      }
     }, 200);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [compassOpen, compassQ, workspaceId, pages]);
 
-  const writePage=useCallback((id:string,patch:Record<string,unknown>,base:string)=>saves.current.save(id,base,async version=>{
-    const res=await fetch(`/api/v1/pages/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({...patch,baseUpdatedAt:version})});
-    const data=await res.json();if(!res.ok)throw Object.assign(new Error(data.message??'Save failed'),{status:res.status,details:data.details});return data as {updatedAt:string};
-  }),[]);
-  useEffect(()=>{
-    if(!pageId||!canWrite||!updatedAtRef.current)return;
-    if(skipSaveRef.current){skipSaveRef.current=false;return;}
-    const ticket=++saveTicket.current;setSaveState('saving');
-    const timer=setTimeout(()=>{void writePage(pageId,mode==='text'?{title,content}:{title},updatedAtRef.current).then(data=>{
-      if(savingPage.current!==pageId)return;updatedAtRef.current=data.updatedAt;setUpdatedAt(data.updatedAt);if(ticket===saveTicket.current)setSaveState('saved');
-      setPages(prev=>prev.map(p=>p.id===pageId?{...p,title}:p));void markChecklist('editedPage');bumpActivity();
-    },()=>{if(savingPage.current===pageId&&ticket===saveTicket.current)setSaveState('error');});},800);
-    return()=>clearTimeout(timer);
-  },[title,content,pageId,canWrite,mode,markChecklist,writePage]);
+  async function sendSave(url: string, method: "PUT" | "PATCH", payload: Record<string, unknown>) {
+    const body = JSON.stringify(payload);
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: document.visibilityState === "hidden" && new Blob([body]).size <= 60_000,
+    });
+    const data = await response.json();
+    if (!response.ok) throw Object.assign(new Error(data.message ?? "Save failed"), { status: response.status });
+    return data as { updatedAt: string };
+  }
+
+  function stageEdit(patch: PageDraft, announce = true) {
+    if (!canWrite || (pageId && !initialPage)) return;
+    Object.assign(draft.current, patch);
+    batch.stage(patch, async ({ title, readContent, readBoard }, showStatus) => {
+      if (showStatus && currentBatch.current === batch) setSaveState("saving");
+      try {
+        if (pageId && initialPage) {
+          await saves.current.save(pageId, initialPage.updatedAt, (baseUpdatedAt) =>
+            sendSave(`/api/v1/pages/${pageId}`, "PATCH", {
+              title, content: readContent?.(), board: readBoard?.(), baseUpdatedAt,
+            }),
+          );
+        } else {
+          await sendSave(`/api/v1/workspaces/${workspaceId}/board`, "PUT", { board: readBoard?.() });
+        }
+        if (currentBatch.current === batch) {
+          if (title !== undefined) setPages((prev) => prev.map((p) => p.id === pageId ? { ...p, title } : p));
+          if (showStatus) setSaveState("saved");
+        }
+        if (showStatus) {
+          if (currentBatch.current === batch) void markChecklist("editedPage");
+          bumpActivity();
+        }
+      } catch (error) {
+        if (currentBatch.current === batch) setSaveState("error");
+        throw error;
+      }
+    }, announce);
+  }
+
+  function acceptSavedContent(doc: Doc, updatedAt: string) {
+    if (!pageId || currentBatch.current !== batch) return;
+    saves.current.seed(pageId, updatedAt);
+    delete draft.current.readContent;
+    setContent(doc);
+    setSaveState("saved");
+  }
 
   async function createPage() {
     const res = await fetch(`/api/v1/workspaces/${workspaceId}/pages`, {
@@ -553,29 +574,23 @@ function WorkspaceAppInner({
     router.push(`/w/${workspaceId}/p/${data.id}?mode=text`);
   }
 
-  async function saveWorkspaceBoardSnapshot(board: BoardSnapshot) {
-    if (!canWrite) return;
-    setSaveState("saving");
-    setWsBoard(board);
-    const res = await fetch(`/api/v1/workspaces/${workspaceId}/board`, {
-      method: "PUT",
+  async function moveBlock(targetPageId: string, blockId: string, doc: Doc) {
+    await batch.flush();
+    const response = await fetch(`/api/v1/pages/${pageId}/tools`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ board }),
+      body: JSON.stringify({ action: "moveBlock", targetPageId, blockId, content: doc }),
     });
-    setSaveState(res.ok ? "saved" : "error");
-    if (res.ok) {
-      void markChecklist("editedPage");
-      bumpActivity();
-    }
-  }
-
-  async function savePageBoardSnapshot(board: BoardSnapshot) {
-    if(!pageId||!canWrite||!updatedAtRef.current)return;const ticket=++saveTicket.current;setSaveState('saving');setPageBoard(board);
-    try{const data=await writePage(pageId,{board},updatedAtRef.current);if(savingPage.current!==pageId)return;updatedAtRef.current=data.updatedAt;setUpdatedAt(data.updatedAt);if(ticket===saveTicket.current)setSaveState('saved');void markChecklist('editedPage');bumpActivity();}catch{if(savingPage.current===pageId&&ticket===saveTicket.current)setSaveState('error');}
+    if (!response.ok) throw Object.assign(new Error("move failed"), { status: response.status });
+    const result = await response.json() as { sourceContent: Doc; updatedAt: string };
+    acceptSavedContent(result.sourceContent, result.updatedAt);
+    bumpActivity();
+    return result.sourceContent;
   }
 
   async function runPrompt(prompt: string) {
     if (!pageId) return;
+    try { await batch.flush(); } catch { return; }
     void markChecklist("usedSlashOrPrompt");
     const res = await fetch(`/api/v1/pages/${pageId}/run-prompt`, {
       method: "POST",
@@ -584,10 +599,7 @@ function WorkspaceAppInner({
     });
     const data = await res.json();
     if (!res.ok) return;
-    skipSaveRef.current = true;
-    setContent(data.content);
-    updatedAtRef.current = data.updatedAt;
-    setUpdatedAt(data.updatedAt);
+    acceptSavedContent(data.content, data.updatedAt);
     bumpActivity();
   }
 
@@ -615,7 +627,7 @@ function WorkspaceAppInner({
     if (!ok) return;
     const res = await fetch(`/api/v1/pages/${targetId}`, { method: "DELETE" });
     if (!res.ok) return;
-    setPageMenuOpen(false);
+    if (pageId === targetId) batch.discardPending();
     await refreshPages();
     if (pageId === targetId) {
       router.push(`/w/${workspaceId}/board`);
@@ -635,13 +647,6 @@ function WorkspaceAppInner({
         ? `/w/${workspaceId}/p/${pageId}`
         : null;
 
-  function copyPageText(text: string, kind: "link" | "public") {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(kind);
-      if (copiedTimer.current) clearTimeout(copiedTimer.current);
-      copiedTimer.current = setTimeout(() => setCopied(null), 1400);
-    });
-  }
 
   function labelAction(action: string) {
     const map: Record<string, string> = {
@@ -685,14 +690,10 @@ function WorkspaceAppInner({
     <div
       className="relay-shell"
       data-chrome={chrome}
-      data-peek={peek || undefined}
       data-peek-top={peekTop || undefined}
     >
       {chrome === "focus" && (
-        <>
-          <div className="relay-edge-peek" onMouseEnter={showSidebarPeek} aria-hidden />
-          <div className="relay-edge-peek-top" onMouseEnter={showTopPeek} aria-hidden />
-        </>
+        <div className="relay-edge-peek-top" onMouseEnter={showTopPeek} onMouseLeave={scheduleHideTopPeek} aria-hidden />
       )}
 
       {focusHint && chrome === "focus" && (
@@ -741,17 +742,20 @@ function WorkspaceAppInner({
               </div>
             ) : (
               <input
+                ref={pageTitleInput}
                 className="relay-topbar-title"
                 value={title}
                 placeholder={t("pageTitlePlaceholder")}
                 disabled={!canWrite}
                 aria-label={t("pageTitlePlaceholder")}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  stageEdit({ title: next });
+                  setTitle(next);
+                }}
               />
             )}
-            <span className="relay-save" data-state={saveState}>
-              {saveLabel}
-            </span>
+            {canWrite && <SaveIndicator state={saveState} revision={saveRevision} label={saveLabel} />}
           </div>
 
           <div className="relay-topbar-actions">
@@ -765,57 +769,17 @@ function WorkspaceAppInner({
             >
               {t("share")}
             </button>
-            {!isWorkspaceBoard && (
-              <div className="relay-page-menu" ref={pageMenuRef}>
-                <button
-                  type="button"
-                  className="relay-icon-btn relay-icon-btn-surface"
-                  title={t("pageMenu")}
-                  aria-label={t("pageMenu")}
-                  aria-expanded={pageMenuOpen}
-                  onClick={() => setPageMenuOpen((v) => !v)}
-                >
-                  <MoreIcon />
-                </button>
-                {pageMenuOpen && (
-                  <div className="relay-page-menu-pop" role="menu">
-                    {pageUrl && (
-                      <button
-                        type="button"
-                        className="relay-page-menu-item"
-                        role="menuitem"
-                        onClick={() => copyPageText(pageUrl, "link")}
-                      >
-                        {copied === "link" ? t("pageMenuCopied") : t("pageMenuCopyLink")}
-                      </button>
-                    )}
-                    {publicUrl && (
-                      <button
-                        type="button"
-                        className="relay-page-menu-item"
-                        role="menuitem"
-                        onClick={() => copyPageText(publicUrl, "public")}
-                      >
-                        {copied === "public" ? t("pageMenuCopied") : t("pageMenuCopyPublic")}
-                      </button>
-                    )}
-                    {canWrite && (
-                      <>
-                        <div className="relay-page-menu-sep" role="separator" />
-                        <button
-                          type="button"
-                          className="relay-page-menu-item"
-                          data-danger="true"
-                          role="menuitem"
-                          onClick={() => pageId && void deletePage(pageId, title)}
-                        >
-                          {t("pageMenuDelete")}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+            {!isWorkspaceBoard && pageId && (
+              <PageActions
+                key={pageId}
+                pageUrl={pageUrl ? pageUrl + "?mode=" + mode : null}
+                publicUrl={publicUrl}
+                onRename={canWrite ? () => { pageTitleInput.current?.focus(); pageTitleInput.current?.select(); } : undefined}
+                onHistory={() => {
+                  void batch.flush().then(() => setHistoryTarget({ pageId })).catch(() => undefined);
+                }}
+                onDelete={canWrite ? () => void deletePage(pageId, title) : undefined}
+              />
             )}
             <div className="relay-topbar-app">
               <ActivityDisclosure
@@ -869,29 +833,29 @@ function WorkspaceAppInner({
         </div>
 
         {(isWorkspaceBoard || mode === "board") && (
-          <div className="relay-board-wrap">
+          <div ref={modeMotion} className="relay-board-wrap">
             <InfiniteBoard
               key={isWorkspaceBoard ? `ws-${workspaceId}` : `pg-${pageId}-board`}
               editable={canWrite}
-              initialSnapshot={isWorkspaceBoard ? wsBoard : pageBoard}
+              initialSnapshot={isWorkspaceBoard ? workspaceBoard : pageBoard}
+              getDraft={() => draft.current.readBoard?.()}
               syncRoomId={isWorkspaceBoard ? `ws-${workspaceId}` : `pg-${pageId}`}
               viewerId={viewerId}
-              onChange={
-                isWorkspaceBoard ? saveWorkspaceBoardSnapshot : savePageBoardSnapshot
-              }
+              onChange={(readBoard) => stageEdit({ readBoard })}
               focusShapeIds={activityFocus?.shapeIds}
             />
           </div>
         )}
 
         {!isWorkspaceBoard && mode === "text" && initialPage && (
-          <OverlayScroll arrows className="relay-page-scroll" contentClassName="relay-page">
+          <OverlayScroll ref={modeMotion} arrows className="relay-page-scroll" contentClassName="relay-page">
             {contentPageId === pageId ? <BlockEditor
               key={pageId}
               content={content}
+              getDraft={() => draft.current.readContent?.()}
               resources={pageId?{
                 pageId,
-                moveBlock:async(targetPageId,blockId,doc)=>{const response=await fetch(`/api/v1/pages/${pageId}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'moveBlock',targetPageId,blockId,content:doc})});if(!response.ok)throw Object.assign(new Error('move failed'),{status:response.status});const result=await response.json() as {sourceContent:Doc;updatedAt:string};updatedAtRef.current=result.updatedAt;setUpdatedAt(result.updatedAt);skipSaveRef.current=true;setContent(result.sourceContent);setSaveState('saved');return result.sourceContent;},
+                moveBlock,
                 request:async <T,>(suffix:string,init?:RequestInit):Promise<T>=>{const response=await fetch(`/api/v1/pages/${pageId}/tools${suffix}`,init);if(!response.ok)throw new Error('resources');return response.json() as Promise<T>;},
                 openPage:(id)=>router.push(`/w/${workspaceId}/p/${id}?mode=text`),
                 createPage:async(title)=>{const response=await fetch(`/api/v1/workspaces/${workspaceId}/pages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,parentPageId:pageId})});if(!response.ok)throw new Error('create page');const result=await response.json() as {id:string};await refreshPages();return{id:result.id,title};},
@@ -907,26 +871,22 @@ function WorkspaceAppInner({
                 openPage: (id) => router.push(`/w/${workspaceId}/p/${id}?mode=text`),
               } : undefined}
               editable={canWrite}
-              onChange={setContent}
+              onChange={(readContent, { initializing }) => stageEdit({ readContent }, !initializing)}
               onSlashUsed={() => void markChecklist("usedSlashOrPrompt")}
               onRunPrompt={runPrompt}
               focusPhrases={activityFocus?.phrases}
               focusBlockType={activityFocus?.blockType}
               onActivityFocusDismiss={() => setActivityFocus(null)}
-            /> : <div className="relay-editor-skeleton" />}
+            /> : <LoadingIndicator centered />}
           </OverlayScroll>
         )}
       </main>
 
       <aside
-        className="sidebar relay-sidebar"
+        ref={sidebarRef}
+        className="sidebar relay-sidebar relay-peek-sidebar"
+        data-peek-enabled={chrome === "focus" || undefined}
         data-collapsed={rail ? "true" : "false"}
-        onMouseEnter={() => {
-          if (chrome === "focus") showSidebarPeek();
-        }}
-        onMouseLeave={() => {
-          if (chrome === "focus") scheduleHideSidebarPeek();
-        }}
       >
         {!rail && (
           <div className="sidebar-logo">
@@ -955,7 +915,7 @@ function WorkspaceAppInner({
               setCompassQ("");
               setCompassOpen(true);
             }}
-            title={`${tc("search")} · ${searchHint}`}
+            data-tooltip={`${tc("search")} · ${searchHint}`}
             aria-label={tc("search")}
           >
             <span className="nav-ico">
@@ -969,9 +929,10 @@ function WorkspaceAppInner({
         <nav id="relay-sidebar-nav" className="sidebar-nav" aria-label={tc("menu")}>
           <Link
             href={`/w/${workspaceId}/board`}
+            onNavigate={beforeNavigate}
             className="nav-item"
             data-active={isWorkspaceBoard}
-            title={td("navBoardHint")}
+            data-tooltip={td("navBoardHint")}
             aria-current={isWorkspaceBoard ? "page" : undefined}
             aria-label={t("board")}
           >
@@ -993,9 +954,10 @@ function WorkspaceAppInner({
                     <Link
                       key={p.id}
                       href={`/w/${workspaceId}/p/${p.id}`}
+                      onNavigate={beforeNavigate}
                       className="nav-item"
                       data-active={p.id === pageId}
-                      title={label}
+                      data-tooltip={label}
                       aria-label={label}
                     >
                       <span className="nav-ico" aria-hidden>
@@ -1013,7 +975,7 @@ function WorkspaceAppInner({
               <button
                 type="button"
                 className="nav-item"
-                title={td("newPageShort")}
+                data-tooltip={td("newPageShort")}
                 aria-label={td("newPageShort")}
                 onClick={() => void createPage()}
               >
@@ -1038,9 +1000,10 @@ function WorkspaceAppInner({
                     <Link
                       key={p.id}
                       href={`/w/${workspaceId}/p/${p.id}`}
+                      onNavigate={beforeNavigate}
                       className="nav-item sidebar-page-item"
                       data-active={p.id === pageId}
-                      title={label}
+                      data-tooltip={label}
                     >
                       <span className="sidebar-page-mark" aria-hidden>
                         {p.icon ?? label.slice(0, 1).toUpperCase()}
@@ -1066,7 +1029,7 @@ function WorkspaceAppInner({
             className="sidebar-toggle"
             onClick={() => setChromePersist(nextChrome)}
             aria-controls="relay-sidebar-nav"
-            title={tb("chromeSwitch", { mode: nextChromeLabel })}
+            data-tooltip={tb("chromeSwitch", { mode: nextChromeLabel })}
             aria-label={tb("chromeSwitch", { mode: nextChromeLabel })}
           >
             <ChevronIcon collapsed={rail} />
@@ -1078,7 +1041,7 @@ function WorkspaceAppInner({
           {me && (
             <div
               className="account-chip"
-              title={rail ? `${me.name} · ${me.email}` : undefined}
+              data-tooltip={rail ? `${me.name} · ${me.email}` : undefined}
             >
               <button
                 type="button"
@@ -1103,7 +1066,7 @@ function WorkspaceAppInner({
                 <button
                   type="button"
                   className="account-logout"
-                  title={tc("logout")}
+                  data-tooltip={tc("logout")}
                   aria-label={tc("logout")}
                   onClick={() => void logout()}
                 >
@@ -1133,6 +1096,7 @@ function WorkspaceAppInner({
         open={compassOpen}
         onClose={() => setCompassOpen(false)}
         query={compassQ}
+        loading={searchLoading}
         onQueryChange={setCompassQ}
         label={`${t("searchTitle")} · ${searchHint}`}
         placeholder={t("searchPlaceholder")}
@@ -1251,7 +1215,10 @@ function WorkspaceAppInner({
           />
         )}
         onClose={() => setHistoryTarget(null)}
-        onRestored={() => window.location.reload()}
+        onRestored={() => {
+          if (historyTarget?.pageId === (pageId ?? null)) batch.discardPending();
+          window.location.reload();
+        }}
       />
     </div>
   );
@@ -1371,14 +1338,3 @@ function FocusIcon() {
     </svg>
   );
 }
-
-function MoreIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="6" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="18" cy="12" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
-

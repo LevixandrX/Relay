@@ -2,7 +2,7 @@
 
 
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -29,6 +29,7 @@ import { useBoardViewportInput } from "@/lib/board/useBoardViewportInput";
 import { applyRelayBoardTheme, paintEditorCanvas, watchCanvasBackdropSampling } from "@/lib/board/canvas-theme";
 import { parseQuickdrawSnapshot } from "@/lib/board/snapshot";
 import { useBoardActivityFocus } from "@/lib/board/useBoardActivityFocus";
+import { useBoardChanges } from "@/lib/board/use-board-changes";
 
 import type { BoardSnapshot } from "./InfiniteBoard";
 
@@ -41,8 +42,8 @@ type Props = {
   editable?: boolean;
 
   initialSnapshot?: BoardSnapshot | null;
-
-  onChange?: (snapshot: BoardSnapshot) => void;
+  getDraft?: () => BoardSnapshot | undefined;
+  onChange?: (readSnapshot: () => BoardSnapshot) => void;
 
   syncRoomId?: string;
 
@@ -58,6 +59,7 @@ export default function InfiniteBoardInner({
   editable = true,
 
   initialSnapshot,
+  getDraft,
 
   onChange,
 
@@ -68,15 +70,12 @@ export default function InfiniteBoardInner({
 
 }: Props) {
 
-  const store = useQuickdrawStore(parseQuickdrawSnapshot(initialSnapshot));
+  const [snapshot] = useState(() => parseQuickdrawSnapshot(getDraft?.() ?? initialSnapshot));
+  const store = useQuickdrawStore(snapshot);
 
   const ref = useRef<QuickdrawRef>(null);
 
   const hostRef = useRef<HTMLDivElement>(null);
-
-  const onChangeRef = useRef(onChange);
-
-  onChangeRef.current = onChange;
 
   const { resolvedTheme } = useTheme();
 
@@ -104,51 +103,7 @@ export default function InfiniteBoardInner({
 
 
 
-  const persist = useCallback(() => {
-
-    if (!onChangeRef.current) return;
-
-    try {
-
-      onChangeRef.current(store.getSnapshot() as unknown as BoardSnapshot);
-
-    } catch (err) {
-
-      console.error("board persist failed", err);
-
-    }
-
-  }, [store]);
-
-
-
-  useEffect(() => {
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const unsub = store.listen(
-
-      () => {
-
-        clearTimeout(timer);
-
-        timer = setTimeout(persist, 900);
-
-      },
-
-      { source: "user" },
-
-    );
-
-    return () => {
-
-      clearTimeout(timer);
-
-      unsub();
-
-    };
-
-  }, [store, persist]);
+  useBoardChanges(store, editable ? onChange : undefined);
 
 
 

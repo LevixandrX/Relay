@@ -156,7 +156,11 @@ export function loadTheme(): ThemeState {
 }
 
 export function saveTheme(theme: ThemeState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(theme));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(theme));
+  } catch {
+    // Appearance still works for the current session when storage is unavailable.
+  }
 }
 
 export function resolveAccent(theme: ThemeState) {

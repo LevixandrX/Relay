@@ -486,7 +486,6 @@ html.editor-overlay-blocked :is(.editor-block-handles:not([data-menu-open]),.edi
 .editor-comment-card .editor-comment-composer-tools svg { width: 18px; height: 18px; }
 .editor-comments-list { position: fixed; right: 16px; top: 88px; z-index: 90; width: min(368px, calc(100vw - 32px)); max-height: calc(100vh - 112px); display: flex; flex-direction: column; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-ui, 10px); background: var(--chrome-overlay-bg, var(--surface)); color: var(--text, var(--ink)); backdrop-filter: blur(var(--chrome-blur, 0px)) saturate(var(--glass-sat, 1.45)); box-shadow: var(--chrome-shadow); font: 13px/1.5 var(--font-body, system-ui); }
 .editor-comments-list header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.editor-comments-list header button { border: 0; background: transparent; width: 24px; height: 24px; padding: 3px; }
 .editor-comments-list svg { width: 18px; height: 18px; }
 .editor-comment-list-scroll { min-height: 0; flex: 0 1 auto; }
 .editor-comment-list-scroll .overlay-scroll-target { min-height: 0; flex: 0 1 auto; }

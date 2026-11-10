@@ -98,7 +98,7 @@ export default function InviteAcceptPage() {
         <LanguageToggle variant="floating" />
         <ThemeToggle variant="floating" />
       </div>
-      <div className="relay-auth-card invite-card">
+      <div className="relay-auth-card invite-card relay-screen-enter">
         <BrandLockup href="/" />
         <h1>{t("title")}</h1>
         <p className="lede">{t("lede")}</p>

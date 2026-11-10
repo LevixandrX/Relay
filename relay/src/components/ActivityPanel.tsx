@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useLocale, useTranslations } from "use-intl";
 import { UpdateCard, type HistoryBlock, type RevisionSummary } from "./VersionHistory";
 import { activityTime } from '../lib/display-time';
 import { DateLabel } from './DateLabel';
 import { CommentAvatar } from '../editor/CommentAvatar';
+import { LoadingIndicator } from "./LoadingIndicator";
+import { useViewMotion } from "./use-view-motion";
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "all";
 
@@ -42,46 +44,63 @@ export function ActivityPanel({
   listAnalytics: (range: AnalyticsRange) => Promise<AnalyticsReport>;
 }) {
   const t = useTranslations("app");
+  const id = useId();
+  const motion = useViewMotion<HTMLDivElement>(tab, tab === "analytics" ? "forward" : "back");
   return (
     <>
-      <div className="activity-tabs" role="tablist">
-        <button
-          type="button"
-          className="activity-tab"
-          data-active={tab === "updates" || undefined}
-          onClick={() => onTab("updates")}
-        >
-          {t("activityUpdates")}
-        </button>
-        <button
-          type="button"
-          className="activity-tab"
-          data-active={tab === "analytics" || undefined}
-          onClick={() => onTab("analytics")}
-        >
-          {t("activityAnalytics")}
-        </button>
+      <div
+        className="activity-tabs"
+        role="tablist"
+        aria-label={t("pulse")}
+        onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const other = tab === "updates" ? "analytics" : "updates";
+          const next = event.key === "Home" ? "updates" : event.key === "End" ? "analytics" : other;
+          onTab(next);
+          document.getElementById(`${id}-${next}`)?.focus({ preventScroll: true });
+        }}
+      >
+        {(["updates", "analytics"] as const).map((item) => (
+          <button
+            key={item}
+            id={`${id}-${item}`}
+            type="button"
+            className="activity-tab"
+            role="tab"
+            aria-selected={tab === item}
+            aria-controls={`${id}-panel`}
+            tabIndex={tab === item ? 0 : -1}
+            data-active={tab === item || undefined}
+            onClick={() => onTab(item)}
+          >
+            {t(item === "updates" ? "activityUpdates" : "activityAnalytics")}
+          </button>
+        ))}
       </div>
-      {tab === "updates" ? (
-        <div className="activity-updates">
-          {loaded && updates.length === 0 ? (
-            <p className="relay-activity-empty">{t("activityNoUpdates")}</p>
-          ) : null}
-          {updates.map((row) => (
-            <UpdateCard
-              key={row.id}
-              row={row}
-              title={row.scope === "board" ? scopeTitle : row.title || scopeTitle}
-              viewerId={viewerId}
-              onViewVersion={onViewVersion}
-              onOpen={onOpenUpdate}
-              onOpenPage={onOpenPage}
-            />
-          ))}
-        </div>
-      ) : (
-        <Analytics listAnalytics={listAnalytics} />
-      )}
+      <div ref={motion} id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${tab}`}>
+        {tab === "updates" ? (
+          <div className="activity-updates">
+            {!loaded && updates.length === 0 && <LoadingIndicator />}
+            {loaded && updates.length === 0 ? (
+              <p className="relay-activity-empty">{t("activityNoUpdates")}</p>
+            ) : null}
+            {updates.map((row) => (
+              <UpdateCard
+                key={row.id}
+                row={row}
+                title={row.scope === "board" ? scopeTitle : row.title || scopeTitle}
+                viewerId={viewerId}
+                onViewVersion={onViewVersion}
+                onOpen={onOpenUpdate}
+                onOpenPage={onOpenPage}
+              />
+            ))}
+          </div>
+        ) : (
+          <Analytics listAnalytics={listAnalytics} />
+        )}
+      </div>
     </>
   );
 }
@@ -91,18 +110,20 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
   const locale = useLocale();
   const [range, setRange] = useState<AnalyticsRange>("30d");
   const [report, setReport] = useState<AnalyticsReport | null>(null);
+  const [failed, setFailed] = useState(false);
   const loadRef = useRef(listAnalytics);
   loadRef.current = listAnalytics;
 
   useEffect(() => {
     let cancelled = false;
     setReport(null);
+    setFailed(false);
     void loadRef.current(range)
       .then((data) => {
         if (!cancelled) setReport(data);
       })
       .catch(() => {
-        if (!cancelled) setReport(null);
+        if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
@@ -117,7 +138,7 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
     <div>
       <div className="activity-chart-wrap">
         <div className="activity-chart-head">
-          <strong>{t("activityViewsTitle", { count: report?.totalViews ?? 0 })}</strong>
+          <strong>{report ? t("activityViewsTitle", { count: report.totalViews }) : t("activityAnalytics")}</strong>
           <select
             aria-label={t("activityRange")}
             value={range}
@@ -129,7 +150,9 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
             <option value="all">{t("activityRangeAll")}</option>
           </select>
         </div>
-        <ActivityChart buckets={report?.buckets ?? []} />
+        {report ? <ActivityChart buckets={report.buckets} /> : failed
+          ? <p className="relay-activity-empty" role="alert">{t("activityLoadFailed")}</p>
+          : <LoadingIndicator />}
         <div className="activity-legend">
           <span>
             <i style={{ background: "var(--accent)" }} />
@@ -141,12 +164,12 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
           </span>
         </div>
       </div>
-      <section className="activity-section">
+      {report && <section className="activity-section">
         <h3>{t("activityViewers")}</h3>
-        {report && report.viewers.length === 0 ? (
+        {report.viewers.length === 0 ? (
           <p className="relay-activity-empty">{t("activityNoViewers")}</p>
         ) : null}
-        {report?.viewers.map((person) => (
+        {report.viewers.map((person) => (
           <Person
             key={person.seenAt + person.name}
             name={person.name || t("historySomeone")}
@@ -155,10 +178,10 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
             at={person.seenAt}
           />
         ))}
-      </section>
-      <section className="activity-section">
+      </section>}
+      {report && <section className="activity-section">
         <h3>{t("activityEditors")}</h3>
-        {report?.createdBy ? (
+        {report.createdBy ? (
           <>
             <p className="activity-kicker">{t("activityCreatedBy")}</p>
             <Person
@@ -171,10 +194,10 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
             />
           </>
         ) : null}
-        {report && report.editors.length > 0 ? (
+        {report.editors.length > 0 ? (
           <p className="activity-kicker">{t("activityRecentEditors")}</p>
         ) : null}
-        {report?.editors.map((person) => (
+        {report.editors.map((person) => (
           <Person
             key={person.at + person.name}
             name={person.name || t("historySomeone")}
@@ -183,7 +206,7 @@ function Analytics({ listAnalytics }: { listAnalytics: (range: AnalyticsRange) =
             at={person.at}
           />
         ))}
-      </section>
+      </section>}
     </div>
   );
 }

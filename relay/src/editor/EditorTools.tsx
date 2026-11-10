@@ -3,9 +3,9 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
 import { NodeSelection, TextSelection, type Transaction, type SelectionBookmark } from "@tiptap/pm/state";
-import { useLocale, useTranslations } from "use-intl";
+import { useTranslations } from "use-intl";
 import { OverlayScroll } from "../lib/board/CompactRailScroll";
-import { changedActivityBlocks, type ActivityNode, type BlockActivityInfo } from "../lib/block-activity";
+import type { BlockActivityInfo } from "../lib/block-activity";
 import { ColorField } from "../components/ColorField";
 import {KeyboardShortcut} from './KeyboardShortcut';
 import {focusEditor,blockCaret} from './focus-editor';
@@ -14,7 +14,6 @@ import {BlockColorMenu} from './BlockColorMenu';
 import {RichPopover} from './RichPopover';
 import {EditorNotice,notifyEditor} from './EditorNotice';
 import {downloadText,codeFilename} from './download-text';
-import {CommentActionTooltip} from './CommentActionTooltip';
 import {BlockActivityFooter} from './BlockActivityFooter';
 import { useEditorCanvas } from "./use-editor-canvas";
 import { DropIndicator } from "./DropIndicator";
@@ -38,7 +37,7 @@ type Popup = { kind: "insert" | "actions" | "turn" | "color" | "listFormat"; tar
 const shortcuts: Partial<Record<BlockType, string>> = { h1: "#", h2: "##", h3: "###", bullet: "−", numbered: "1.", todo: "[]", quote: ">", code: "```", divider: "---" };
 export function EditorTools({ editor, container, editable, onSlashUsed, allowPrompt = false, comments,resources }: { editor: Editor; container: RefObject<HTMLDivElement | null>; editable: boolean; onSlashUsed?: () => void; allowPrompt?: boolean; comments?: CommentContext;resources?:EditorResources }) {
   const controlsVisible=useEditorControls(editor);
-  const t = useTranslations("editorTools"), locale = useLocale();
+  const t = useTranslations("editorTools");
   const [languageAnchor,setLanguageAnchor]=useState<HTMLElement|null>(null);
   const [turnAnchor,setTurnAnchor]=useState<HTMLElement|null>(null);
   const [otherAnchor,setOtherAnchor]=useState<{kind:'color'|'listFormat'|'tableRows'|'tableColumns'|'tableCells';anchor:HTMLElement}|null>(null);
@@ -63,7 +62,7 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     const group=['columns','column','bulletList','orderedList','taskList'].includes(target.node.type.name);
     setCommentDraft({ blockId, quote: (within ? editor.state.doc.textBetween(range!.from, range!.to, "") : (group?target.node.textBetween(0,target.node.content.size,'\n'):target.node.textContent) || String(target.node.attrs.prompt ?? "")).slice(0, 4000), anchorOffset: within ? range!.from - target.pos - 1 : null });
     const saved=returnSelection.current;returnSelection.current=null;if(saved)try{editor.view.dispatch(editor.state.tr.setSelection(saved.resolve(editor.state.doc)).setMeta('addToHistory',false));}catch{}
-    current.current.popup = null; setPopup(null); setHint(null);setLanguageAnchor(null);setTurnAnchor(null);setOtherAnchor(null);
+    current.current.popup = null; setPopup(null);setLanguageAnchor(null);setTurnAnchor(null);setOtherAnchor(null);
   },[editor,comments]);
   const closeDraft=useCallback(()=>setCommentDraft(null),[]);
   const addComment=useCallback((target:BlockTarget|null)=>{if(target)comment(target,null);},[comment]);
@@ -75,12 +74,9 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
   const [menuHeight, setMenuHeight] = useState(560);
   const menuRef = useRef<HTMLDivElement>(null);
   const handlesRef = useRef<HTMLDivElement>(null);
-  const hintRef = useRef<HTMLDivElement>(null);
-  const [hintSize, setHintSize] = useState({ width: 260, height: 54 });
   const [hoverPreview, setHoverPreview] = useState<BlockType | null>(null);
   const syncScrollLock = useMenuScrollLock(editor, Boolean(popup), menuRef, id);
   const dismissed = useRef<number | null>(null);
-  const [hint, setHint] = useState<"addTip" | "dragTip" | null>(null);
   const current = useRef({ popup, active });
   current.current = { popup, active };
   const openActions = (original: BlockTarget, anchor?:HTMLElement) => {
@@ -97,11 +93,11 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     if(item)actionItem.current=item.node.attrs.blockId;
     actionSelection.current = editor.state.selection.empty || editor.state.selection instanceof NodeSelection ? null : { from: editor.state.selection.from, to: editor.state.selection.to };
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, target.pos)));
-    setPopup({ kind: "actions", target, query: "",anchor,anchorRect:anchor?.getBoundingClientRect() }); setActive(0); setHint(null);
+    setPopup({ kind: "actions", target, query: "",anchor,anchorRect:anchor?.getBoundingClientRect() }); setActive(0);
   };
   useLayoutEffect(()=>{if(!popup?.anchor)return;document.documentElement.dataset.blockToolAnchor='button';return()=>{delete document.documentElement.dataset.blockToolAnchor;};},[popup?.anchor]);
   useEffect(()=>{const open=(event:Event)=>{const pos=(event as CustomEvent).detail.pos;const target=blockAt(editor,pos,true);if(target)openActions(target,(event as CustomEvent).detail.anchor);};editor.view.dom.addEventListener('relay-block-tools',open);return()=>editor.view.dom.removeEventListener('relay-block-tools',open);});
-  const { target: hovered, dropLine, ghost, dragging, onGripPointerDown } = useBlockHandles(editor, container, handlesRef, editable, Boolean(popup), openActions, () => { setPopup(null); setHint(null); });
+  const { target: hovered, dropLine, ghost, dragging, onGripPointerDown } = useBlockHandles(editor, container, handlesRef, editable, Boolean(popup), openActions, () => { setPopup(null); });
   const addAdjacent = (target: BlockTarget, above: boolean) => {
     const next = insertAdjacent(editor, target, above);
     if (next) {
@@ -109,7 +105,7 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
       if (dom instanceof HTMLElement) dom.scrollIntoView({ block: "nearest", inline: "nearest" });
       syncScrollLock();
       const from = editor.state.selection.from;
-      setPopup({ kind: "insert", inline: true, target: next, query: "", range: { from, to: from } }); setActive(0); setHint(null);
+      setPopup({ kind: "insert", inline: true, target: next, query: "", range: { from, to: from } }); setActive(0);
     }
   };
   const close = (focus = true) => {
@@ -277,21 +273,6 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     };
   }, [editor, editable, container]);
   useEffect(() => {
-    if (comments?.identity !== "guest") return;
-    let before = editor.getJSON() as ActivityNode;
-    const track = ({ transaction }: { transaction: Transaction }) => {
-      if (!transaction.docChanged) return;
-      const after = editor.getJSON() as ActivityNode, changes = changedActivityBlocks(before, after); before = after;
-      if (!changes.length) return;
-      const key = `relay-guest-block-activity-v1:${comments.pageId}`;
-      const records = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, BlockActivityInfo>;
-      const name = locale.startsWith("ru") ? "Гость" : "Guest", ts = new Date().toISOString();
-      changes.forEach((block) => { records[block.id] = { createdBy: records[block.id]?.createdBy ?? (block.created ? name : null), createdAt: records[block.id]?.createdAt ?? (block.created ? ts : null), editedBy: name, editedAt: ts }; });
-      localStorage.setItem(key, JSON.stringify(records));
-    };
-    editor.on("transaction", track); return () => { editor.off("transaction", track); };
-  }, [editor, comments?.pageId, comments?.identity, locale]);
-  useEffect(() => {
     setActivity(null);
     if (popup?.kind !== "actions" || !popup.target.node.attrs.blockId || !commentRequest.current) return;
     let cancelled = false; const blockId = popup.target.node.attrs.blockId;
@@ -300,7 +281,7 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [popup?.kind, popup?.target.node.attrs.blockId, comments?.pageId, comments?.identity]);
   useEffect(() => { setCommentDraft(null); setPopup(null); setPeople([]); }, [comments?.pageId, comments?.identity]);
-  useEffect(() => { if (!editable) { setPopup(null); setHint(null); } }, [editable]);
+  useEffect(() => { if (!editable) { setPopup(null); } }, [editable]);
   useEffect(() => { setActive(0); setHoverPreview(null);setLanguageAnchor(null);setTurnAnchor(null);setOtherAnchor(null); }, [popup?.query, popup?.kind]);
   useLayoutEffect(() => {
     if (!popup?.range) return;
@@ -310,10 +291,6 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     setBlockFilterHint(editor, { from, label: t("filterPlaceholder"),slash:!popup.inline });
     return () => {delete dom.dataset.editorSuggest;setBlockFilterHint(editor, null);};
   }, [editor, popup?.inline, popup?.range?.from, t]);
-  useLayoutEffect(() => {
-    const rect = hintRef.current?.getBoundingClientRect();
-    if (rect) setHintSize((old) => old.width === rect.width && old.height === rect.height ? old : { width: rect.width, height: rect.height });
-  }, [hint, revision]);
   useLayoutEffect(() => {
     if (!popup || !menuRef.current) return;
     const menu = menuRef.current;
@@ -410,7 +387,7 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     return () => document.removeEventListener("pointerdown", outside, true);
   }, [popup]);
   if (typeof document === "undefined") return null;
-  if (!editable) return comments ? <><CommentActionTooltip/><BlockComments key={`${comments.identity}/${comments.pageId}`} editor={editor} context={comments} editable={false} anchor={null} onCloseDraft={() => {}} /></> : null;
+  if (!editable) return comments ? <><BlockComments key={`${comments.identity}/${comments.pageId}`} editor={editor} context={comments} editable={false} anchor={null} onCloseDraft={() => {}} /></> : null;
   void revision;
   const target = popup?.target ?? hovered;
   const nodeDOM = target ? editor.view.nodeDOM(target.pos) : null;
@@ -446,18 +423,11 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
   const top = Math.max(windowTop + 12, Math.min(preferredTop, windowTop + vh - placementHeight - 12));
   const previewLeft = left + width + 8 + 188 <= windowLeft + vw - 12 ? left + width + 8 : left - 196 >= windowLeft + 12 ? left - 196 : null;
   const previewType = !popup?.range && (popup?.kind === "insert" || popup?.kind === "turn") && hoverPreview && matches.includes(hoverPreview) ? hoverPreview : undefined;
-  const hintButton = hint ? handlesRef.current?.querySelector<HTMLElement>(hint === "addTip" ? ".editor-block-handle:first-child" : ".editor-block-grip")?.getBoundingClientRect() : null;
-  const hintCenter = hintButton ? (hintButton.left + hintButton.right) / 2 : (geometry?.left ?? 0) + (hint === "addTip" ? 12 : 38);
-  const hintLeft = Math.max(windowLeft + 12, Math.min(hintCenter - hintSize.width / 2, windowLeft + vw - hintSize.width - 12));
-  const hintBelow = (hintButton?.bottom ?? (geometry?.top ?? 0) + 28) + 8;
-  const hintAbove = (hintButton?.top ?? geometry?.top ?? 0) - 8 - hintSize.height;
-  const hintTop = hintBelow + hintSize.height <= windowTop + vh - 12 ? hintBelow : hintAbove;
   const contextTarget=popup&&['listItem','taskItem'].includes(popup.target.parentType??'')?listSelectionTarget(editor,popup.target,'item')??popup.target:popup?.target;
   const showHandles=Boolean(!buttonAnchor&&(controlsVisible||contextual)&&visible&&target&&geometry&&!popup?.range&&!editorControlsCovered({left:geometry.left,right:geometry.left+54,top:geometry.top,bottom:geometry.top+30}));
   const addCovered=Boolean(contextual&&geometry&&left<geometry.left+26&&left+width>geometry.left);
 
   return <>
-    <CommentActionTooltip/>
     <EditorNotice/>
     {otherAnchor?.kind.startsWith('table')&&popup?<RichPopover anchor={otherAnchor.anchor} owner={id} side="right" label={t('actions.'+otherAnchor.kind)} onClose={()=>setOtherAnchor(null)}><OverlayScroll fitContent>{tableActions.filter(action=>(otherAnchor.kind==='tableRows'?['rowAbove','rowBelow','deleteRow']:otherAnchor.kind==='tableColumns'?['columnBefore','columnAfter','deleteColumn']:['mergeCells','splitCell']).includes(action)&&canTableAction(tableActionState(editor.state,popup.target,tableSelection.current),action)).map(action=><button type="button" className="rich-menu-row" key={action} onClick={()=>run(action)}><BlockGlyph type={action}/><span>{t('actions.'+action)}</span></button>)}</OverlayScroll></RichPopover>:null}
     {otherAnchor?.kind==='color'&&popup?<BlockColorMenu anchor={otherAnchor.anchor} owner={id} text={popup.target.node.attrs.textColor} background={popup.target.node.attrs.blockBackground} onClose={()=>setOtherAnchor(null)} onPick={paint} footer={<div className="editor-custom-colors"><div className="editor-color-target" role="tablist">{(['text','background'] as const).map(kind=><button type="button" key={kind} role="tab" aria-selected={colorTarget===kind} onClick={()=>setColorTarget(kind)}>{t(kind==='text'?'colors.textHeading':'colors.backgroundHeading')}</button>)}</div><ColorField key={colorTarget} label={t('colors.custom')} value={popup.target.node.attrs[colorTarget==='text'?'textColor':'blockBackground']??null} fallback="#6aabe4" resetLabel={t('colors.reset')} hexLabel="HEX" rgbLabel="RGB" hslLabel="HSL" pickLabel={t('colors.pick')} overlayOwner={id} onChange={hex=>paint(colorTarget,hex)}/></div>}/>:null}
@@ -470,13 +440,12 @@ export function EditorTools({ editor, container, editable, onSlashUsed, allowPro
     {ghost ? createPortal(<div className="editor-drag-ghost relay-editor" aria-hidden="true" style={{ left: ghost.left, top: ghost.top, width: ghost.width }}><div className="tiptap" dangerouslySetInnerHTML={{ __html: ghost.html }} /></div>, document.body) : null}
     <DropIndicator line={dropLine} />
     <OverlayPresence visible={showHandles} exitDuration={260}>{showHandles && target && geometry ? createPortal(<OverlaySurface surfaceRef={handlesRef} motionKind="controls" className="editor-block-handles" data-editor-menu-owner={contextual?id:undefined} data-menu-open={contextual||undefined} data-dragging={dragging || undefined} style={{ left: geometry.left, top: geometry.top,clipPath:target.node.type.name==='table'?`inset(0 0 0 ${Math.max(0,clip.left-geometry.left)}px)`:undefined }}>
-      <button type="button" className="editor-block-handle" style={addCovered?{visibility:'hidden'}:undefined} aria-label={t("addTip")} aria-describedby={hint === "addTip" ? `${id}-hint` : undefined} onPointerEnter={() => setHint("addTip")} onPointerLeave={() => setHint(null)} onFocus={() => setHint("addTip")} onBlur={() => setHint(null)} onPointerDown={(event) => event.preventDefault()} onClick={(event) => {
+      <button type="button" className="editor-block-handle" style={addCovered?{visibility:'hidden'}:undefined} aria-label={t("addTip")} data-tooltip={t("addTip")} data-tooltip-placement="below" onPointerDown={(event) => event.preventDefault()} onClick={(event) => {
         const currentTarget = blockAt(editor, target.pos, true);
         if (currentTarget) addAdjacent(currentTarget, event.altKey);
       }}><BlockGlyph type="add" /></button>
-      <button type="button" className="editor-block-handle editor-block-grip" aria-label={t("dragTip")} aria-describedby={hint === "dragTip" ? `${id}-hint` : undefined} onPointerEnter={() => setHint("dragTip")} onPointerLeave={() => setHint(null)} onFocus={() => setHint("dragTip")} onBlur={() => setHint(null)} onPointerDown={(event) => onGripPointerDown(event, target)} onClick={(event) => { event.preventDefault(); if (event.detail === 0 && !dragging) openActions(target); }}><BlockGlyph type="grip" /></button>
+      <button type="button" className="editor-block-handle editor-block-grip" aria-label={t("dragTip")} data-tooltip={t("dragTip")} data-tooltip-placement="below" onPointerDown={(event) => onGripPointerDown(event, target)} onClick={(event) => { event.preventDefault(); if (event.detail === 0 && !dragging) openActions(target); }}><BlockGlyph type="grip" /></button>
     </OverlaySurface>, document.body) : null}</OverlayPresence>
-    <OverlayPresence visible={Boolean(controlsVisible&&hint&&visible&&geometry&&!dragging&&!popup)}>{controlsVisible && hint && visible && geometry && !dragging && !popup ? createPortal(<OverlaySurface surfaceRef={hintRef} id={`${id}-hint`} role="tooltip" className="editor-handle-tooltip" style={{ left: hintLeft, top: Math.max(windowTop + 12, hintTop), maxWidth: Math.min(290, vw - 24) }}>{t(hint).split("\n").map((line, index) => <span key={index}>{line}</span>)}</OverlaySurface>, document.body) : null}</OverlayPresence>
 
     <OverlayPresence visible={Boolean(popup&&anchor)}>{popup && anchor ? createPortal(<div className="editor-menu-layer">
       <OverlaySurface surfaceRef={menuRef} blockLevel={80} owner={id} className="editor-block-menu" data-suggestion={Boolean(popup.range)} style={{ left, top, width, maxHeight: height }} onMouseDown={(event) => { if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLLabelElement) && !(event.target instanceof Element && event.target.closest(".editor-custom-colors"))) event.preventDefault(); }}>

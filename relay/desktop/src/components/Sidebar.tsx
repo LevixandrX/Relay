@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 import { useTranslations } from "use-intl";
 import type { ViewId } from "../App";
 import { useAuth } from "../lib/auth";
@@ -12,6 +12,7 @@ import { CompactRailScroll, OverlayScroll } from "@relay-board/CompactRailScroll
 import { UserAvatar } from "@relay-avatar";
 
 export function Sidebar({
+  surfaceRef,
   view,
   onNavigate,
   chrome,
@@ -21,6 +22,7 @@ export function Sidebar({
   activePageId,
   onOpenPage,
 }: {
+  surfaceRef: RefObject<HTMLElement | null>;
   view: ViewId;
   onNavigate: (id: ViewId) => void;
   chrome: ChromeMode;
@@ -66,7 +68,12 @@ export function Sidebar({
   const plan = planLabel();
 
   return (
-    <aside className="sidebar" data-collapsed={collapsed ? "true" : "false"}>
+    <aside
+      ref={surfaceRef}
+      className="sidebar relay-peek-sidebar"
+      data-peek-enabled={chrome === "zen" || undefined}
+      data-collapsed={collapsed ? "true" : "false"}
+    >
       <div className="sidebar-brand">
         <WorkspaceSwitcher
           collapsed={collapsed}
@@ -79,7 +86,7 @@ export function Sidebar({
           type="button"
           className="nav-item"
           onClick={onSearch}
-          title={`${tc("search")} · ${searchHint}`}
+          data-tooltip={`${tc("search")} · ${searchHint}`}
           aria-label={tc("search")}
         >
           <span className="nav-ico">
@@ -107,7 +114,7 @@ export function Sidebar({
                   type="button"
                   className="nav-item"
                   data-active={page.id === activePageId}
-                  title={page.title || tc("untitled")}
+                  data-tooltip={page.title || tc("untitled")}
                   aria-label={page.title || tc("untitled")}
                   onClick={() => onOpenPage(page.id)}
                 >
@@ -124,7 +131,7 @@ export function Sidebar({
           <button
             type="button"
             className="nav-item"
-            title={t("newPageShort")}
+            data-tooltip={t("newPageShort")}
             aria-label={t("newPageShort")}
             onClick={onCreatePage}
           >
@@ -148,7 +155,7 @@ export function Sidebar({
                   type="button"
                   className="nav-item sidebar-page-item"
                   data-active={page.id === activePageId}
-                  title={page.title || tc("untitled")}
+                  data-tooltip={page.title || tc("untitled")}
                   onClick={() => onOpenPage(page.id)}
                 >
                   <span className="sidebar-page-mark" aria-hidden>
@@ -176,7 +183,7 @@ export function Sidebar({
           className="sidebar-toggle"
           onClick={() => onChrome(nextChrome(chrome))}
           aria-controls="relay-sidebar-nav"
-          title={tb("chromeSwitch", { mode: chromeLabel[nextChrome(chrome)] })}
+          data-tooltip={tb("chromeSwitch", { mode: chromeLabel[nextChrome(chrome)] })}
           aria-label={tb("chromeSwitch", { mode: chromeLabel[nextChrome(chrome)] })}
         >
           <ChevronIcon collapsed={collapsed} />
@@ -188,7 +195,7 @@ export function Sidebar({
         {auth.user ? (
           <div
             className="account-chip"
-            title={collapsed ? `${auth.user.name} · ${auth.user.email}` : undefined}
+            data-tooltip={collapsed ? `${auth.user.name} · ${auth.user.email}` : undefined}
           >
             <button
               type="button"
@@ -225,7 +232,7 @@ export function Sidebar({
                     if (ok) await auth.logout();
                   })();
                 }}
-                title={tc("logout")}
+                data-tooltip={tc("logout")}
                 aria-label={tc("logout")}
               >
                 <LogoutIcon />
@@ -237,7 +244,7 @@ export function Sidebar({
             type="button"
             className="account-avatar account-avatar-guest"
             onClick={() => onNavigate("auth")}
-            title={tc("login")}
+            data-tooltip={tc("login")}
             aria-label={tc("login")}
           >
             ?
@@ -272,7 +279,7 @@ function NavButton({
       type="button"
       className="nav-item"
       data-active={active}
-      title={item.hint}
+      data-tooltip={item.hint}
       aria-current={active ? "page" : undefined}
       aria-label={item.label}
       onClick={() => onNavigate(item.id)}
